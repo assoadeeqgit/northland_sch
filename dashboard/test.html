@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Classes Test</title>
+</head>
+
+<body>
+    <h1>JavaScript Test</h1>
+    <button id="testBtn">Click Me</button>
+    <div id="output"></div>
+
+    <script>
+        console.log("Script loaded!");
+        document.getElementById('testBtn').addEventListener('click', function () {
+            document.getElementById('output').innerHTML = "Button works!";
+            alert("Button clicked!");
+        });
+    </script>
+</body>
+
+</html>

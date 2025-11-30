@@ -1,0 +1,1305 @@
+<?php
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// session_start();
+
+// Include required files
+require_once '../config/logger.php';
+require_once 'auth-check.php';
+
+// For admin dashboard:
+checkAuth('admin');
+
+require_once '../config/database.php';
+
+// Initialize variables
+$userName = $_SESSION['user_name'] ?? 'Admin User';
+$userInitial = strtoupper(substr($userName, 0, 1));
+$classesData = [];
+$teachersData = [];
+$totalClasses = 0;
+$totalStudents = 0;
+$totalSubjects = 0;
+$totalTeachers = 0;
+
+// Database connection
+try {
+    $database = new Database();
+    $db = $database->getConnection();
+
+    // Fetch all classes with teacher info and stats
+    $classesSql = "SELECT c.*, 
+                          u.first_name as teacher_first_name, 
+                          u.last_name as teacher_last_name,
+                          t.teacher_id as teacher_code,
+                          (SELECT COUNT(*) FROM students WHERE class_id = c.id) as student_count,
+                          (SELECT COUNT(*) FROM class_subjects WHERE class_id = c.id) as subject_count
+                   FROM classes c
+                   LEFT JOIN teachers t ON c.class_teacher_id = t.id
+                   LEFT JOIN users u ON t.user_id = u.id
+                   ORDER BY c.class_level, c.class_name";
+    $classesStmt = $db->query($classesSql);
+    $classesData = $classesStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Fetch all active teachers
+    $teachersSql = "SELECT t.id, t.teacher_id, u.first_name, u.last_name, u.email,
+                           tp.subject_specialization
+                    FROM teachers t
+                    JOIN users u ON t.user_id = u.id
+                    LEFT JOIN teacher_profiles tp ON u.id = tp.user_id
+                    WHERE u.is_active = 1
+                    ORDER BY u.first_name, u.last_name";
+    $teachersStmt = $db->query($teachersSql);
+    $teachersData = $teachersStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Get statistics
+    $totalClasses = count($classesData);
+    $totalStudents = $db->query("SELECT COUNT(*) FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = 1")->fetchColumn();
+    $totalSubjects = $db->query("SELECT COUNT(*) FROM subjects")->fetchColumn();
+    $totalTeachers = $db->query("SELECT COUNT(*) FROM teachers t JOIN users u ON t.user_id = u.id WHERE u.is_active = 1")->fetchColumn();
+
+} catch (Exception $e) {
+    $error_message = "Error: " . $e->getMessage();
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Classes Management - Northland Schools Kano</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        nskblue: '#1e40af',
+                        nsklightblue: '#3b82f6',
+                        nsknavy: '#1e3a8a',
+                        nskgold: '#f59e0b',
+                        nsklight: '#f0f9ff',
+                        nskgreen: '#10b981',
+                        nskred: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: #f8fafc;
+        }
+
+        .logo-container {
+            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+        }
+
+        .timetable-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .timetable-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .nav-item {
+            position: relative;
+        }
+
+        .nav-item::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: -5px;
+            left: 0;
+            background-color: #f59e0b;
+            transition: width 0.3s ease;
+        }
+
+        .nav-item:hover::after {
+            width: 100%;
+        }
+
+        .sidebar {
+            transition: all 0.3s ease;
+            width: 250px;
+        }
+
+        .sidebar.collapsed {
+            width: 80px;
+        }
+
+        .main-content {
+            transition: all 0.3s ease;
+            margin-left: 250px;
+            width: calc(100% - 250px);
+        }
+
+        .main-content.expanded {
+            margin-left: 80px;
+            width: calc(100% - 80px);
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                margin-left: -250px;
+            }
+
+            .sidebar.mobile-show {
+                margin-left: 0;
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+            }
+        }
+
+        .notification-dot {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            width: 12px;
+            height: 12px;
+            background-color: #ef4444;
+            border-radius: 50%;
+        }
+
+        .timetable-cell {
+            transition: all 0.2s ease;
+        }
+
+        .timetable-cell:hover {
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .subject-math {
+            background-color: #bfdbfe;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .subject-science {
+            background-color: #bbf7d0;
+            border-left: 4px solid #10b981;
+        }
+
+        .subject-english {
+            background-color: #fde68a;
+            border-left: 4px solid #f59e0b;
+        }
+
+        .subject-history {
+            background-color: #e9d5ff;
+            border-left: 4px solid #8b5cf6;
+        }
+
+        .subject-art {
+            background-color: #fecaca;
+            border-left: 4px solid #ef4444;
+        }
+
+        .subject-pe {
+            background-color: #c7d2fe;
+            border-left: 4px solid #6366f1;
+        }
+
+        .modal {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            transform: scale(0.9);
+            opacity: 0;
+        }
+
+        .modal.active {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            background-color: #1e40af;
+            color: white;
+        }
+
+        .tab-content {
+            transition: opacity 0.3s ease;
+        }
+
+        .tab-content.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .class-card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .class-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+
+<body class="flex">
+    <div id="sidebar-container"></div>
+    <?php require_once 'sidebar.php'; ?>
+
+    <main class="main-content">
+        <!-- Header -->
+        <header class="bg-white shadow-md p-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <button id="mobileMenuToggle" class="md:hidden text-nsknavy">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <h1 class="text-2xl font-bold text-nsknavy">Classes Management</h1>
+                </div>
+
+                <div class="flex items-center space-x-4">
+                    <div class="relative">
+                        <div class="flex items-center space-x-2 bg-nsklight rounded-full py-2 px-4">
+                            <i class="fas fa-search text-gray-500"></i>
+                            <input type="text" placeholder="Search classes..."
+                                class="bg-transparent outline-none w-32 md:w-64">
+                        </div>
+                    </div>
+
+                    <div class="relative">
+                        <i class="fas fa-bell text-nsknavy text-xl"></i>
+                        <div class="notification-dot"></div>
+                    </div>
+
+                    <div class="hidden md:flex items-center space-x-2">
+                        <div
+                            class="w-10 h-10 rounded-full bg-nskgold flex items-center justify-center text-white font-bold">
+                            A
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-nsknavy">Admin User</p>
+                            <p class="text-xs text-gray-600">Administrator</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Classes Management Content -->
+        <div class="p-6">
+            <!-- Stats Overview -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                <div class="timetable-card bg-white rounded-xl shadow-md p-5 flex items-center">
+                    <div class="bg-nsklightblue p-4 rounded-full mr-4">
+                        <i class="fas fa-chalkboard-teacher text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Total Classes</p>
+                        <p class="text-2xl font-bold text-nsknavy">
+                            <?= $totalClasses ?>
+                        </p>
+                        <p class="text-xs text-nskgreen">All levels</p>
+                    </div>
+                </div>
+
+                <div class="timetable-card bg-white rounded-xl shadow-md p-5 flex items-center">
+                    <div class="bg-nskgreen p-4 rounded-full mr-4">
+                        <i class="fas fa-users text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Total Students</p>
+                        <p class="text-2xl font-bold text-nsknavy">
+                            <?= $totalStudents ?>
+                        </p>
+                        <p class="text-xs text-gray-600">Enrolled</p>
+                    </div>
+                </div>
+
+                <div class="timetable-card bg-white rounded-xl shadow-md p-5 flex items-center">
+                    <div class="bg-nskgold p-4 rounded-full mr-4">
+                        <i class="fas fa-book text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Subjects</p>
+                        <p class="text-2xl font-bold text-nsknavy">
+                            <?= $totalSubjects ?>
+                        </p>
+                        <p class="text-xs text-nskgreen">Core & Electives</p>
+                    </div>
+                </div>
+
+                <div class="timetable-card bg-white rounded-xl shadow-md p-5 flex items-center">
+                    <div class="bg-purple-500 p-4 rounded-full mr-4">
+                        <i class="fas fa-user-tie text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Teachers</p>
+                        <p class="text-2xl font-bold text-nsknavy">
+                            <?= $totalTeachers ?>
+                        </p>
+                        <p class="text-xs text-nskgreen">Active</p>
+                    </div>
+                </div>
+
+                <div class="timetable-card bg-white rounded-xl shadow-md p-5 flex items-center">
+                    <div class="bg-nskred p-4 rounded-full mr-4">
+                        <i class="fas fa-door-open text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-600">Classrooms</p>
+                        <p class="text-2xl font-bold text-nsknavy">32</p>
+                        <p class="text-xs text-nskred">3 maintenance</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Bar -->
+            <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+                <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <h2 class="text-xl font-bold text-nsknavy">Class Management</h2>
+
+                    <div class="flex flex-wrap gap-4">
+                        <select id="gradeFilter" class="px-4 py-2 border rounded-lg form-input focus:border-nskblue">
+                            <option value="">All Grades</option>
+                            <option value="7">Grade 7</option>
+                            <option value="8">Grade 8</option>
+                            <option value="9">Grade 9</option>
+                            <option value="10">Grade 10</option>
+                            <option value="11">Grade 11</option>
+                            <option value="12">Grade 12</option>
+                        </select>
+
+                        <select id="sectionFilter" class="px-4 py-2 border rounded-lg form-input focus:border-nskblue">
+                            <option value="">All Sections</option>
+                            <option value="a">Section A</option>
+                            <option value="b">Section B</option>
+                            <option value="c">Section C</option>
+                        </select>
+
+                        <button id="filterBtn"
+                            class="bg-nskblue text-white px-4 py-2 rounded-lg font-semibold hover:bg-nsknavy transition flex items-center">
+                            <i class="fas fa-filter mr-2"></i> Filter
+                        </button>
+
+                        <button id="createClassBtn"
+                            class="bg-nskgreen text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition flex items-center">
+                            <i class="fas fa-plus mr-2"></i> Create Class
+                        </button>
+
+                        <button id="bulkActionsBtn"
+                            class="bg-nskgold text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-600 transition flex items-center">
+                            <i class="fas fa-tasks mr-2"></i> Bulk Actions
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Classes Tabs -->
+            <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+                <div class="flex flex-wrap gap-2 mb-6">
+                    <button
+                        class="tab-button px-4 py-2 rounded-lg border border-nskblue text-nskblue font-semibold active"
+                        data-tab="classes">
+                        Class Overview
+                    </button>
+                    <button class="tab-button px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold"
+                        data-tab="timetable">
+                        Class Timetables
+                    </button>
+                    <button class="tab-button px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold"
+                        data-tab="assignments">
+                        Class Assignments
+                    </button>
+                    <button class="tab-button px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold"
+                        data-tab="performance">
+                        Performance Analytics
+                    </button>
+                </div>
+
+                <!-- Class Overview Tab -->
+                <div id="classesTab" class="tab-content">
+                    <?php if (isset($error_message)): ?>
+                        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                            <?= htmlspecialchars($error_message) ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <?php if (empty($classesData)): ?>
+                            <div class="col-span-full text-center py-12">
+                                <i class="fas fa-inbox text-gray-300 text-6xl mb-4"></i>
+                                <p class="text-gray-500 text-lg">No classes found. Click "Create Class" to add your first
+                                    class.</p>
+                            </div>
+                        <?php else: ?>
+                            <?php
+                            $colors = [
+                                'blue' => ['from' => 'blue-50', 'to' => 'blue-100', 'border' => 'blue-500', 'button' => 'nskblue'],
+                                'green' => ['from' => 'green-50', 'to' => 'green-100', 'border' => 'green-500', 'button' => 'nskgreen'],
+                                'yellow' => ['from' => 'yellow-50', 'to' => 'yellow-100', 'border' => 'yellow-500', 'button' => 'nskgold'],
+                                'purple' => ['from' => 'purple-50', 'to' => 'purple-100', 'border' => 'purple-500', 'button' => 'purple-500'],
+                                'red' => ['from' => 'red-50', 'to' => 'red-100', 'border' => 'red-500', 'button' => 'red-500'],
+                                'indigo' => ['from' => 'indigo-50', 'to' => 'indigo-100', 'border' => 'indigo-500', 'button' => 'indigo-500'],
+                            ];
+                            $colorKeys = array_keys($colors);
+                            $colorIndex = 0;
+
+                            foreach ($classesData as $class):
+                                $color = $colors[$colorKeys[$colorIndex % count($colorKeys)]];
+                                $colorIndex++;
+                                $teacherName = $class['teacher_first_name']
+                                    ? $class['teacher_first_name'] . ' ' . $class['teacher_last_name']
+                                    : 'Not Assigned';
+                                ?>
+                                <div
+                                    class="class-card bg-gradient-to-br from-<?= $color['from'] ?> to-<?= $color['to'] ?> rounded-xl p-6 border-l-4 border-<?= $color['border'] ?> hover:shadow-lg transition-all duration-300">
+                                    <div class="flex justify-between items-start mb-4">
+                                        <div>
+                                            <h3 class="text-xl font-bold text-nsknavy">
+                                                <?= htmlspecialchars($class['class_name']) ?>
+                                            </h3>
+                                            <p class="text-gray-600">Class Teacher: <?= htmlspecialchars($teacherName) ?></p>
+                                        </div>
+                                        <div class="flex space-x-2">
+                                            <button class="text-nskblue hover:text-nsknavy"
+                                                onclick="editClass(<?= $class['id'] ?>)">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <button class="text-nskgreen hover:text-green-700"
+                                                onclick="viewClassDetails(<?= $class['id'] ?>)">
+                                                <i class="fas fa-eye"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Students:</span>
+                                            <span
+                                                class="font-semibold"><?= $class['student_count'] ?>/<?= $class['capacity'] ?></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Subjects:</span>
+                                            <span class="font-semibold"><?= $class['subject_count'] ?></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Level:</span>
+                                            <span class="font-semibold"><?= htmlspecialchars($class['class_level']) ?></span>
+                                        </div>
+                                        <div class="flex justify-between">
+                                            <span class="text-gray-600">Code:</span>
+                                            <span
+                                                class="font-semibold text-nskblue"><?= htmlspecialchars($class['class_code']) ?></span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-4 pt-4 border-t border-<?= $color['border'] ?> border-opacity-20">
+                                        <div class="flex justify-between items-center gap-2">
+                                            <button onclick="assignTeacher(<?= $class['id'] ?>)"
+                                                class="bg-nskgold text-white px-3 py-1 rounded text-xs hover:bg-amber-600 transition flex-1">
+                                                <i class="fas fa-user-tie mr-1"></i> Assign Teacher
+                                            </button>
+                                            <button onclick="viewClassDetails(<?= $class['id'] ?>)"
+                                                class="bg-<?= $color['button'] ?> text-white px-3 py-1 rounded text-xs hover:opacity-80 transition flex-1">
+                                                View Details
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- Class Timetable Tab -->
+                <div id="timetableTab" class="tab-content hidden">
+                    <div class="mb-6">
+                        <div class="flex flex-wrap gap-4 items-center">
+                            <select id="classSelect"
+                                class="px-4 py-2 border rounded-lg form-input focus:border-nskblue">
+                                <option value="">Select Class</option>
+                                <option value="7A">Grade 7-A</option>
+                                <option value="7B">Grade 7-B</option>
+                                <option value="7C">Grade 7-C</option>
+                                <option value="8A">Grade 8-A</option>
+                                <option value="8B">Grade 8-B</option>
+                                <option value="8C">Grade 8-C</option>
+                            </select>
+                            <button
+                                class="bg-nskblue text-white px-4 py-2 rounded-lg font-semibold hover:bg-nsknavy transition">
+                                Load Timetable
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Existing timetable content -->
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse">
+                            <thead>
+                                <tr>
+                                    <th class="bg-nsklightblue text-white p-3">Time/Day</th>
+                                    <th class="bg-nsklightblue text-white p-3">Monday</th>
+                                    <th class="bg-nsklightblue text-white p-3">Tuesday</th>
+                                    <th class="bg-nsklightblue text-white p-3">Wednesday</th>
+                                    <th class="bg-nsklightblue text-white p-3">Thursday</th>
+                                    <th class="bg-nsklightblue text-white p-3">Friday</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Existing timetable rows -->
+                                <tr>
+                                    <td class="bg-nsklight p-3 font-semibold text-center">8:00 - 8:45</td>
+                                    <td class="p-2">
+                                        <div class="timetable-cell subject-math p-3 rounded-lg">
+                                            <p class="font-semibold">Mathematics</p>
+                                            <p class="text-sm">Mr. Johnson</p>
+                                            <p class="text-xs">Room 201</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-2">
+                                        <div class="timetable-cell subject-english p-3 rounded-lg">
+                                            <p class="font-semibold">English</p>
+                                            <p class="text-sm">Mr. Yusuf</p>
+                                            <p class="text-xs">Room 105</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-2">
+                                        <div class="timetable-cell subject-science p-3 rounded-lg">
+                                            <p class="font-semibold">Physics</p>
+                                            <p class="text-sm">Dr. Amina</p>
+                                            <p class="text-xs">Lab 3</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-2">
+                                        <div class="timetable-cell subject-math p-3 rounded-lg">
+                                            <p class="font-semibold">Mathematics</p>
+                                            <p class="text-sm">Mr. Johnson</p>
+                                            <p class="text-xs">Room 201</p>
+                                        </div>
+                                    </td>
+                                    <td class="p-2">
+                                        <div class="timetable-cell subject-history p-3 rounded-lg">
+                                            <p class="font-semibold">History</p>
+                                            <p class="text-sm">Mr. Kabir</p>
+                                            <p class="text-xs">Room 112</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <!-- Add more rows as needed -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Class Assignments Tab -->
+                <div id="assignmentsTab" class="tab-content hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-gray-50 rounded-xl p-6">
+                            <h3 class="text-lg font-bold text-nsknavy mb-4">Active Assignments</h3>
+                            <div class="space-y-4">
+                                <div class="bg-white p-4 rounded-lg border-l-4 border-nskblue">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <h4 class="font-semibold">Mathematics Quiz</h4>
+                                            <p class="text-sm text-gray-600">Grade 7-A • Due: Nov 25, 2023</p>
+                                        </div>
+                                        <span class="bg-nskblue text-white px-2 py-1 rounded text-xs">Active</span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <div class="flex justify-between text-sm">
+                                            <span>Submissions: 18/28</span>
+                                            <span class="text-nskblue">64%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                            <div class="bg-nskblue h-2 rounded-full" style="width: 64%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-4 rounded-lg border-l-4 border-nskgreen">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <h4 class="font-semibold">Science Project</h4>
+                                            <p class="text-sm text-gray-600">Grade 8-B • Due: Dec 1, 2023</p>
+                                        </div>
+                                        <span class="bg-nskgreen text-white px-2 py-1 rounded text-xs">Active</span>
+                                    </div>
+                                    <div class="mt-2">
+                                        <div class="flex justify-between text-sm">
+                                            <span>Submissions: 25/30</span>
+                                            <span class="text-nskgreen">83%</span>
+                                        </div>
+                                        <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                            <div class="bg-nskgreen h-2 rounded-full" style="width: 83%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-50 rounded-xl p-6">
+                            <h3 class="text-lg font-bold text-nsknavy mb-4">Recent Submissions</h3>
+                            <div class="space-y-3">
+                                <div class="bg-white p-3 rounded-lg flex justify-between items-center">
+                                    <div>
+                                        <p class="font-semibold text-sm">Ahmed Ali</p>
+                                        <p class="text-xs text-gray-600">Mathematics Quiz • Grade 7-A</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="bg-nskgreen text-white px-2 py-1 rounded text-xs">A</span>
+                                        <p class="text-xs text-gray-600 mt-1">2 hours ago</p>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-3 rounded-lg flex justify-between items-center">
+                                    <div>
+                                        <p class="font-semibold text-sm">Fatima Hassan</p>
+                                        <p class="text-xs text-gray-600">English Essay • Grade 8-A</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="bg-nskblue text-white px-2 py-1 rounded text-xs">B+</span>
+                                        <p class="text-xs text-gray-600 mt-1">4 hours ago</p>
+                                    </div>
+                                </div>
+
+                                <div class="bg-white p-3 rounded-lg flex justify-between items-center">
+                                    <div>
+                                        <p class="font-semibold text-sm">Ibrahim Musa</p>
+                                        <p class="text-xs text-gray-600">Science Project • Grade 8-B</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="bg-nskgold text-white px-2 py-1 rounded text-xs">B</span>
+                                        <p class="text-xs text-gray-600 mt-1">1 day ago</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Analytics Tab -->
+                <div id="performanceTab" class="tab-content hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                        <div class="bg-white rounded-xl p-6 border">
+                            <h3 class="text-lg font-bold text-nsknavy mb-4">Class Performance Overview</h3>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                                    <span class="font-semibold">Grade 7-A</span>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-sm">Avg: B+</span>
+                                        <div class="w-20 bg-gray-200 rounded-full h-2">
+                                            <div class="bg-nskblue h-2 rounded-full" style="width: 85%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-between items-center p-3 bg-green-50 rounded-lg">
+                                    <span class="font-semibold">Grade 7-B</span>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-sm">Avg: A-</span>
+                                        <div class="w-20 bg-gray-200 rounded-full h-2">
+                                            <div class="bg-nskgreen h-2 rounded-full" style="width: 90%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-between items-center p-3 bg-yellow-50 rounded-lg">
+                                    <span class="font-semibold">Grade 8-A</span>
+                                    <div class="flex items-center space-x-2">
+                                        <span class="text-sm">Avg: A-</span>
+                                        <div class="w-20 bg-gray-200 rounded-full h-2">
+                                            <div class="bg-nskgold h-2 rounded-full" style="width: 88%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-xl p-6 border">
+                            <h3 class="text-lg font-bold text-nsknavy mb-4">Attendance Trends</h3>
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <span>This Week</span>
+                                    <span class="font-semibold text-nskgreen">94.2%</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span>Last Week</span>
+                                    <span class="font-semibold">92.8%</span>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span>This Month</span>
+                                    <span class="font-semibold text-nskblue">93.5%</span>
+                                </div>
+                                <div class="pt-4 border-t">
+                                    <div class="text-center">
+                                        <span class="text-2xl font-bold text-nskgreen">↗ 1.4%</span>
+                                        <p class="text-sm text-gray-600">Improvement from last month</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl p-6 border">
+                        <h3 class="text-lg font-bold text-nsknavy mb-4">Subject Performance Analysis</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full">
+                                <thead>
+                                    <tr class="border-b">
+                                        <th class="text-left p-3">Subject</th>
+                                        <th class="text-left p-3">Average Grade</th>
+                                        <th class="text-left p-3">Pass Rate</th>
+                                        <th class="text-left p-3">Trend</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="border-b">
+                                        <td class="p-3">Mathematics</td>
+                                        <td class="p-3"><span
+                                                class="bg-nskgreen text-white px-2 py-1 rounded text-sm">A-</span></td>
+                                        <td class="p-3">92%</td>
+                                        <td class="p-3"><span class="text-nskgreen">↗ +3%</span></td>
+                                    </tr>
+                                    <tr class="border-b">
+                                        <td class="p-3">English</td>
+                                        <td class="p-3"><span
+                                                class="bg-nskblue text-white px-2 py-1 rounded text-sm">B+</span></td>
+                                        <td class="p-3">88%</td>
+                                        <td class="p-3"><span class="text-nskblue">→ 0%</span></td>
+                                    </tr>
+                                    <tr class="border-b">
+                                        <td class="p-3">Science</td>
+                                        <td class="p-3"><span
+                                                class="bg-nskgold text-white px-2 py-1 rounded text-sm">B</span></td>
+                                        <td class="p-3">85%</td>
+                                        <td class="p-3"><span class="text-nskred">↘ -2%</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Class Modal -->
+        <div id="createClassModal"
+            class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-nsknavy">Create New Class</h3>
+                    <button id="closeCreateModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <form id="createClassForm" class="space-y-4">
+                    <input type="hidden" name="action" value="add_class">
+
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="className">Class Name</label>
+                        <input type="text" id="className" name="class_name"
+                            class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue"
+                            placeholder="e.g., Primary 1, JSS 1, SS 1" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="classCode">Class Code</label>
+                        <input type="text" id="classCode" name="class_code"
+                            class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue"
+                            placeholder="e.g., P1, JSS1, SS1" required>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="classLevel">Class Level</label>
+                        <select id="classLevel" name="class_level"
+                            class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue" required>
+                            <option value="">Select Level</option>
+                            <option value="Early Childhood">Early Childhood</option>
+                            <option value="Primary">Primary</option>
+                            <option value="Secondary">Secondary</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="classTeacher">Class Teacher (Optional)</label>
+                        <select id="classTeacher" name="class_teacher_id"
+                            class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue">
+                            <option value="">Select Teacher</option>
+                            <?php foreach ($teachersData as $teacher): ?>
+                                <option value="<?= $teacher['id'] ?>">
+                                    <?= htmlspecialchars($teacher['first_name'] . ' ' . $teacher['last_name']) ?>
+                                    <?php if ($teacher['subject_specialization']): ?>
+                                        (<?= htmlspecialchars($teacher['subject_specialization']) ?>)
+                                    <?php endif; ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="maxStudents">Maximum Students</label>
+                        <input type="number" id="maxStudents" name="capacity"
+                            class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue" min="20" max="50"
+                            value="30" required>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" id="cancelCreateBtn"
+                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 bg-nskgreen text-white rounded-lg font-semibold hover:bg-green-600 transition">
+                            Create Class
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add Schedule Modal -->
+        <div id="addScheduleModal"
+            class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-nsknavy">Add New Schedule</h3>
+                    <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <form id="scheduleForm" class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="subject">Subject</label>
+                        <select id="subject" class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue"
+                            required>
+                            <option value="">Select Subject</option>
+                            <option value="math">Mathematics</option>
+                            <option value="science">Science</option>
+                            <option value="english">English</option>
+                            <option value="history">History</option>
+                            <option value="art">Art</option>
+                            <option value="pe">Physical Education</option>
+                        </select>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-700 mb-2" for="day">Day</label>
+                            <select id="day" class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue"
+                                required>
+                                <option value="">Select Day</option>
+                                <option value="monday">Monday</option>
+                                <option value="tuesday">Tuesday</option>
+                                <option value="wednesday">Wednesday</option>
+                                <option value="thursday">Thursday</option>
+                                <option value="friday">Friday</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-gray-700 mb-2" for="period">Period</label>
+                            <select id="period"
+                                class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue" required>
+                                <option value="">Select Period</option>
+                                <option value="1">Period 1 (8:00-8:45)</option>
+                                <option value="2">Period 2 (8:45-9:30)</option>
+                                <option value="3">Period 3 (9:30-10:15)</option>
+                                <option value="4">Period 4 (11:00-11:45)</option>
+                                <option value="5">Period 5 (11:45-12:30)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="teacher">Teacher</label>
+                        <select id="teacher" class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue"
+                            required>
+                            <option value="">Select Teacher</option>
+                            <option value="johnson">Mr. Johnson (Mathematics)</option>
+                            <option value="amina">Dr. Amina (Science)</option>
+                            <option value="yusuf">Mr. Yusuf (English)</option>
+                            <option value="kabir">Mr. Kabir (History)</option>
+                            <option value="zainab">Mrs. Zainab (Art)</option>
+                            <option value="ahmed">Coach Ahmed (PE)</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-gray-700 mb-2" for="classroom">Classroom</label>
+                        <select id="classroom"
+                            class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue" required>
+                            <option value="">Select Classroom</option>
+                            <option value="201">Room 201</option>
+                            <option value="105">Room 105</option>
+                            <option value="112">Room 112</option>
+                            <option value="lab1">Lab 1</option>
+                            <option value="lab2">Lab 2</option>
+                            <option value="lab3">Lab 3</option>
+                            <option value="art">Art Room</option>
+                            <option value="music">Music Room</option>
+                            <option value="sports">Sports Field</option>
+                        </select>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 pt-4">
+                        <button type="button" id="cancelBtn"
+                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                            Cancel
+                        </button>
+                        <button type="submit"
+                            class="px-4 py-2 bg-nskblue text-white rounded-lg font-semibold hover:bg-nsknavy transition">
+                            Add Schedule
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="bg-nsknavy text-white py-8 mt-12">
+            <div class="container mx-auto px-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div>
+                        <div class="flex items-center space-x-2 mb-4">
+                            <div
+                                class="logo-container w-10 h-10 rounded-full flex items-center justify-center text-white font-bold">
+                                NSK
+                            </div>
+                            <h3 class="text-xl font-bold">NORTHLAND SCHOOLS KANO</h3>
+                        </div>
+                        <p class="text-blue-100">Dream Big, Study Hard & Make It Happen</p>
+                    </div>
+
+                    <div>
+                        <h4 class="text-lg font-semibold mb-4">Contact Info</h4>
+                        <p class="text-blue-100 mb-2"><i class="fas fa-phone-alt mr-2"></i> +91-9950348952</p>
+                        <p class="text-blue-100 mb-2"><i class="fas fa-envelope mr-2"></i> info@northlandschools.com</p>
+                        <p class="text-blue-100"><i class="fas fa-map-marker-alt mr-2"></i> Kano, Nigeria</p>
+                    </div>
+
+                    <div>
+                        <h4 class="text-lg font-semibold mb-4">Quick Links</h4>
+                        <ul class="space-y-2">
+                            <li><a href="#" class="text-blue-100 hover:text-white transition">Dashboard</a></li>
+                            <li><a href="#" class="text-blue-100 hover:text-white transition">Student Portal</a></li>
+                            <li><a href="#" class="text-blue-100 hover:text-white transition">Teacher Resources</a></li>
+                            <li><a href="#" class="text-blue-100 hover:text-white transition">Parent Guide</a></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="border-t border-blue-800 mt-8 pt-8 text-center text-blue-200">
+                    <p>&copy; 2023 Northland Schools Kano. All rights reserved.</p>
+                </div>
+            </div>
+        </footer>
+    </main>
+
+    <script>
+        // Enhanced tab functionality
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', function () {
+                const tabName = this.getAttribute('data-tab');
+
+                // Update button states
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('active');
+                    btn.classList.add('border-gray-300', 'text-gray-700');
+                    btn.classList.remove('border-nskblue', 'text-nskblue', 'bg-nskblue', 'text-white');
+                });
+                this.classList.add('active');
+                this.classList.remove('border-gray-300', 'text-gray-700');
+                this.classList.add('border-nskblue', 'bg-nskblue', 'text-white');
+
+                // Show/hide tab content
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.classList.add('hidden');
+                });
+
+                const targetTab = document.getElementById(tabName + 'Tab');
+                if (targetTab) {
+                    targetTab.classList.remove('hidden');
+                }
+            });
+        });
+
+        // Create Class Modal functionality
+        const createClassModal = document.getElementById('createClassModal');
+        const createClassBtn = document.getElementById('createClassBtn');
+        const closeCreateModal = document.getElementById('closeCreateModal');
+        const cancelCreateBtn = document.getElementById('cancelCreateBtn');
+        const createClassForm = document.getElementById('createClassForm');
+
+        createClassBtn.addEventListener('click', function () {
+            createClassModal.classList.add('active');
+        });
+
+        function closeCreateClassModal() {
+            createClassModal.classList.remove('active');
+        }
+
+        closeCreateModal.addEventListener('click', closeCreateClassModal);
+        cancelCreateBtn.addEventListener('click', closeCreateClassModal);
+
+        // Close modal when clicking outside
+        createClassModal.addEventListener('click', function (e) {
+            if (e.target === createClassModal) {
+                closeCreateClassModal();
+            }
+        });
+
+        // Create class form submission
+        createClassForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            try {
+                const response = await fetch('../api/classes_api.php', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    // Show success message
+                    alert(result.message);
+                    closeCreateClassModal();
+                    createClassForm.reset();
+                    // Reload page to show new class
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + result.message);
+                }
+            } catch (error) {
+                alert('Network error: ' + error.message);
+            }
+        });
+
+        // ========== BUTTON FUNCTIONALITY ==========
+
+        // Filter functionality
+        const filterBtn = document.getElementById('filterBtn');
+        if (filterBtn) {
+            filterBtn.addEventListener('click', function () {
+                const gradeFilter = document.getElementById('gradeFilter').value;
+                const sectionFilter = document.getElementById('sectionFilter').value;
+
+                const classCards = document.querySelectorAll('.class-card');
+                let visibleCount = 0;
+
+                classCards.forEach(card => {
+                    const className = card.querySelector('h3').textContent.toLowerCase();
+                    let showCard = true;
+
+                    // Apply grade filter
+                    if (gradeFilter && !className.includes('grade ' + gradeFilter) &&
+                        !className.includes('jss ' + gradeFilter) &&
+                        !className.includes('ss ' + gradeFilter) &&
+                        !className.includes('primary ' + gradeFilter)) {
+                        showCard = false;
+                    }
+
+                    // Apply section filter
+                    if (sectionFilter && !className.includes('-' + sectionFilter) &&
+                        !className.includes(' ' + sectionFilter)) {
+                        showCard = false;
+                    }
+
+                    if (showCard) {
+                        card.style.display = 'block';
+                        visibleCount++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                // Show message if no results
+                const existingMsg = document.querySelector('.filter-no-results');
+                if (existingMsg) existingMsg.remove();
+
+                if (visibleCount === 0) {
+                    const container = document.querySelector('#classesTab .grid');
+                    const msg = document.createElement('div');
+                    msg.className = 'filter-no-results col-span-full text-center py-12';
+                    msg.innerHTML = `
+                        <i class="fas fa-search text-gray-300 text-6xl mb-4"></i>
+                        <p class="text-gray-500 text-lg">No classes match your filters</p>
+                        <button onclick="clearFilters()" class="mt-4 bg-nskblue text-white px-4 py-2 rounded-lg hover:bg-nsknavy transition">
+                            Clear Filters
+                        </button>
+                    `;
+                    container.appendChild(msg);
+                }
+            });
+        }
+
+        // Clear filters function
+        window.clearFilters = function () {
+            document.getElementById('gradeFilter').value = '';
+            document.getElementById('sectionFilter').value = '';
+            document.querySelectorAll('.class-card').forEach(card => {
+                card.style.display = 'block';
+            });
+            const msg = document.querySelector('.filter-no-results');
+            if (msg) msg.remove();
+        };
+
+        // Bulk Actions functionality
+        const bulkActionsBtn = document.getElementById('bulkActionsBtn');
+        if (bulkActionsBtn) {
+            bulkActionsBtn.addEventListener('click', function () {
+                // Create bulk actions menu
+                const menu = document.createElement('div');
+                menu.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+                menu.innerHTML = `
+                    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 m-4">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-xl font-bold text-nsknavy">Bulk Actions</h3>
+                            <button onclick="this.closest('div.fixed').remove()" class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="space-y-3">
+                            <button onclick="bulkExport()" class="w-full bg-nskblue text-white px-4 py-3 rounded-lg hover:bg-nsknavy transition flex items-center justify-center">
+                                <i class="fas fa-download mr-2"></i> Export All Classes
+                            </button>
+                            <button onclick="bulkPrint()" class="w-full bg-nskgreen text-white px-4 py-3 rounded-lg hover:bg-green-600 transition flex items-center justify-center">
+                                <i class="fas fa-print mr-2"></i> Print Class List
+                            </button>
+                            <button onclick="bulkEmail()" class="w-full bg-nskgold text-white px-4 py-3 rounded-lg hover:bg-amber-600 transition flex items-center justify-center">
+                                <i class="fas fa-envelope mr-2"></i> Email Reports
+                            </button>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(menu);
+            });
+        }
+
+        // Bulk action functions
+        window.bulkExport = function () {
+            alert('Export functionality - This will download a CSV/Excel file of all classes');
+            document.querySelector('div.fixed.bg-black').remove();
+        };
+
+        window.bulkPrint = function () {
+            window.print();
+            const modal = document.querySelector('div.fixed.bg-black');
+            if (modal) modal.remove();
+        };
+
+        window.bulkEmail = function () {
+            alert('Email reports functionality - This will send class reports to administrators');
+            document.querySelector('div.fixed.bg-black').remove();
+        };
+
+        // Existing modal functionality for schedule
+        const modal = document.getElementById('addScheduleModal');
+        const addScheduleBtn = document.getElementById('addScheduleBtn');
+        const closeModal = document.getElementById('closeModal');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const scheduleForm = document.getElementById('scheduleForm');
+
+        if (addScheduleBtn) {
+            addScheduleBtn.addEventListener('click', function () {
+                modal.classList.add('active');
+            });
+        }
+
+        function closeModalFunc() {
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        }
+
+        if (closeModal) closeModal.addEventListener('click', closeModalFunc);
+        if (cancelBtn) cancelBtn.addEventListener('click', closeModalFunc);
+
+        // Close modal when clicking outside
+        if (modal) {
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) {
+                    closeModalFunc();
+                }
+            });
+        }
+
+        // Form submission
+        if (scheduleForm) {
+            scheduleForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                const subject = document.getElementById('subject').value;
+                const day = document.getElementById('day').value;
+                const period = document.getElementById('period').value;
+
+                // Simulate adding a schedule
+                alert(`Schedule added for ${subject} on ${day} during period ${period}`);
+                closeModalFunc();
+                scheduleForm.reset();
+            });
+        }
+
+        // Auto-generate timetable
+        const generateBtn = document.getElementById('generateTimetableBtn');
+        if (generateBtn) {
+            generateBtn.addEventListener('click', function () {
+                this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Generating...';
+                this.disabled = true;
+
+                setTimeout(() => {
+                    alert('Timetable successfully generated!');
+                    this.innerHTML = '<i class="fas fa-magic mr-2"></i> Auto-Generate';
+                    this.disabled = false;
+                }, 2000);
+            });
+        }
+
+        // Timetable cell click event
+        document.querySelectorAll('.timetable-cell').forEach(cell => {
+            cell.addEventListener('click', function () {
+                const subject = this.querySelector('.font-semibold').textContent;
+                const teacher = this.querySelectorAll('p')[1].textContent;
+                const room = this.querySelectorAll('p')[2].textContent;
+
+                alert(`Subject: ${subject}\nTeacher: ${teacher}\nRoom: ${room}`);
+            });
+        });
+
+        // Class card animations
+        document.querySelectorAll('.class-card').forEach(card => {
+            card.addEventListener('mouseenter', function () {
+                this.style.transform = 'translateY(-5px)';
+            });
+
+            card.addEventListener('mouseleave', function () {
+                this.style.transform = 'translateY(0)';
+            });
+        });
+    </script>
+
+    <!-- Include classes management JavaScript -->
+    <script src="classes_management.js"></script>
+</body>
+
+</html>

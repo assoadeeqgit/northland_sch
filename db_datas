@@ -1,0 +1,824 @@
+-- phpMyAdmin SQL Dump
+-- version 5.2.1deb3
+-- https://www.phpmyadmin.net/
+--
+-- Host: localhost:3306
+-- Generation Time: Oct 25, 2025 at 08:39 AM
+-- Server version: 8.4.7
+-- PHP Version: 8.3.6
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Database: `northland_schools_kano`
+--
+DROP DATABASE IF EXISTS `northland_schools_kano`;
+CREATE DATABASE `northland_schools_kano`;
+USE `northland_schools_kano`;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `users`
+--
+
+CREATE TABLE `users` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `user_type` enum('admin','teacher','student','staff','principal') NOT NULL,
+  `first_name` varchar(100) NOT NULL,
+  `last_name` varchar(100) NOT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `address` text,
+  `date_of_birth` date DEFAULT NULL,
+  `gender` enum('Male','Female','Other') DEFAULT NULL,
+  `profile_picture` varchar(255) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  `last_login` datetime DEFAULT NULL,
+  `registration_step` tinyint DEFAULT '1',
+  `email_verified` tinyint(1) DEFAULT '0',
+  `verification_token` varchar(255) DEFAULT NULL,
+  `reset_token` varchar(255) DEFAULT NULL,
+  `reset_token_expiry` datetime DEFAULT NULL,
+  `registration_data` json DEFAULT NULL,
+  `last_activity` datetime DEFAULT NULL,
+  `login_attempts` tinyint DEFAULT '0',
+  `account_locked_until` datetime DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `email` (`email`),
+  KEY `idx_users_email` (`email`),
+  KEY `idx_users_user_type` (`user_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `users`
+--
+
+INSERT INTO `users` (`id`, `username`, `email`, `password_hash`, `user_type`, `first_name`, `last_name`, `phone`, `address`, `date_of_birth`, `gender`, `profile_picture`, `is_active`, `last_login`, `registration_step`, `email_verified`, `verification_token`, `reset_token`, `reset_token_expiry`, `registration_data`, `last_activity`, `login_attempts`, `account_locked_until`, `created_at`, `updated_at`) VALUES
+(1, 'admin', 'admin@northland.edu.ng', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 'System', 'Administrator', '08012345678', NULL, NULL, 'Male', NULL, 1, NULL, 1, 1, NULL, NULL, NULL, NULL, NULL, 0, NULL, '2025-10-23 11:37:21', '2025-10-23 11:37:21'),
+(2, 'principal', 'principal@northland.edu.ng', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'principal', 'Ahmed', 'Musa', '08023456789', NULL, NULL, 'Male', NULL, 1, NULL, 1, 1, NULL, NULL, NULL, NULL, NULL, 0, NULL, '2025-10-23 11:37:21', '2025-10-23 11:37:21'),
+(3, 'teacher1', 'teacher1@northland.edu.ng', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'teacher', 'Aisha', 'Bello', '08034567890', NULL, NULL, 'Female', NULL, 1, NULL, 1, 1, NULL, NULL, NULL, NULL, NULL, 0, NULL, '2025-10-23 11:37:21', '2025-10-23 11:37:21'),
+(4, 'student1', 'student1@northland.edu.ng', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'student', 'Yusuf', 'Sani', '08045678901', NULL, NULL, 'Male', NULL, 1, NULL, 1, 1, NULL, NULL, NULL, NULL, NULL, 0, NULL, '2025-10-23 11:37:21', '2025-10-23 11:37:21'),
+(5, 'staff1', 'staff1@northland.edu.ng', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'staff', 'Hassan', 'Ibrahim', '08056789012', NULL, NULL, 'Male', NULL, 1, NULL, 1, 1, NULL, NULL, NULL, NULL, NULL, 0, NULL, '2025-10-23 11:37:21', '2025-10-23 11:37:21');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user_roles`
+--
+
+CREATE TABLE `user_roles` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `role_name` varchar(50) NOT NULL,
+  `permissions` json NOT NULL,
+  `description` text,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `role_name` (`role_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `user_roles`
+--
+
+INSERT INTO `user_roles` (`id`, `role_name`, `permissions`, `description`, `created_at`) VALUES
+(1, 'admin', '[\"users.manage\", \"students.manage\", \"teachers.manage\", \"finance.manage\", \"reports.view\", \"settings.manage\"]', 'Full system administrator', '2025-10-23 11:37:21'),
+(2, 'principal', '[\"students.manage\", \"teachers.manage\", \"reports.view\", \"attendance.manage\"]', 'School principal with management access', '2025-10-23 11:37:21'),
+(3, 'teacher', '[\"students.view\", \"attendance.record\", \"results.manage\", \"timetable.view\"]', 'Teaching staff with academic access', '2025-10-23 11:37:21'),
+(4, 'student', '[\"profile.view\", \"results.view\", \"attendance.view\", \"timetable.view\"]', 'Student access to personal information', '2025-10-23 11:37:21'),
+(5, 'staff', '[\"profile.view\", \"inventory.manage\", \"library.manage\"]', 'Non-teaching staff access', '2025-10-23 11:37:21');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user_sessions`
+--
+
+CREATE TABLE `user_sessions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `session_token` varchar(255) NOT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` text,
+  `last_activity` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `expires_at` timestamp NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `session_token` (`session_token`),
+  KEY `user_id` (`user_id`),
+  KEY `idx_user_sessions_token` (`session_token`),
+  KEY `idx_user_sessions_user_id` (`user_id`),
+  KEY `idx_user_sessions_expires` (`expires_at`),
+  CONSTRAINT `user_sessions_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `auth_audit_log`
+--
+
+CREATE TABLE `auth_audit_log` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int DEFAULT NULL,
+  `event_type` enum('login','logout','registration','password_reset','failed_login','account_locked') NOT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` text,
+  `details` text,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `idx_auth_audit_user` (`user_id`),
+  KEY `idx_auth_audit_event` (`event_type`),
+  KEY `idx_auth_audit_created` (`created_at`),
+  CONSTRAINT `auth_audit_log_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `student_profiles`
+--
+
+CREATE TABLE `student_profiles` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `date_of_birth` date DEFAULT NULL,
+  `gender` enum('Male','Female','Other') DEFAULT NULL,
+  `class_level` varchar(50) DEFAULT NULL,
+  `parent_name` varchar(100) DEFAULT NULL,
+  `parent_phone` varchar(20) DEFAULT NULL,
+  `previous_school` varchar(255) DEFAULT NULL,
+  `medical_info` text,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_id` (`user_id`),
+  CONSTRAINT `student_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `teacher_profiles`
+--
+
+CREATE TABLE `teacher_profiles` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `qualification` varchar(100) DEFAULT NULL,
+  `subject_specialization` varchar(255) DEFAULT NULL,
+  `years_experience` varchar(50) DEFAULT NULL,
+  `department` varchar(100) DEFAULT NULL,
+  `employment_type` enum('Full-time','Part-time','Contract') DEFAULT NULL,
+  `teacher_id` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_id` (`user_id`),
+  UNIQUE KEY `teacher_id` (`teacher_id`),
+  CONSTRAINT `teacher_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `staff_profiles`
+--
+
+CREATE TABLE `staff_profiles` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `department` varchar(100) DEFAULT NULL,
+  `position` varchar(100) DEFAULT NULL,
+  `employment_type` enum('Full-time','Part-time','Contract') DEFAULT NULL,
+  `supervisor` varchar(100) DEFAULT NULL,
+  `staff_id` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_id` (`user_id`),
+  UNIQUE KEY `staff_id` (`staff_id`),
+  CONSTRAINT `staff_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `admin_profiles`
+--
+
+CREATE TABLE `admin_profiles` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `admin_level` enum('Super Admin','Admin','Sub-Admin') DEFAULT NULL,
+  `department_access` varchar(255) DEFAULT NULL,
+  `special_permissions` text,
+  `admin_id` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_id` (`user_id`),
+  UNIQUE KEY `admin_id` (`admin_id`),
+  CONSTRAINT `admin_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `schools`
+--
+
+CREATE TABLE `schools` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `school_code` varchar(20) NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `address` text,
+  `phone` varchar(20) DEFAULT NULL,
+  `email` varchar(100) DEFAULT NULL,
+  `principal_id` int DEFAULT NULL,
+  `established_year` year DEFAULT NULL,
+  `motto` text,
+  `logo` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `school_code` (`school_code`),
+  KEY `principal_id` (`principal_id`),
+  CONSTRAINT `schools_ibfk_1` FOREIGN KEY (`principal_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `schools`
+--
+
+INSERT INTO `schools` (`id`, `school_code`, `name`, `address`, `phone`, `email`, `principal_id`, `established_year`, `motto`, `logo`, `created_at`) VALUES
+(1, 'NLSK001', 'Northland Schools Kano', 'No. 123 Education Road, Kano State, Nigeria', '08001234567', 'info@northland.edu.ng', 2, '1995', 'Excellence in Education', NULL, '2025-10-23 11:37:21');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `academic_sessions`
+--
+
+CREATE TABLE `academic_sessions` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `session_name` varchar(50) NOT NULL,
+  `start_date` date NOT NULL,
+  `end_date` date NOT NULL,
+  `is_current` tinyint(1) DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `academic_sessions`
+--
+
+INSERT INTO `academic_sessions` (`id`, `session_name`, `start_date`, `end_date`, `is_current`, `created_at`) VALUES
+(1, '2023/2024', '2023-09-01', '2024-08-31', 1, '2025-10-23 11:37:21');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `terms`
+--
+
+CREATE TABLE `terms` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `academic_session_id` int NOT NULL,
+  `term_name` enum('First Term','Second Term','Third Term') NOT NULL,
+  `start_date` date NOT NULL,
+  `end_date` date NOT NULL,
+  `is_current` tinyint(1) DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `academic_session_id` (`academic_session_id`),
+  CONSTRAINT `terms_ibfk_1` FOREIGN KEY (`academic_session_id`) REFERENCES `academic_sessions` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `terms`
+--
+
+INSERT INTO `terms` (`id`, `academic_session_id`, `term_name`, `start_date`, `end_date`, `is_current`, `created_at`) VALUES
+(1, 1, 'First Term', '2023-09-01', '2023-12-15', 0, '2025-10-23 11:37:21'),
+(2, 1, 'Second Term', '2024-01-08', '2024-04-05', 0, '2025-10-23 11:37:21'),
+(3, 1, 'Third Term', '2024-04-22', '2024-08-02', 1, '2025-10-23 11:37:21');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `classes`
+--
+
+CREATE TABLE `classes` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `class_name` varchar(50) NOT NULL,
+  `class_code` varchar(20) NOT NULL,
+  `class_teacher_id` int DEFAULT NULL,
+  `capacity` int DEFAULT '40',
+  `current_students` int DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `class_code` (`class_code`),
+  KEY `class_teacher_id` (`class_teacher_id`),
+  CONSTRAINT `classes_ibfk_1` FOREIGN KEY (`class_teacher_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `classes`
+--
+
+INSERT INTO `classes` (`id`, `class_name`, `class_code`, `class_teacher_id`, `capacity`, `current_students`, `created_at`) VALUES
+(1, 'Primary 1', 'PRI1', NULL, 40, 0, '2025-10-23 11:37:21'),
+(2, 'Primary 2', 'PRI2', NULL, 40, 0, '2025-10-23 11:37:21'),
+(3, 'Primary 3', 'PRI3', NULL, 40, 0, '2025-10-23 11:37:21'),
+(4, 'JSS 1', 'JSS1', NULL, 35, 0, '2025-10-23 11:37:21'),
+(5, 'JSS 2', 'JSS2', NULL, 35, 0, '2025-10-23 11:37:21'),
+(6, 'SSS 1', 'SSS1', NULL, 30, 0, '2025-10-23 11:37:21'),
+(7, 'SSS 2', 'SSS2', NULL, 30, 0, '2025-10-23 11:37:21');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `subjects`
+--
+
+CREATE TABLE `subjects` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `subject_code` varchar(20) NOT NULL,
+  `subject_name` varchar(100) NOT NULL,
+  `description` text,
+  `category` enum('Core','Elective','Extra-curricular') DEFAULT 'Core',
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `subject_code` (`subject_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `subjects`
+--
+
+INSERT INTO `subjects` (`id`, `subject_code`, `subject_name`, `description`, `category`, `is_active`, `created_at`) VALUES
+(1, 'ENG', 'English Language', NULL, 'Core', 1, '2025-10-23 11:37:21'),
+(2, 'MAT', 'Mathematics', NULL, 'Core', 1, '2025-10-23 11:37:21'),
+(3, 'BIO', 'Biology', NULL, 'Core', 1, '2025-10-23 11:37:21'),
+(4, 'CHEM', 'Chemistry', NULL, 'Core', 1, '2025-10-23 11:37:21'),
+(5, 'PHY', 'Physics', NULL, 'Core', 1, '2025-10-23 11:37:21'),
+(6, 'GEO', 'Geography', NULL, 'Core', 1, '2025-10-23 11:37:21'),
+(7, 'HIS', 'History', NULL, 'Core', 1, '2025-10-23 11:37:21'),
+(8, 'CRS', 'Christian Religious Studies', NULL, 'Core', 1, '2025-10-23 11:37:21'),
+(9, 'IRS', 'Islamic Religious Studies', NULL, 'Core', 1, '2025-10-23 11:37:21'),
+(10, 'FRN', 'French', NULL, 'Elective', 1, '2025-10-23 11:37:21'),
+(11, 'MUS', 'Music', NULL, 'Extra-curricular', 1, '2025-10-23 11:37:21');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `teachers`
+--
+
+CREATE TABLE `teachers` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `teacher_id` varchar(20) NOT NULL,
+  `qualification` varchar(100) DEFAULT NULL,
+  `specialization` varchar(100) DEFAULT NULL,
+  `employment_date` date DEFAULT NULL,
+  `salary_grade` varchar(20) DEFAULT NULL,
+  `bank_name` varchar(100) DEFAULT NULL,
+  `account_number` varchar(20) DEFAULT NULL,
+  `is_class_teacher` tinyint(1) DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_id` (`user_id`),
+  UNIQUE KEY `teacher_id` (`teacher_id`),
+  CONSTRAINT `teachers_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `teachers`
+--
+
+INSERT INTO `teachers` (`id`, `user_id`, `teacher_id`, `qualification`, `specialization`, `employment_date`, `salary_grade`, `bank_name`, `account_number`, `is_class_teacher`, `created_at`) VALUES
+(1, 3, 'TCH001', 'B.Sc Education', 'Mathematics', '2020-09-01', NULL, NULL, NULL, 0, '2025-10-23 11:37:21');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `students`
+--
+
+CREATE TABLE `students` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `user_id` int NOT NULL,
+  `student_id` varchar(20) NOT NULL,
+  `admission_number` varchar(50) NOT NULL,
+  `class_id` int NOT NULL,
+  `parent_id` int DEFAULT NULL,
+  `admission_date` date NOT NULL,
+  `religion` varchar(50) DEFAULT NULL,
+  `nationality` varchar(50) DEFAULT 'Nigerian',
+  `state_of_origin` varchar(50) DEFAULT NULL,
+  `lga` varchar(50) DEFAULT NULL,
+  `medical_conditions` text,
+  `emergency_contact_name` varchar(100) DEFAULT NULL,
+  `emergency_contact_phone` varchar(20) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_id` (`user_id`),
+  UNIQUE KEY `student_id` (`student_id`),
+  UNIQUE KEY `admission_number` (`admission_number`),
+  KEY `idx_students_class_id` (`class_id`),
+  KEY `idx_students_parent_id` (`parent_id`),
+  CONSTRAINT `students_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `students_ibfk_2` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`),
+  CONSTRAINT `students_ibfk_3` FOREIGN KEY (`parent_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `students`
+--
+
+INSERT INTO `students` (`id`, `user_id`, `student_id`, `admission_number`, `class_id`, `parent_id`, `admission_date`, `religion`, `nationality`, `state_of_origin`, `lga`, `medical_conditions`, `emergency_contact_name`, `emergency_contact_phone`, `created_at`) VALUES
+(1, 4, 'STU001', 'ADM001', 4, NULL, '2023-09-01', 'Islam', 'Nigerian', 'Kano', 'Kano Municipal', NULL, NULL, NULL, '2025-10-23 11:37:21');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `class_subjects`
+--
+
+CREATE TABLE `class_subjects` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `class_id` int NOT NULL,
+  `subject_id` int NOT NULL,
+  `teacher_id` int NOT NULL,
+  `is_compulsory` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_class_subject` (`class_id`,`subject_id`),
+  KEY `subject_id` (`subject_id`),
+  KEY `teacher_id` (`teacher_id`),
+  CONSTRAINT `class_subjects_ibfk_1` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `class_subjects_ibfk_2` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `class_subjects_ibfk_3` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `timetable`
+--
+
+CREATE TABLE `timetable` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `class_id` int NOT NULL,
+  `subject_id` int NOT NULL,
+  `teacher_id` int NOT NULL,
+  `day_of_week` enum('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday') NOT NULL,
+  `start_time` time NOT NULL,
+  `end_time` time NOT NULL,
+  `room` varchar(50) DEFAULT NULL,
+  `academic_session_id` int NOT NULL,
+  `term_id` int NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `subject_id` (`subject_id`),
+  KEY `teacher_id` (`teacher_id`),
+  KEY `academic_session_id` (`academic_session_id`),
+  KEY `term_id` (`term_id`),
+  KEY `idx_timetable_class_day` (`class_id`,`day_of_week`),
+  CONSTRAINT `timetable_ibfk_1` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `timetable_ibfk_2` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `timetable_ibfk_3` FOREIGN KEY (`teacher_id`) REFERENCES `teachers` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `timetable_ibfk_4` FOREIGN KEY (`academic_session_id`) REFERENCES `academic_sessions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `timetable_ibfk_5` FOREIGN KEY (`term_id`) REFERENCES `terms` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `attendance`
+--
+
+CREATE TABLE `attendance` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `student_id` int NOT NULL,
+  `class_id` int NOT NULL,
+  `attendance_date` date NOT NULL,
+  `status` enum('Present','Absent','Late','Excused') NOT NULL,
+  `remarks` text,
+  `recorded_by` int NOT NULL,
+  `academic_session_id` int NOT NULL,
+  `term_id` int NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_student_attendance` (`student_id`,`attendance_date`),
+  KEY `recorded_by` (`recorded_by`),
+  KEY `academic_session_id` (`academic_session_id`),
+  KEY `term_id` (`term_id`),
+  KEY `idx_attendance_student_date` (`student_id`,`attendance_date`),
+  KEY `idx_attendance_class_date` (`class_id`,`attendance_date`),
+  CONSTRAINT `attendance_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `attendance_ibfk_2` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `attendance_ibfk_3` FOREIGN KEY (`recorded_by`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `attendance_ibfk_4` FOREIGN KEY (`academic_session_id`) REFERENCES `academic_sessions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `attendance_ibfk_5` FOREIGN KEY (`term_id`) REFERENCES `terms` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `exam_types`
+--
+
+CREATE TABLE `exam_types` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `exam_name` varchar(100) NOT NULL,
+  `exam_code` varchar(20) NOT NULL,
+  `weightage` decimal(5,2) DEFAULT '100.00',
+  `description` text,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `exam_code` (`exam_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `exam_types`
+--
+
+INSERT INTO `exam_types` (`id`, `exam_name`, `exam_code`, `weightage`, `description`, `created_at`) VALUES
+(1, 'First Term Examination', 'FTE', 30.00, 'First term comprehensive examination', '2025-10-23 11:37:21'),
+(2, 'Second Term Examination', 'STE', 30.00, 'Second term comprehensive examination', '2025-10-23 11:37:21'),
+(3, 'Third Term Examination', 'TTE', 40.00, 'Third term comprehensive examination', '2025-10-23 11:37:21');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `exams`
+--
+
+CREATE TABLE `exams` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `exam_type_id` int NOT NULL,
+  `class_id` int NOT NULL,
+  `subject_id` int NOT NULL,
+  `exam_date` date NOT NULL,
+  `total_marks` decimal(6,2) NOT NULL,
+  `passing_marks` decimal(6,2) NOT NULL,
+  `academic_session_id` int NOT NULL,
+  `term_id` int NOT NULL,
+  `created_by` int NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `exam_type_id` (`exam_type_id`),
+  KEY `class_id` (`class_id`),
+  KEY `subject_id` (`subject_id`),
+  KEY `academic_session_id` (`academic_session_id`),
+  KEY `term_id` (`term_id`),
+  KEY `created_by` (`created_by`),
+  CONSTRAINT `exams_ibfk_1` FOREIGN KEY (`exam_type_id`) REFERENCES `exam_types` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `exams_ibfk_2` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `exams_ibfk_3` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `exams_ibfk_4` FOREIGN KEY (`academic_session_id`) REFERENCES `academic_sessions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `exams_ibfk_5` FOREIGN KEY (`term_id`) REFERENCES `terms` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `exams_ibfk_6` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `results`
+--
+
+CREATE TABLE `results` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `student_id` int NOT NULL,
+  `exam_id` int NOT NULL,
+  `subject_id` int NOT NULL,
+  `marks_obtained` decimal(6,2) NOT NULL,
+  `grade` varchar(5) DEFAULT NULL,
+  `remarks` text,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_student_exam_subject` (`student_id`,`exam_id`,`subject_id`),
+  KEY `exam_id` (`exam_id`),
+  KEY `subject_id` (`subject_id`),
+  KEY `idx_results_student_exam` (`student_id`,`exam_id`),
+  CONSTRAINT `results_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `results_ibfk_2` FOREIGN KEY (`exam_id`) REFERENCES `exams` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `results_ibfk_3` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `fee_structure`
+--
+
+CREATE TABLE `fee_structure` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `class_id` int NOT NULL,
+  `fee_type` varchar(100) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `academic_session_id` int NOT NULL,
+  `term_id` int NOT NULL,
+  `due_date` date DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `class_id` (`class_id`),
+  KEY `academic_session_id` (`academic_session_id`),
+  KEY `term_id` (`term_id`),
+  CONSTRAINT `fee_structure_ibfk_1` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fee_structure_ibfk_2` FOREIGN KEY (`academic_session_id`) REFERENCES `academic_sessions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fee_structure_ibfk_3` FOREIGN KEY (`term_id`) REFERENCES `terms` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `payments`
+--
+
+CREATE TABLE `payments` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `student_id` int NOT NULL,
+  `fee_structure_id` int NOT NULL,
+  `amount_paid` decimal(10,2) NOT NULL,
+  `payment_date` date NOT NULL,
+  `payment_method` enum('Cash','Bank Transfer','POS','Online') DEFAULT 'Cash',
+  `transaction_id` varchar(100) DEFAULT NULL,
+  `received_by` int NOT NULL,
+  `academic_session_id` int NOT NULL,
+  `term_id` int NOT NULL,
+  `remarks` text,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `fee_structure_id` (`fee_structure_id`),
+  KEY `received_by` (`received_by`),
+  KEY `academic_session_id` (`academic_session_id`),
+  KEY `term_id` (`term_id`),
+  KEY `idx_payments_student_date` (`student_id`,`payment_date`),
+  CONSTRAINT `payments_ibfk_1` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `payments_ibfk_2` FOREIGN KEY (`fee_structure_id`) REFERENCES `fee_structure` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `payments_ibfk_3` FOREIGN KEY (`received_by`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `payments_ibfk_4` FOREIGN KEY (`academic_session_id`) REFERENCES `academic_sessions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `payments_ibfk_5` FOREIGN KEY (`term_id`) REFERENCES `terms` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `notices`
+--
+
+CREATE TABLE `notices` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL,
+  `content` text NOT NULL,
+  `target_audience` enum('All','Students','Teachers','Parents','Staff') DEFAULT 'All',
+  `priority` enum('Low','Medium','High','Urgent') DEFAULT 'Medium',
+  `publish_date` date NOT NULL,
+  `expiry_date` date DEFAULT NULL,
+  `created_by` int NOT NULL,
+  `is_active` tinyint(1) DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `created_by` (`created_by`),
+  CONSTRAINT `notices_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `events`
+--
+
+CREATE TABLE `events` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `event_title` varchar(255) NOT NULL,
+  `event_description` text,
+  `event_date` date NOT NULL,
+  `start_time` time DEFAULT NULL,
+  `end_time` time DEFAULT NULL,
+  `venue` varchar(100) DEFAULT NULL,
+  `target_audience` enum('All','Students','Teachers','Parents','Staff') DEFAULT 'All',
+  `created_by` int NOT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `created_by` (`created_by`),
+  CONSTRAINT `events_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `library_books`
+--
+
+CREATE TABLE `library_books` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `isbn` varchar(20) DEFAULT NULL,
+  `title` varchar(255) NOT NULL,
+  `author` varchar(100) NOT NULL,
+  `publisher` varchar(100) DEFAULT NULL,
+  `publication_year` year DEFAULT NULL,
+  `category` varchar(100) DEFAULT NULL,
+  `total_copies` int DEFAULT '1',
+  `available_copies` int DEFAULT '1',
+  `shelf_location` varchar(50) DEFAULT NULL,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `book_borrowing`
+--
+
+CREATE TABLE `book_borrowing` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `book_id` int NOT NULL,
+  `student_id` int NOT NULL,
+  `borrowed_date` date NOT NULL,
+  `due_date` date NOT NULL,
+  `returned_date` date DEFAULT NULL,
+  `fine_amount` decimal(8,2) DEFAULT '0.00',
+  `status` enum('Borrowed','Returned','Overdue') DEFAULT 'Borrowed',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `book_id` (`book_id`),
+  KEY `idx_book_borrowing_student_status` (`student_id`,`status`),
+  KEY `idx_book_borrowing_due_date` (`due_date`),
+  CONSTRAINT `book_borrowing_ibfk_1` FOREIGN KEY (`book_id`) REFERENCES `library_books` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `book_borrowing_ibfk_2` FOREIGN KEY (`student_id`) REFERENCES `students` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `inventory`
+--
+
+CREATE TABLE `inventory` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `item_name` varchar(255) NOT NULL,
+  `item_code` varchar(50) NOT NULL,
+  `category` varchar(100) DEFAULT NULL,
+  `quantity` int NOT NULL,
+  `min_quantity` int DEFAULT '5',
+  `unit_price` decimal(10,2) DEFAULT NULL,
+  `supplier` varchar(100) DEFAULT NULL,
+  `storage_location` varchar(100) DEFAULT NULL,
+  `description` text,
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `item_code` (`item_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `settings`
+--
+
+CREATE TABLE `settings` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `setting_key` varchar(100) NOT NULL,
+  `setting_value` text NOT NULL,
+  `setting_description` text,
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `setting_key` (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `settings`
+--
+
+INSERT INTO `settings` (`id`, `setting_key`, `setting_value`, `setting_description`, `updated_at`) VALUES
+(1, 'school_name', 'Northland Schools Kano', 'Official school name', '2025-10-23 11:37:21'),
+(2, 'school_address', 'No. 123 Education Road, Kano State, Nigeria', 'School physical address', '2025-10-23 11:37:21'),
+(3, 'school_phone', '08001234567', 'School contact phone', '2025-10-23 11:37:21'),
+(4, 'school_email', 'info@northland.edu.ng', 'School email address', '2025-10-23 11:37:21'),
+(5, 'attendance_threshold', '75', 'Minimum attendance percentage required', '2025-10-23 11:37:21'),
+(6, 'late_threshold_minutes', '15', 'Minutes after which student is marked late', '2025-10-23 11:37:21');
+
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
