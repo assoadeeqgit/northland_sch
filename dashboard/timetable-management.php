@@ -666,30 +666,37 @@ checkAuth(); // Ensure user is authenticated
                     </div>
 
                     <!-- Schedule Details -->
-                    <div class="grid grid-cols-3 gap-4">
+                    <div class="grid grid-cols-2 gap-4">
                         <div>
                             <label class="block text-gray-700 mb-2" for="day">Day</label>
                             <select id="day" class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue"
                                 required>
                                 <option value="">Select Day</option>
-                                <option value="monday">Monday</option>
-                                <option value="tuesday">Tuesday</option>
-                                <option value="wednesday">Wednesday</option>
-                                <option value="thursday">Thursday</option>
-                                <option value="friday">Friday</option>
+                                <option value="Monday">Monday</option>
+                                <option value="Tuesday">Tuesday</option>
+                                <option value="Wednesday">Wednesday</option>
+                                <option value="Thursday">Thursday</option>
+                                <option value="Friday">Friday</option>
                             </select>
                         </div>
 
                         <div>
-                            <label class="block text-gray-700 mb-2" for="startTime">Start Time</label>
-                            <input type="time" id="startTime"
+                            <label class="block text-gray-700 mb-2" for="period">Period</label>
+                            <select id="period"
                                 class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue" required>
-                        </div>
-
-                        <div>
-                            <label class="block text-gray-700 mb-2" for="endTime">End Time</label>
-                            <input type="time" id="endTime"
-                                class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue" required>
+                                <option value="">Select Period</option>
+                                <option value="1" data-start="08:00" data-end="08:40">Period 1 (08:00 - 08:40)</option>
+                                <option value="2" data-start="08:40" data-end="09:20">Period 2 (08:40 - 09:20)</option>
+                                <option value="3" data-start="09:20" data-end="10:00">Period 3 (09:20 - 10:00)</option>
+                                <option value="4" data-start="10:00" data-end="10:40">Period 4 (10:00 - 10:40)</option>
+                                <option value="break" data-start="10:40" data-end="11:00">Break (10:40 - 11:00)</option>
+                                <option value="5" data-start="11:00" data-end="11:40">Period 5 (11:00 - 11:40)</option>
+                                <option value="6" data-start="11:40" data-end="12:20">Period 6 (11:40 - 12:20)</option>
+                                <option value="7" data-start="12:20" data-end="13:00">Period 7 (12:20 - 13:00)</option>
+                                <option value="8" data-start="13:00" data-end="13:40">Period 8 (13:00 - 13:40)</option>
+                            </select>
+                            <input type="hidden" id="startTime" name="startTime">
+                            <input type="hidden" id="endTime" name="endTime">
                         </div>
                     </div>
 
@@ -746,6 +753,47 @@ checkAuth(); // Ensure user is authenticated
                 this.currentLevel = 'primary';
                 this.currentClass = '';
                 this.currentView = 'weekly';
+
+                this.periodsSecondary = [
+                    { name: 'Period 1', start: '08:00', end: '08:40' },
+                    { name: 'Period 2', start: '08:40', end: '09:20' },
+                    { name: 'Period 3', start: '09:20', end: '10:00' },
+                    { name: 'Period 4', start: '10:00', end: '10:40' },
+                    { name: 'Break', start: '10:40', end: '11:00' },
+                    { name: 'Period 5', start: '11:00', end: '11:40' },
+                    { name: 'Period 6', start: '11:40', end: '12:20' },
+                    { name: 'Period 7', start: '12:20', end: '13:00' },
+                    { name: 'Period 8', start: '13:00', end: '13:40' }
+                ];
+
+                this.periodsPrimary = [
+                    { name: 'Period 1', start: '08:00', end: '08:30' },
+                    { name: 'Period 2', start: '08:30', end: '09:00' },
+                    { name: 'Period 3', start: '09:00', end: '09:30' },
+                    { name: 'Period 4', start: '09:30', end: '10:00' },
+                    { name: 'Break', start: '10:00', end: '10:30' },
+                    { name: 'Period 5', start: '10:30', end: '11:00' },
+                    { name: 'Period 6', start: '11:00', end: '11:30' },
+                    { name: 'Period 7', start: '11:30', end: '12:00' },
+                    { name: 'Period 8', start: '12:00', end: '12:30' },
+                    { name: 'Period 9', start: '12:30', end: '13:00' },
+                    { name: 'Period 10', start: '13:00', end: '13:30' }
+                ];
+
+                this.periodsEarlyYears = [
+                    { name: 'Period 1', start: '08:00', end: '08:30' },
+                    { name: 'Period 2', start: '08:30', end: '09:00' },
+                    { name: 'Period 3', start: '09:00', end: '09:30' },
+                    { name: 'Break', start: '09:30', end: '10:00' },
+                    { name: 'Period 4', start: '10:00', end: '10:30' },
+                    { name: 'Period 5', start: '10:30', end: '11:00' },
+                    { name: 'Period 6', start: '11:00', end: '11:30' },
+                    { name: 'Period 7', start: '11:30', end: '12:00' },
+                    { name: 'Period 8', start: '12:00', end: '12:30' },
+                    { name: 'Period 9', start: '12:30', end: '13:00' },
+                    { name: 'Period 10', start: '13:00', end: '13:30' }
+                ];
+
                 this.init();
             }
 
@@ -783,6 +831,15 @@ checkAuth(); // Ensure user is authenticated
                     this.updateModalClasses(e.target.value);
                     this.updateModalSubjects(e.target.value);
                 });
+
+                // Period selection to set start/end time
+                document.getElementById('period').addEventListener('change', (e) => {
+                    const option = e.target.options[e.target.selectedIndex];
+                    if (option.value) {
+                        document.getElementById('startTime').value = option.dataset.start;
+                        document.getElementById('endTime').value = option.dataset.end;
+                    }
+                });
             }
 
             switchLevel(level) {
@@ -809,6 +866,9 @@ checkAuth(); // Ensure user is authenticated
                 // Reset class selection
                 this.currentClass = '';
                 this.showTimetablePlaceholder();
+
+                // Update modal periods
+                this.updateModalPeriods(level);
             }
 
             switchView(view) {
@@ -872,50 +932,54 @@ checkAuth(); // Ensure user is authenticated
                         }
 
                         const rows = json.data || [];
-                        // Build set of timeslots
-                        const timesMap = new Map();
-                        rows.forEach(r => {
-                            const label = `${r.start_time.slice(0, 5)} - ${r.end_time.slice(0, 5)}`;
-                            if (!timesMap.has(label)) timesMap.set(label, []);
-                            timesMap.get(label).push(r);
-                        });
 
-                        const sortedTimes = Array.from(timesMap.keys()).sort((a, b) => {
-                            const at = a.split(' - ')[0];
-                            const bt = b.split(' - ')[0];
-                            return at.localeCompare(bt);
-                        });
+                        // Select periods based on level
+                        let periods;
+                        if (this.currentLevel === 'early-childhood') {
+                            periods = this.periodsEarlyYears;
+                        } else if (this.currentLevel === 'primary') {
+                            periods = this.periodsPrimary;
+                        } else {
+                            periods = this.periodsSecondary;
+                        }
 
-                        const daysOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+                        // Map data to fixed periods
+                        const timetableData = periods.map(period => {
+                            const timeLabel = `${period.start} - ${period.end}`;
+                            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(dayName => {
+                                // Find entry that matches this day and overlaps with this period
+                                // We use a loose match on start time or if the period falls within the entry
+                                const entry = rows.find(r => {
+                                    if (r.day_of_week !== dayName) return false;
+                                    // Check for exact match or overlap
+                                    // Simple check: starts at the same time
+                                    // Note: DB stores seconds (08:00:00), JS has 08:00
+                                    return r.start_time.startsWith(period.start);
+                                });
 
-                        const timetableData = sortedTimes.map(timeLabel => {
-                            const slotRows = timesMap.get(timeLabel) || [];
-                            const days = daysOrder.map(() => null);
-
-                            slotRows.forEach(r => {
-                                const idx = daysOrder.indexOf(r.day_of_week);
-                                if (idx >= 0) {
-                                    days[idx] = {
-                                        subject: r.subject_name || 'N/A',
-                                        activity: r.subject_name || 'N/A', // For early childhood view
-                                        teacher: r.teacher_name || 'N/A',
-                                        room: r.room || '',
-                                        class: this.subjectToCss(r.subject_name || '')
+                                if (entry) {
+                                    return {
+                                        subject: entry.subject_name || 'N/A',
+                                        activity: entry.subject_name || 'N/A',
+                                        teacher: entry.teacher_name || 'N/A',
+                                        room: entry.room || '',
+                                        class: this.subjectToCss(entry.subject_name || '')
                                     };
                                 }
+                                return null;
                             });
 
                             return {
                                 time: timeLabel,
-                                days
+                                days: days
                             };
                         });
 
                         this.displayTimetable(className, timetableData);
 
                         // show conflict alert if any overlapping times detected (simple heuristic)
-                        const conflict = rows.some(r1 => rows.some(r2 => r1.id !== r2.id && r1.day_of_week === r2.day_of_week && r1.start_time === r2.start_time));
-                        if (conflict) document.getElementById('conflictAlert')?.classList.remove('hidden');
+                        // const conflict = rows.some(r1 => rows.some(r2 => r1.id !== r2.id && r1.day_of_week === r2.day_of_week && r1.start_time === r2.start_time));
+                        // if (conflict) document.getElementById('conflictAlert')?.classList.remove('hidden');
                     })
                     .catch(err => {
                         console.error(err);
@@ -926,13 +990,14 @@ checkAuth(); // Ensure user is authenticated
             subjectToCss(name) {
                 if (!name) return '';
                 const n = name.toLowerCase();
+                if (n.includes('break')) return 'subject-break';
                 if (n.includes('math') || n.includes('mathemat')) return 'subject-math';
                 if (n.includes('science') || n.includes('phy') || n.includes('chem') || n.includes('bio')) return 'subject-science';
                 if (n.includes('english') || n.includes('literature')) return 'subject-english';
                 if (n.includes('history') || n.includes('social')) return 'subject-history';
                 if (n.includes('music')) return 'subject-music';
                 if (n.includes('art')) return 'subject-art';
-                if (n.includes('sport') || n.includes('physical')) return 'subject-pe';
+                if (n.includes('sport') || n.includes('physical') || n.includes('pe')) return 'subject-pe';
                 if (n.includes('relig') || n.includes('irs') || n.includes('crs')) return 'subject-religious';
                 return 'template-card';
             }
@@ -974,13 +1039,13 @@ checkAuth(); // Ensure user is authenticated
                             <tbody>
                                 ${data.map(row => `
                                     <tr>
-                                        <td class="bg-nsklight p-3 font-semibold text-center">${row.time}</td>
+                                        <td class="bg-nsklight p-3 font-semibold text-center whitespace-nowrap">${row.time}</td>
                                         ${row.days.map(day => `
                                             <td class="p-2">
                                                 ${day ? `
                                                     <div class="timetable-cell ${day.class} p-3 rounded-lg">
                                                         <p class="font-semibold">${day[activityKey]}</p>
-                                                        ${day[activityKey] !== 'Break Time' ? `
+                                                        ${!day[activityKey].includes('Break') ? `
                                                             <p class="text-sm">${day.teacher}</p>
                                                             <p class="text-xs">${day.room}</p>
                                                         ` : ''}
@@ -1002,7 +1067,7 @@ checkAuth(); // Ensure user is authenticated
 
             generateDailyTimetable(className, data) {
                 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-                const selectedValue = (document.getElementById('day')?.value || 'monday').toString().toLowerCase();
+                const selectedValue = (document.getElementById('dailyDaySelector')?.value || 'monday').toString().toLowerCase();
                 const dayIndex = days.map(d => d.toLowerCase()).indexOf(selectedValue);
                 const selectedDay = dayIndex >= 0 ? dayIndex : 0;
 
@@ -1013,7 +1078,7 @@ checkAuth(); // Ensure user is authenticated
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-nsknavy">Daily Timetable for ${className.toUpperCase()} - ${days[selectedDay]}</h3>
                         <div class="flex items-center space-x-2">
-                            <select id="dailyDaySelector" class="px-3 py-1 border rounded-lg">
+                            <select id="dailyDaySelector" class="px-3 py-1 border rounded-lg" onchange="timetableManager.displayTimetable('${className}', ${JSON.stringify(data).replace(/"/g, '&quot;')})">
                                 ${days.map((day, index) => `
                                     <option value="${day.toLowerCase()}" ${index === selectedDay ? 'selected' : ''}>${day}</option>
                                 `).join('')}
@@ -1035,7 +1100,7 @@ checkAuth(); // Ensure user is authenticated
                     const day = row.days[selectedDay];
                     return `
                                         <tr>
-                                            <td class="bg-nsklight p-3 font-semibold text-center">${row.time}</td>
+                                            <td class="bg-nsklight p-3 font-semibold text-center whitespace-nowrap">${row.time}</td>
                                             <td class="p-3">
                                                 ${day ? `
                                                     <div class="timetable-cell ${day.class} p-3 rounded-lg">
@@ -1047,8 +1112,8 @@ checkAuth(); // Ensure user is authenticated
                                                     </div>
                                                 `}
                                             </td>
-                                            <td class="p-3 text-center">${day ? (day[activityKey] === 'Break Time' ? '-' : day.teacher) : '-'}</td>
-                                            <td class="p-3 text-center">${day ? (day[activityKey] === 'Break Time' ? '-' : day.room) : '-'}</td>
+                                            <td class="p-3 text-center">${day ? (day[activityKey].includes('Break') ? '-' : day.teacher) : '-'}</td>
+                                            <td class="p-3 text-center">${day ? (day[activityKey].includes('Break') ? '-' : day.room) : '-'}</td>
                                         </tr>
                                     `;
                 }).join('')}
@@ -1461,6 +1526,29 @@ checkAuth(); // Ensure user is authenticated
                     option.value = subject.toLowerCase().replace(/\s+/g, '-');
                     option.textContent = subject;
                     subjectSelect.appendChild(option);
+                });
+            }
+
+            updateModalPeriods(level) {
+                const periodSelect = document.getElementById('period');
+                periodSelect.innerHTML = '<option value="">Select Period</option>';
+
+                let periods;
+                if (level === 'early-childhood') {
+                    periods = this.periodsEarlyYears;
+                } else if (level === 'primary') {
+                    periods = this.periodsPrimary;
+                } else {
+                    periods = this.periodsSecondary;
+                }
+
+                periods.forEach((p, index) => {
+                    const option = document.createElement('option');
+                    option.value = p.name.toLowerCase().includes('break') ? 'break' : (index + 1);
+                    option.dataset.start = p.start;
+                    option.dataset.end = p.end;
+                    option.textContent = `${p.name} (${p.start} - ${p.end})`;
+                    periodSelect.appendChild(option);
                 });
             }
         }

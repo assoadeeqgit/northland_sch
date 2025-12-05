@@ -1,0 +1,19 @@
+# Force PHP classification
+*.php linguist-language=PHP
+
+# Treat .inc, .module, .install etc. as PHP
+*.inc linguist-language=PHP
+*.module linguist-language=PHP
+*.install linguist-language=PHP
+
+# Treat Hack-like files as PHP
+*.hh linguist-language=PHP
+*.hack linguist-language=PHP
+
+# JavaScript files
+*.js linguist-language=JavaScript
+
+# Ignore vendor, logs, and assets from language stats
+vendor/* linguist-vendored
+node_modules/* linguist-vendored
+assets/* linguist-vendored

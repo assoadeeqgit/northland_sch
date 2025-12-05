@@ -355,37 +355,62 @@ function deleteClass($db)
             throw new Exception("Class ID is required.");
         }
 
+        $class_id = $_POST['class_id'];
+
         // Get class name for logging
         $classStmt = $db->prepare("SELECT class_name FROM classes WHERE id = ?");
-        $classStmt->execute([$_POST['class_id']]);
+        $classStmt->execute([$class_id]);
         $className = $classStmt->fetchColumn();
+
+        if (!$className) {
+            throw new Exception("Class not found.");
+        }
 
         // Check if class has students
         $studentCheck = $db->prepare("SELECT COUNT(*) FROM students WHERE class_id = ?");
-        $studentCheck->execute([$_POST['class_id']]);
+        $studentCheck->execute([$class_id]);
         $studentCount = $studentCheck->fetchColumn();
 
         if ($studentCount > 0) {
-            throw new Exception("Cannot delete class with enrolled students. Please reassign students first.");
+            throw new Exception("Cannot delete class with enrolled students. Please reassign or remove students first.");
         }
 
-        // Delete class
-        $sql = "DELETE FROM classes WHERE id = ?";
-        $stmt = $db->prepare($sql);
-        $stmt->execute([$_POST['class_id']]);
+        // Start transaction for data integrity
+        $db->beginTransaction();
 
-        // Log activity
-        $admin_name = $_SESSION['user_name'] ?? 'Admin';
-        logActivity(
-            $db,
-            $admin_name,
-            "Class Deleted",
-            "Deleted class: $className",
-            "fas fa-trash",
-            "bg-nskred"
-        );
+        try {
+            // Delete class subjects first
+            $deleteSubjectsStmt = $db->prepare("DELETE FROM class_subjects WHERE class_id = ?");
+            $deleteSubjectsStmt->execute([$class_id]);
 
-        return ['success' => true, 'message' => 'Class deleted successfully!'];
+            // Delete timetable entries
+            $deleteTimetableStmt = $db->prepare("DELETE FROM timetable WHERE class_id = ?");
+            $deleteTimetableStmt->execute([$class_id]);
+
+            // Delete the class
+            $deleteClassStmt = $db->prepare("DELETE FROM classes WHERE id = ?");
+            $deleteClassStmt->execute([$class_id]);
+
+            // Commit transaction
+            $db->commit();
+
+            // Log activity
+            $admin_name = $_SESSION['user_name'] ?? 'Admin';
+            logActivity(
+                $db,
+                $admin_name,
+                "Class Deleted",
+                "Deleted class: $className",
+                "fas fa-trash",
+                "bg-nskred"
+            );
+
+            return ['success' => true, 'message' => 'Class deleted successfully!'];
+        } catch (Exception $e) {
+            // Rollback on error
+            $db->rollBack();
+            throw $e;
+        }
     } catch (Exception $e) {
         return ['success' => false, 'message' => $e->getMessage()];
     }

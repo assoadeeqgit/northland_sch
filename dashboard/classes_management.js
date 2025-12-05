@@ -893,17 +893,27 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (cancelDeleteBtn) {
     cancelDeleteBtn.addEventListener('click', function () {
-      if (deleteModal) deleteModal.style.display = 'none';
+      if (deleteModal) {
+        deleteModal.classList.remove('active');
+        setTimeout(() => {
+          deleteModal.style.display = 'none';
+        }, 300); // Wait for animation to complete
+      }
     });
   }
+
 
   if (deleteModal) {
     deleteModal.addEventListener('click', function (e) {
       if (e.target === deleteModal) {
-        deleteModal.style.display = 'none';
+        deleteModal.classList.remove('active');
+        setTimeout(() => {
+          deleteModal.style.display = 'none';
+        }, 300);
       }
     });
   }
+
 
   // Log form submission for debugging
   if (deleteClassForm) {
@@ -921,14 +931,36 @@ window.confirmDeleteClass = function confirmDeleteClass(classId, className) {
   const deleteClassNameSpan = document.getElementById('deleteClassName');
   const deleteClassIdInput = document.getElementById('deleteClassId');
 
+  // Debug: Log element existence
+  console.log('Modal element:', deleteModal);
+  console.log('Class name span:', deleteClassNameSpan);
+  console.log('Class ID input:', deleteClassIdInput);
+
   if (!deleteModal) {
     console.error('Delete modal not found!');
     alert('Error: Delete modal not found. Please refresh the page.');
     return;
   }
 
+  if (!deleteClassNameSpan) {
+    console.error('deleteClassName span not found!');
+  }
+
+  if (!deleteClassIdInput) {
+    console.error('deleteClassId input not found!');
+  }
+
+  // Set values
   if (deleteClassNameSpan) deleteClassNameSpan.textContent = className;
   if (deleteClassIdInput) deleteClassIdInput.value = classId;
 
+  // Show modal
   deleteModal.style.display = 'flex';
+  console.log('Modal display set to flex');
+
+  // Add active class for animation
+  setTimeout(() => {
+    deleteModal.classList.add('active');
+  }, 10);
 }
+
