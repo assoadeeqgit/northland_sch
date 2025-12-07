@@ -170,8 +170,9 @@ function formatMedicalCondition($condition)
 }
 
 // Get filter parameters - MOVED BEFORE POST HANDLING
-$searchQuery = isset($_GET['search']) ? trim($_GET['search']) : '';
-$classFilter = isset($_GET['class_filter']) ? intval($_GET['class_filter']) : '';
+// Get filter parameters - MOVED BEFORE POST HANDLING
+$searchQuery = isset($_REQUEST['search']) ? trim($_REQUEST['search']) : '';
+$classFilter = isset($_REQUEST['class_filter']) ? intval($_REQUEST['class_filter']) : '';
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -187,6 +188,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle CSV Export with Filters
     if (isset($_POST['export_csv'])) {
         try {
+            // Clear any previous output to prevent file corruption
+            if (ob_get_level())
+                ob_end_clean();
+
             // Set headers for CSV download
             $filename = "students_export_" . date('Y-m-d') . ".csv";
             header('Content-Type: text/csv; charset=utf-8');
@@ -1505,6 +1510,17 @@ try {
             background-color: #f8fafc;
             transform: translateX(5px);
         }
+
+        /* Loading spinner for buttons */
+        .btn-spinner {
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 0.5rem;
+        }
+
+        .btn-loading {
+            cursor: not-allowed;
+        }
     </style>
 </head>
 
@@ -1658,17 +1674,19 @@ try {
                     <?php endif; ?>
 
                     <!-- Add these new buttons -->
-                    <button type="button" onclick="downloadTemplate()"
+                    <button type="button" onclick="downloadTemplate(this)"
                         class="bg-nskblue text-white px-4 py-2 rounded-lg font-semibold hover:bg-nsknavy transition flex items-center">
                         <i class="fas fa-download mr-2"></i> Download Template
                     </button>
 
                     <button type="button" onclick="showImportModal()"
                         class="bg-nskgold text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-600 transition flex items-center">
-                        <i class="fas fa-upload mr-2"></i> Import Students
+                        <i class="fas fa-upload mr-2"></i> Import from CSV
                     </button>
 
                     <form method="POST" action="" class="inline">
+                        <input type="hidden" name="search" value="<?= htmlspecialchars($searchQuery) ?>">
+                        <input type="hidden" name="class_filter" value="<?= htmlspecialchars($classFilter) ?>">
                         <button type="submit" name="export_csv"
                             class="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition flex items-center">
                             <i class="fas fa-file-export mr-2"></i> Export
@@ -1962,7 +1980,7 @@ try {
                             </ul>
                         </div>
 
-                        <div class="flex items-center">
+                        <div class="flex items-center" style="display: none;">
                             <input type="checkbox" id="sendWelcomeEmail" name="send_welcome_email" class="mr-2">
                             <label for="sendWelcomeEmail" class="text-sm text-gray-700">
                                 Send welcome email to new students (default password: password123)
@@ -1978,7 +1996,7 @@ try {
                         <button type="submit" name="import_students"
                             class="bg-nskgreen text-white px-6 py-2 rounded-lg hover:bg-green-600 transition flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                             id="importSubmit" disabled>
-                            <i class="fas fa-upload mr-2"></i> Import Students
+                            <i class="fas fa-upload mr-2"></i> Upload and Import
                         </button>
                     </div>
                 </form>
@@ -2331,7 +2349,13 @@ try {
             }
 
             // Template Download Function
-            function downloadTemplate() {
+            function downloadTemplate(btn) {
+                // Add loading state
+                const originalContent = btn.innerHTML;
+                btn.innerHTML = '<i class="fas fa-spinner btn-spinner"></i> Downloading...';
+                btn.classList.add('btn-loading');
+                btn.disabled = true;
+
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = '';
@@ -2344,6 +2368,14 @@ try {
                 form.appendChild(templateInput);
                 document.body.appendChild(form);
                 form.submit();
+
+                // Reset button after a short delay (since download doesn't trigger a page reload)
+                setTimeout(() => {
+                    btn.innerHTML = originalContent;
+                    btn.classList.remove('btn-loading');
+                    btn.disabled = false;
+                    document.body.removeChild(form);
+                }, 3000);
             }
 
             // Load student data for viewing (when page loads with view parameter)

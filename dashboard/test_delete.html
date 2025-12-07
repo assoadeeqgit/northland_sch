@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Button Test</title>
+</head>
+
+<body>
+    <h1>Delete Button Test Page</h1>
+
+    <button onclick="confirmDeleteClass(1, 'Test Class')">Test Delete Button</button>
+
+    <!-- Delete Modal (from classes.php) -->
+    <div id="deleteClassModal"
+        style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); justify-content: center; align-items: center;">
+        <div style="background: white; padding: 20px; border-radius: 8px;">
+            <h3>Delete Class</h3>
+            <p>Are you sure you want to delete <strong id="deleteClassName"></strong>?</p>
+
+            <form id="deleteClassForm" method="POST" action="classes.php">
+                <input type="hidden" name="delete_class" value="1">
+                <input type="hidden" name="class_id" id="deleteClassId">
+
+                <button type="button" id="cancelDeleteBtn">Cancel</button>
+                <button type="submit">Delete Class</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Load the classes_management.js file -->
+    <script src="classes_management.js"></script>
+
+    <script>
+        // Check if function is defined
+        console.log('confirmDeleteClass function:', typeof window.confirmDeleteClass);
+        console.log('Modal element:', document.getElementById('deleteClassModal'));
+    </script>
+</body>
+
+</html>

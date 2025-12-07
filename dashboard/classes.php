@@ -568,15 +568,15 @@ try {
                                             <p class="text-gray-600">Class Teacher: <?= htmlspecialchars($teacherName) ?></p>
                                         </div>
                                         <div class="flex space-x-2">
-                                            <button class="text-nskblue hover:text-nsknavy"
+                                            <button type="button" class="text-nskblue hover:text-nsknavy"
                                                 onclick="editClass(<?= $class['id'] ?>)" title="Edit Class">
                                                 <i class="fas fa-edit"></i>
                                             </button>
-                                            <button class="text-nskgreen hover:text-green-700"
+                                            <button type="button" class="text-nskgreen hover:text-green-700"
                                                 onclick="viewClassDetails(<?= $class['id'] ?>)" title="View Details">
                                                 <i class="fas fa-eye"></i>
                                             </button>
-                                            <button class="text-nskred hover:text-red-700"
+                                            <button type="button" class="text-nskred hover:text-red-700"
                                                 onclick="confirmDeleteClass(<?= $class['id'] ?>, '<?= htmlspecialchars($class['class_name'], ENT_QUOTES) ?>')"
                                                 title="Delete Class">
                                                 <i class="fas fa-trash"></i>

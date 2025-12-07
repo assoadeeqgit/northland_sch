@@ -925,42 +925,60 @@ document.addEventListener("DOMContentLoaded", function () {
 
 // Delete class function (globally accessible)
 window.confirmDeleteClass = function confirmDeleteClass(classId, className) {
-  console.log('Delete requested for:', classId, className);
+  console.log('=== DELETE BUTTON CLICKED ===');
+  console.log('Class ID:', classId);
+  console.log('Class Name:', className);
+  console.log('Function called at:', new Date().toISOString());
 
-  const deleteModal = document.getElementById('deleteClassModal');
-  const deleteClassNameSpan = document.getElementById('deleteClassName');
-  const deleteClassIdInput = document.getElementById('deleteClassId');
+  try {
+    const deleteModal = document.getElementById('deleteClassModal');
+    const deleteClassNameSpan = document.getElementById('deleteClassName');
+    const deleteClassIdInput = document.getElementById('deleteClassId');
 
-  // Debug: Log element existence
-  console.log('Modal element:', deleteModal);
-  console.log('Class name span:', deleteClassNameSpan);
-  console.log('Class ID input:', deleteClassIdInput);
+    // Debug: Log element existence
+    console.log('Modal element found:', deleteModal !== null);
+    console.log('Class name span found:', deleteClassNameSpan !== null);
+    console.log('Class ID input found:', deleteClassIdInput !== null);
 
-  if (!deleteModal) {
-    console.error('Delete modal not found!');
-    alert('Error: Delete modal not found. Please refresh the page.');
-    return;
+    if (!deleteModal) {
+      console.error('CRITICAL: Delete modal not found in DOM!');
+      console.error('Available elements with "delete" in ID:',
+        Array.from(document.querySelectorAll('[id*="delete"]')).map(el => el.id));
+      alert('Error: Delete confirmation modal is missing. Please refresh the page and try again.');
+      return;
+    }
+
+    if (!deleteClassNameSpan) {
+      console.warn('deleteClassName span not found - class name will not be displayed');
+    } else {
+      deleteClassNameSpan.textContent = className;
+      console.log('Set class name to:', className);
+    }
+
+    if (!deleteClassIdInput) {
+      console.error('deleteClassId input not found - form submission will fail!');
+      alert('Error: Form is incomplete. Please refresh the page.');
+      return;
+    } else {
+      deleteClassIdInput.value = classId;
+      console.log('Set class ID to:', classId);
+    }
+
+    // Show modal
+    console.log('About to show modal...');
+    deleteModal.style.display = 'flex';
+    console.log('Modal display set to:', deleteModal.style.display);
+
+    // Add active class for animation
+    setTimeout(() => {
+      deleteModal.classList.add('active');
+      console.log('Modal active class added');
+      console.log('Modal is now visible');
+    }, 10);
+
+  } catch (error) {
+    console.error('ERROR in confirmDeleteClass:', error);
+    console.error('Stack trace:', error.stack);
+    alert('An error occurred: ' + error.message);
   }
-
-  if (!deleteClassNameSpan) {
-    console.error('deleteClassName span not found!');
-  }
-
-  if (!deleteClassIdInput) {
-    console.error('deleteClassId input not found!');
-  }
-
-  // Set values
-  if (deleteClassNameSpan) deleteClassNameSpan.textContent = className;
-  if (deleteClassIdInput) deleteClassIdInput.value = classId;
-
-  // Show modal
-  deleteModal.style.display = 'flex';
-  console.log('Modal display set to flex');
-
-  // Add active class for animation
-  setTimeout(() => {
-    deleteModal.classList.add('active');
-  }, 10);
 }
-

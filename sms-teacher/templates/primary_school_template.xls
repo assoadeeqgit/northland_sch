@@ -1,0 +1,96 @@
+<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+    xmlns:o="urn:schemas-microsoft-com:office:office"
+    xmlns:x="urn:schemas-microsoft-com:office:excel"
+    xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+    xmlns:html="http://www.w3.org/TR/REC-html40">
+    <Worksheet ss:Name="Sheet1">
+        <Table>
+            <Row>
+                <Cell>
+                    <Data ss:Type="String">student_id</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="String">name</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="String">ca_score</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="String">exam_score</Data>
+                </Cell>
+            </Row>
+            <Row>
+                <Cell>
+                    <Data ss:Type="Number">1</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="String">Yusuf Sani</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="Number">15</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="Number">60</Data>
+                </Cell>
+            </Row>
+            <Row>
+                <Cell>
+                    <Data ss:Type="Number">2</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="String">Fatima Kareem</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="Number">18</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="Number">55</Data>
+                </Cell>
+            </Row>
+            <Row>
+                <Cell>
+                    <Data ss:Type="Number">3</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="String">SAFIYYA AHMAD</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="Number">12</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="Number">70</Data>
+                </Cell>
+            </Row>
+            <Row>
+                <Cell>
+                    <Data ss:Type="Number">4</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="String">Hassan Musa</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="Number">20</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="Number">65</Data>
+                </Cell>
+            </Row>
+            <Row>
+                <Cell>
+                    <Data ss:Type="Number">5</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="String">Ahmad Sani</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="Number">16</Data>
+                </Cell>
+                <Cell>
+                    <Data ss:Type="Number">50</Data>
+                </Cell>
+            </Row>
+        </Table>
+    </Worksheet>
+</Workbook>

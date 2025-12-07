@@ -401,22 +401,14 @@
                         <form id="signInForm" class="space-y-6">
                             <!-- Email Field -->
                             <div class="input-field">
-                                <input
-                                    type="email"
-                                    id="signInEmail"
-                                    placeholder=" "
-                                    required>
+                                <input type="email" id="signInEmail" placeholder=" " required>
                                 <label for="signInEmail">Email Address</label>
                                 <i class="input-icon fas fa-envelope"></i>
                             </div>
 
                             <!-- Password Field -->
                             <div class="input-field">
-                                <input
-                                    type="password"
-                                    id="signInPassword"
-                                    placeholder=" "
-                                    required>
+                                <input type="password" id="signInPassword" placeholder=" " required>
                                 <label for="signInPassword">Password</label>
                                 <i class="input-icon fas fa-lock" id="toggleSignInPassword"></i>
                             </div>
@@ -424,7 +416,8 @@
                             <!-- Remember Me & Forgot Password -->
                             <div class="flex items-center justify-between">
                                 <label class="flex items-center cursor-pointer">
-                                    <input type="checkbox" class="w-4 h-4 text-primary bg-input border-border rounded focus:ring-primary mr-2">
+                                    <input type="checkbox"
+                                        class="w-4 h-4 text-primary bg-input border-border rounded focus:ring-primary mr-2">
                                     <span class="text-sm text-muted-foreground">Remember me</span>
                                 </label>
                                 <a href="#" class="text-sm text-primary hover:underline">Forgot password?</a>
@@ -498,7 +491,8 @@
 
                             <!-- Step 2: Basic Information -->
                             <div id="basicStep" class="step-content hidden">
-                                <h3 class="text-lg font-semibold text-foreground text-center mb-4">Basic Information</h3>
+                                <h3 class="text-lg font-semibold text-foreground text-center mb-4">Basic Information
+                                </h3>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div class="input-field">
                                         <input type="text" id="firstName" placeholder=" " required>
@@ -531,7 +525,8 @@
 
                             <!-- Step 3: Role-Specific Information -->
                             <div id="specificStep" class="step-content hidden">
-                                <h3 class="text-lg font-semibold text-foreground text-center mb-4">Additional Information</h3>
+                                <h3 class="text-lg font-semibold text-foreground text-center mb-4">Additional
+                                    Information</h3>
                                 <div id="roleSpecificFields" class="space-y-4">
                                     <!-- Dynamic content will be inserted here -->
                                 </div>
@@ -539,10 +534,12 @@
 
                             <!-- Navigation Buttons -->
                             <div class="flex justify-between pt-4 mt-auto">
-                                <button type="button" id="prevBtn" class="btn btn-secondary hidden" onclick="AuthManager.previousStep()">
+                                <button type="button" id="prevBtn" class="btn btn-secondary hidden"
+                                    onclick="AuthManager.previousStep()">
                                     <i class="fas fa-arrow-left mr-2"></i>Previous
                                 </button>
-                                <button type="button" id="nextBtn" class="btn btn-primary ml-auto" onclick="AuthManager.nextStep()" disabled>
+                                <button type="button" id="nextBtn" class="btn btn-primary ml-auto"
+                                    onclick="AuthManager.nextStep()" disabled>
                                     Next<i class="fas fa-arrow-right ml-2"></i>
                                 </button>
                                 <button type="submit" id="submitBtn" class="btn btn-success ml-auto hidden">
@@ -583,124 +580,124 @@
             // Role-specific field configurations
             roleFields: {
                 student: [{
-                        type: 'date',
-                        id: 'dateOfBirth',
-                        label: 'Date of Birth',
-                        required: true
-                    },
-                    {
-                        type: 'select',
-                        id: 'gender',
-                        label: 'Gender',
-                        options: ['Male', 'Female', 'Other'],
-                        required: true
-                    },
-                    {
-                        type: 'select',
-                        id: 'classLevel',
-                        label: 'Class Level',
-                        options: ['JSS 1', 'JSS 2', 'JSS 3', 'SS 1', 'SS 2', 'SS 3'],
-                        required: true
-                    },
-                    {
-                        type: 'text',
-                        id: 'parentName',
-                        label: 'Parent/Guardian Name',
-                        required: true
-                    },
-                    {
-                        type: 'tel',
-                        id: 'parentPhone',
-                        label: 'Parent/Guardian Phone',
-                        required: true
-                    },
-                    {
-                        type: 'text',
-                        id: 'previousSchool',
-                        label: 'Previous School',
-                        required: false
-                    }
+                    type: 'date',
+                    id: 'dateOfBirth',
+                    label: 'Date of Birth',
+                    required: true
+                },
+                {
+                    type: 'select',
+                    id: 'gender',
+                    label: 'Gender',
+                    options: ['Male', 'Female', 'Other'],
+                    required: true
+                },
+                {
+                    type: 'select',
+                    id: 'classLevel',
+                    label: 'Class Level',
+                    options: ['JSS 1', 'JSS 2', 'JSS 3', 'SS 1', 'SS 2', 'SS 3'],
+                    required: true
+                },
+                {
+                    type: 'text',
+                    id: 'parentName',
+                    label: 'Parent/Guardian Name',
+                    required: true
+                },
+                {
+                    type: 'tel',
+                    id: 'parentPhone',
+                    label: 'Parent/Guardian Phone',
+                    required: true
+                },
+                {
+                    type: 'text',
+                    id: 'previousSchool',
+                    label: 'Previous School',
+                    required: false
+                }
                 ],
                 teacher: [{
-                        type: 'text',
-                        id: 'qualification',
-                        label: 'Highest Qualification',
-                        required: true
-                    },
-                    {
-                        type: 'text',
-                        id: 'subjects',
-                        label: 'Subject Specialization',
-                        required: true
-                    },
-                    {
-                        type: 'select',
-                        id: 'experience',
-                        label: 'Years of Experience',
-                        options: ['0-2 years', '3-5 years', '6-10 years', '10+ years'],
-                        required: true
-                    },
-                    {
-                        type: 'select',
-                        id: 'department',
-                        label: 'Department',
-                        options: ['Science', 'Arts', 'Commercial', 'Technical'],
-                        required: true
-                    },
-                    {
-                        type: 'select',
-                        id: 'employmentType',
-                        label: 'Employment Type',
-                        options: ['Full-time', 'Part-time', 'Contract'],
-                        required: true
-                    }
+                    type: 'text',
+                    id: 'qualification',
+                    label: 'Highest Qualification',
+                    required: true
+                },
+                {
+                    type: 'text',
+                    id: 'subjects',
+                    label: 'Subject Specialization',
+                    required: true
+                },
+                {
+                    type: 'select',
+                    id: 'experience',
+                    label: 'Years of Experience',
+                    options: ['0-2 years', '3-5 years', '6-10 years', '10+ years'],
+                    required: true
+                },
+                {
+                    type: 'select',
+                    id: 'department',
+                    label: 'Department',
+                    options: ['Science', 'Arts', 'Commercial', 'Technical'],
+                    required: true
+                },
+                {
+                    type: 'select',
+                    id: 'employmentType',
+                    label: 'Employment Type',
+                    options: ['Full-time', 'Part-time', 'Contract'],
+                    required: true
+                }
                 ],
                 staff: [{
-                        type: 'select',
-                        id: 'department',
-                        label: 'Department',
-                        options: ['Administration', 'Maintenance', 'Security', 'Kitchen', 'Library'],
-                        required: true
-                    },
-                    {
-                        type: 'text',
-                        id: 'position',
-                        label: 'Job Title/Position',
-                        required: true
-                    },
-                    {
-                        type: 'select',
-                        id: 'employmentType',
-                        label: 'Employment Type',
-                        options: ['Full-time', 'Part-time', 'Contract'],
-                        required: true
-                    },
-                    {
-                        type: 'text',
-                        id: 'supervisor',
-                        label: 'Supervisor Name',
-                        required: false
-                    }
+                    type: 'select',
+                    id: 'department',
+                    label: 'Department',
+                    options: ['Administration', 'Maintenance', 'Security', 'Kitchen', 'Library'],
+                    required: true
+                },
+                {
+                    type: 'text',
+                    id: 'position',
+                    label: 'Job Title/Position',
+                    required: true
+                },
+                {
+                    type: 'select',
+                    id: 'employmentType',
+                    label: 'Employment Type',
+                    options: ['Full-time', 'Part-time', 'Contract'],
+                    required: true
+                },
+                {
+                    type: 'text',
+                    id: 'supervisor',
+                    label: 'Supervisor Name',
+                    required: false
+                }
                 ],
                 admin: [{
-                        type: 'select',
-                        id: 'adminLevel',
-                        label: 'Admin Level',
-                        options: ['Super Admin', 'Admin', 'Sub-Admin'],
-                        required: true
-                    },
-                    {
-                        type: 'text',
-                        id: 'department',
-                        label: 'Department Access',
-                        required: true
-                    },
-                    {
-                        type: 'textarea',
-                        id: 'permissions',
-                        label: 'Special Permissions',
-                        required: false
-                    }
+                    type: 'select',
+                    id: 'adminLevel',
+                    label: 'Admin Level',
+                    options: ['Super Admin', 'Admin', 'Sub-Admin'],
+                    required: true
+                },
+                {
+                    type: 'text',
+                    id: 'department',
+                    label: 'Department Access',
+                    required: true
+                },
+                {
+                    type: 'textarea',
+                    id: 'permissions',
+                    label: 'Special Permissions',
+                    required: false
+                }
                 ]
             },
 
@@ -1165,20 +1162,27 @@
                 sessionStorage.setItem('user_authenticated', 'true');
                 sessionStorage.setItem('user_type', userType);
 
-                const dashboards = {
-                    'admin': 'dashboard/admin-dashboard.php',
-                    'teacher': 'dashboard/teacher-dashboard.php',
-                    'student': 'dashboard/student-dashboard.php',
-                    'staff': 'dashboard/staff-dashboard.php',
-                    'principal': 'dashboard/admin-dashboard.php'
-                };
+                // Define dashboard paths
+                let dashboard;
 
-                const dashboard = dashboards[userType] || 'dashboard/default-dashboard.html';
+                if (userType === 'teacher') {
+                    // Teacher dashboard in sms-teacher folder
+                    dashboard = 'sms-teacher/teacher_dashboard.php';
+                } else {
+                    const dashboards = {
+                        'admin': 'dashboard/admin-dashboard.php',
+                        'student': 'dashboard/student-dashboard.php',
+                        'staff': 'dashboard/staff-dashboard.php',
+                        'principal': 'dashboard/admin-dashboard.php'
+                    };
+                    dashboard = dashboards[userType] || 'dashboard/default-dashboard.html';
+                }
 
                 // Add token to URL for session verification
                 const token = localStorage.getItem('session_token');
                 const redirectUrl = token ? `${dashboard}?token=${encodeURIComponent(token)}` : dashboard;
 
+                console.log('Redirecting to:', redirectUrl, 'User type:', userType);
                 window.location.href = redirectUrl;
             },
 
@@ -1189,8 +1193,8 @@
 
                 // Verify token with server periodically
                 this.apiCall('check_auth', {
-                        token: token
-                    })
+                    token: token
+                })
                     .then(response => {
                         if (!response.success) {
                             this.clearUserSession();
@@ -1221,11 +1225,10 @@
 
                 notification.innerHTML = `
                 <div class="flex items-center">
-                    <i class="fas ${
-                        type === 'success' ? 'fa-check-circle' :
+                    <i class="fas ${type === 'success' ? 'fa-check-circle' :
                         type === 'error' ? 'fa-exclamation-circle' :
-                        type === 'warning' ? 'fa-exclamation-triangle' :
-                        'fa-info-circle'
+                            type === 'warning' ? 'fa-exclamation-triangle' :
+                                'fa-info-circle'
                     } mr-2"></i>
                     <span>${message}</span>
                     <button class="ml-4 hover:opacity-70" onclick="this.parentElement.parentElement.remove()">
@@ -1274,7 +1277,7 @@
         }
 
         // Initialize when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             AuthManager.init();
         });
     </script>
