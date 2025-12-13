@@ -425,6 +425,17 @@ checkAuth(); // Ensure user is authenticated
                 require_once __DIR__ . '/../config/database.php';
                 $db = new Database();
                 $conn = $db->getConnection();
+
+                // Fetch School Name
+                $schoolName = 'Northland Schools Kano'; // Default
+                // The following block was removed as per instruction:
+                // if ($conn) {
+                //     $stmt = $conn->query("SELECT setting_value FROM settings WHERE setting_key = 'school_name'");
+                //     $val = $stmt->fetchColumn();
+                //     if ($val)
+                //         $schoolName = $val;
+                // }
+                
                 $classesByLevel = ['Early Childhood' => [], 'Primary' => [], 'Secondary' => []];
                 if ($conn) {
                     $stmt = $conn->query("SELECT id, class_name, class_level FROM classes ORDER BY class_level, class_name");
@@ -436,6 +447,7 @@ checkAuth(); // Ensure user is authenticated
                     }
                 }
                 ?>
+
 
                 <div id="earlyChildhoodClasses" class="class-selection hidden">
                     <select id="classSelectEarly" class="class-selector px-4 py-2 border rounded-lg w-full md:w-64">
@@ -497,6 +509,10 @@ checkAuth(); // Ensure user is authenticated
                     class="px-4 py-2 rounded-lg border border-nskgold text-nskgold hover:bg-nskgold hover:text-white transition">
                     <i class="fas fa-file-excel mr-2"></i>Export Excel
                 </button>
+                <a href="download_timetable_template.php" target="_blank"
+                    class="px-4 py-2 rounded-lg border border-gray-500 text-gray-500 hover:bg-gray-500 hover:text-white transition">
+                    <i class="fas fa-download mr-2"></i>Template
+                </a>
             </div>
         </div>
 
@@ -560,6 +576,12 @@ checkAuth(); // Ensure user is authenticated
                         class="bg-nskgreen text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition flex items-center">
                         <i class="fas fa-magic mr-2"></i> Auto-Generate
                     </button>
+
+                    <button id="importTimetableBtn"
+                        class="bg-nsknavy text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-800 transition flex items-center">
+                        <i class="fas fa-file-import mr-2"></i> Import
+                    </button>
+                    <input type="file" id="importCsvInput" class="hidden" accept=".csv">
 
                     <button id="addScheduleBtn"
                         class="bg-nskgold text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-600 transition flex items-center">
@@ -1666,31 +1688,36 @@ checkAuth(); // Ensure user is authenticated
             html += '<style>';
             // Import Tailwind and Font Awesome for styling
             html += '@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap");';
-            html += 'body { font-family: "Montserrat", sans-serif; margin: 0; padding: 20px; background: #f8fafc; }';
-            html += 'h1 { text-align: center; color: #1e40af; font-size: 28px; margin-bottom: 10px; font-weight: 700; }';
-            html += 'p { text-align: center; color: #64748b; margin: 5px 0; font-size: 14px; }';
-            html += '.timetable-header { background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; text-align: center; }';
-            html += 'table { width: 100%; border-collapse: collapse; background: white; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden; }';
+            html += 'body { font-family: "Montserrat", sans-serif; margin: 0; padding: 10px; background: #f8fafc; }';
+            html += 'h1 { text-align: center; color: #1e40af; font-size: 20px; margin-bottom: 5px; font-weight: 700; }';
+            html += 'p { text-align: center; color: #64748b; margin: 2px 0; font-size: 10px; }';
+            html += '.timetable-header { background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; text-align: center; }';
+            html += 'table { width: 100%; border-collapse: collapse; background: white; box-shadow: none; border-radius: 8px; overflow: hidden; font-size: 10px; }';
             html += 'thead { background-color: #3b82f6; }';
-            html += 'th { background-color: #3b82f6; color: white; padding: 12px; text-align: center; font-weight: 600; border: 1px solid #2563eb; }';
-            html += 'td { padding: 12px; text-align: center; border: 1px solid #e2e8f0; }';
+            html += 'th { background-color: #3b82f6; color: white; padding: 4px; text-align: center; font-weight: 600; border: 1px solid #2563eb; white-space: nowrap; }';
+            html += 'td { padding: 2px 4px; text-align: center; border: 1px solid #e2e8f0; vertical-align: middle; }';
             html += 'tr:nth-child(even) td { background-color: #f0f9ff; }';
             html += 'tr:hover td { background-color: #dbeafe; }';
-            html += '.subject-math { background-color: #bfdbfe; border-left: 4px solid #3b82f6; }';
-            html += '.subject-science { background-color: #bbf7d0; border-left: 4px solid #10b981; }';
-            html += '.subject-english { background-color: #fde68a; border-left: 4px solid #f59e0b; }';
-            html += '.subject-history { background-color: #e9d5ff; border-left: 4px solid #8b5cf6; }';
-            html += '.subject-art { background-color: #fecaca; border-left: 4px solid #ef4444; }';
-            html += '.subject-pe { background-color: #c7d2fe; border-left: 4px solid #6366f1; }';
-            html += '.subject-religious { background-color: #ddd6fe; border-left: 4px solid #7c3aed; }';
-            html += '.subject-music { background-color: #f0abfc; border-left: 4px solid #c026d3; }';
-            html += '.subject-break { background-color: #fef3c7; border-left: 4px solid #f59e0b; }';
-            html += '.subject-sensory { background-color: #d1fae5; border-left: 4px solid #10b981; }';
-            html += '.subject-story { background-color: #e0e7ff; border-left: 4px solid #4f46e5; }';
-            html += '.subject-computer { background-color: #a7f3d0; border-left: 4px solid #059669; }';
+            html += '.timetable-cell { padding: 2px; border-radius: 4px; }';
+            html += '.timetable-cell p { margin: 0; line-height: 1.2; }';
+            html += '.timetable-cell p.font-semibold { font-weight: 600; font-size: 10px; }';
+            html += '.timetable-cell p.text-sm { font-size: 9px; }';
+            html += '.timetable-cell p.text-xs { font-size: 8px; }';
+            html += '.subject-math { background-color: #bfdbfe; border-left: 2px solid #3b82f6; }';
+            html += '.subject-science { background-color: #bbf7d0; border-left: 2px solid #10b981; }';
+            html += '.subject-english { background-color: #fde68a; border-left: 2px solid #f59e0b; }';
+            html += '.subject-history { background-color: #e9d5ff; border-left: 2px solid #8b5cf6; }';
+            html += '.subject-art { background-color: #fecaca; border-left: 2px solid #ef4444; }';
+            html += '.subject-pe { background-color: #c7d2fe; border-left: 2px solid #6366f1; }';
+            html += '.subject-religious { background-color: #ddd6fe; border-left: 2px solid #7c3aed; }';
+            html += '.subject-music { background-color: #f0abfc; border-left: 2px solid #c026d3; }';
+            html += '.subject-break { background-color: #fef3c7; border-left: 2px solid #f59e0b; }';
+            html += '.subject-sensory { background-color: #d1fae5; border-left: 2px solid #10b981; }';
+            html += '.subject-story { background-color: #e0e7ff; border-left: 2px solid #4f46e5; }';
+            html += '.subject-computer { background-color: #a7f3d0; border-left: 2px solid #059669; }';
             html += '.time-cell { background-color: #f0f9ff; font-weight: 600; color: #1e40af; }';
-            html += '.footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8; }';
-            html += '@media print { body { padding: 10px; } table { box-shadow: none; } tr:hover td { background-color: inherit; } }';
+            html += '.footer { margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 10px; color: #94a3b8; }';
+            html += '@media print { @page { size: landscape; margin: 5mm; } body { padding: 0; } table { box-shadow: none; width: 100%; table-layout: fixed; } tr:hover td { background-color: inherit; } }';
             html += '</style>';
             html += '</head><body>';
             html += '<div class="timetable-header">';
@@ -1804,6 +1831,58 @@ checkAuth(); // Ensure user is authenticated
                     timetableManager.loadTimetable(timetableManager.currentClass);
                 }
             }
+        });
+
+        // Import Functionality
+        document.getElementById('importTimetableBtn')?.addEventListener('click', function () {
+            document.getElementById('importCsvInput').click();
+        });
+
+        document.getElementById('importCsvInput')?.addEventListener('change', function (e) {
+            if (!this.files || !this.files.length) return;
+
+            const file = this.files[0];
+            const formData = new FormData();
+            formData.append('csvFile', file);
+
+            // Show loading state
+            const btn = document.getElementById('importTimetableBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Importing...';
+            btn.disabled = true;
+
+            fetch('import_timetable_process.php', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let msg = 'Import successful! Imported ' + data.imported_count + ' entries.';
+                        if (data.errors && data.errors.length > 0) {
+                            msg += '\n\nWarnings:\n' + data.errors.slice(0, 10).join('\n') + (data.errors.length > 10 ? '\n...and more.' : '');
+                        }
+                        alert(msg);
+
+                        // Refresh timetable if class is selected
+                        if (timetableManager.currentClass) {
+                            timetableManager.loadTimetable(timetableManager.currentClass);
+                        } else {
+                            location.reload();
+                        }
+                    } else {
+                        alert('Import failed: ' + data.message + (data.errors ? '\nErrors:\n' + data.errors.slice(0, 10).join('\n') : ''));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred during import.');
+                })
+                .finally(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    document.getElementById('importCsvInput').value = ''; // Reset
+                });
         });
     </script>
 </body>
