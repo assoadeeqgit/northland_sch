@@ -758,6 +758,8 @@ checkAuth(); // Ensure user is authenticated
             </div>
         </div>
 
+        </div>
+
         <!-- Floating Action Button -->
         <button
             class="floating-action-btn w-14 h-14 bg-nskblue text-white rounded-full flex items-center justify-center shadow-lg hover:bg-nsknavy transition">
@@ -769,6 +771,7 @@ checkAuth(); // Ensure user is authenticated
     </main>
 
     <script>
+        const SCHOOL_NAME = "<?php echo isset($schoolName) ? addslashes($schoolName) : 'Northland Schools Kano'; ?>";
         // Enhanced Timetable Manager
         class TimetableManager {
             constructor() {
@@ -943,70 +946,18 @@ checkAuth(); // Ensure user is authenticated
                 // Show loading
                 this.showLoadingState();
 
-                // Fetch timetable from server API
-                fetch(`./timetable_api.php?class_id=${encodeURIComponent(className)}`)
-                    .then(res => res.json())
-                    .then(json => {
-                        if (!json.success) {
-                            this.showTimetablePlaceholder();
-                            console.error('Timetable API error', json.message);
-                            return;
-                        }
-
-                        const rows = json.data || [];
-
-                        // Select periods based on level
-                        let periods;
-                        if (this.currentLevel === 'early-childhood') {
-                            periods = this.periodsEarlyYears;
-                        } else if (this.currentLevel === 'primary') {
-                            periods = this.periodsPrimary;
-                        } else {
-                            periods = this.periodsSecondary;
-                        }
-
-                        // Map data to fixed periods
-                        const timetableData = periods.map(period => {
-                            const timeLabel = `${period.start} - ${period.end}`;
-                            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map(dayName => {
-                                // Find entry that matches this day and overlaps with this period
-                                // We use a loose match on start time or if the period falls within the entry
-                                const entry = rows.find(r => {
-                                    if (r.day_of_week !== dayName) return false;
-                                    // Check for exact match or overlap
-                                    // Simple check: starts at the same time
-                                    // Note: DB stores seconds (08:00:00), JS has 08:00
-                                    return r.start_time.startsWith(period.start);
-                                });
-
-                                if (entry) {
-                                    return {
-                                        subject: entry.subject_name || 'N/A',
-                                        activity: entry.subject_name || 'N/A',
-                                        teacher: entry.teacher_name || 'N/A',
-                                        room: entry.room || '',
-                                        class: this.subjectToCss(entry.subject_name || '')
-                                    };
-                                }
-                                return null;
-                            });
-
-                            return {
-                                time: timeLabel,
-                                days: days
-                            };
-                        });
-
-                        this.displayTimetable(className, timetableData);
-
-                        // show conflict alert if any overlapping times detected (simple heuristic)
-                        // const conflict = rows.some(r1 => rows.some(r2 => r1.id !== r2.id && r1.day_of_week === r2.day_of_week && r1.start_time === r2.start_time));
-                        // if (conflict) document.getElementById('conflictAlert')?.classList.remove('hidden');
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        this.showTimetablePlaceholder();
-                    });
+                // Simulate API call
+                setTimeout(() => {
+                    let data;
+                    if (this.currentLevel === 'early-childhood') {
+                        data = this.getEarlyChildhoodTimetable();
+                    } else if (this.currentLevel === 'primary') {
+                        data = this.getPrimaryTimetable();
+                    } else {
+                        data = this.getSecondaryTimetable();
+                    }
+                    this.displayTimetable(className, data);
+                }, 500);
             }
 
             subjectToCss(name) {
@@ -1688,10 +1639,10 @@ checkAuth(); // Ensure user is authenticated
             html += '<style>';
             // Import Tailwind and Font Awesome for styling
             html += '@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap");';
-            html += 'body { font-family: "Montserrat", sans-serif; margin: 0; padding: 10px; background: #f8fafc; }';
-            html += 'h1 { text-align: center; color: #1e40af; font-size: 20px; margin-bottom: 5px; font-weight: 700; }';
+            html += 'h2 { text-align: center; color: #1e3a8a; font-size: 16px; margin-bottom: 2px; margin-top: 0; font-weight: 600; }';
             html += 'p { text-align: center; color: #64748b; margin: 2px 0; font-size: 10px; }';
-            html += '.timetable-header { background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; text-align: center; }';
+            html += '.timetable-header { background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); color: white; padding: 10px; border-radius: 8px; margin-bottom: 10px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; }';
+            html += '.timetable-header img { height: 60px; width: auto; margin-bottom: 10px; background: white; border-radius: 50%; padding: 5px; }';
             html += 'table { width: 100%; border-collapse: collapse; background: white; box-shadow: none; border-radius: 8px; overflow: hidden; font-size: 10px; }';
             html += 'thead { background-color: #3b82f6; }';
             html += 'th { background-color: #3b82f6; color: white; padding: 4px; text-align: center; font-weight: 600; border: 1px solid #2563eb; white-space: nowrap; }';
@@ -1720,8 +1671,14 @@ checkAuth(); // Ensure user is authenticated
             html += '@media print { @page { size: landscape; margin: 5mm; } body { padding: 0; } table { box-shadow: none; width: 100%; table-layout: fixed; } tr:hover td { background-color: inherit; } }';
             html += '</style>';
             html += '</head><body>';
+
+            // Resolve logo URL
+            const logoUrl = new URL('../school_logo.png', window.location.href).href;
+
             html += '<div class="timetable-header">';
-            html += '<h1>' + className + ' - Timetable</h1>';
+            html += '<img src="' + logoUrl + '" alt="School Logo">';
+            html += '<h1>' + SCHOOL_NAME + '</h1>';
+            html += '<h2>' + className + ' - Timetable</h2>';
             html += '<p>Academic Year 2023/2024 | Term 3</p>';
             html += '</div>';
             html += timetableContent;
@@ -1794,7 +1751,7 @@ checkAuth(); // Ensure user is authenticated
                 return;
             }
 
-            let csv = className + ' - Timetable\n\n';
+            let csv = SCHOOL_NAME + '\n' + className + ' - Timetable\n\n';
             csv += 'Exported on: ' + new Date().toLocaleString() + '\n\n';
 
             const rows = table.querySelectorAll('tr');
