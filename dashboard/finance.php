@@ -219,42 +219,6 @@
 
         <!-- Finance Management Content -->
         <div class="p-6">
-            <!-- Stats Overview -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div class="finance-card bg-white rounded-xl shadow-md p-5 flex items-center">
-                    <div class="bg-nskgreen p-4 rounded-full mr-4">
-                        <i class="fas fa-money-bill-wave text-white text-xl"></i>
-                    </div>
-                    <div>
-                        <p class="text-gray-600">Total Revenue</p>
-                        <p class="text-2xl font-bold text-nsknavy">₦8.2M</p>
-                        <p class="text-xs text-nskgreen"><i class="fas fa-arrow-up"></i> 12% from last month</p>
-                    </div>
-                </div>
-                
-                <div class="finance-card bg-white rounded-xl shadow-md p-5 flex items-center">
-                    <div class="bg-nskblue p-4 rounded-full mr-4">
-                        <i class="fas fa-receipt text-white text-xl"></i>
-                    </div>
-                    <div>
-                        <p class="text-gray-600">Fee Collection Rate</p>
-                        <p class="text-2xl font-bold text-nsknavy">78%</p>
-                        <p class="text-xs text-gray-600">₦2.1M pending</p>
-                    </div>
-                </div>
-                
-                <div class="finance-card bg-white rounded-xl shadow-md p-5 flex items-center">
-                    <div class="bg-nskgold p-4 rounded-full mr-4">
-                        <i class="fas fa-credit-card text-white text-xl"></i>
-                    </div>
-                    <div>
-                        <p class="text-gray-600">Expenses</p>
-                        <p class="text-2xl font-bold text-nsknavy">₦4.7M</p>
-                        <p class="text-xs text-nskred">+8% from last month</p>
-                    </div>
-                </div>
-                
-                <div class="finance-card bg-white rounded-xl shadow-md p-5 flex items-center">
                     <div class="bg-nskred p-4 rounded-full mr-4">
                         <i class="fas fa-exclamation-circle text-white text-xl"></i>
                     </div>

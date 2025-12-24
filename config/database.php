@@ -1,9 +1,9 @@
 <?php
 
 class Database {
-    private $host = 'localhost';
+    private $host = '127.0.0.1';
     private $db_name = 'northland_schools_kano'; // Your database name
-    private $username = 'root';
+    private $username = 'admin';
     private $password = 'A@123456.Aaa'; // Your password
     public $conn;
 
