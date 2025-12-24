@@ -1,3 +1,4 @@
+git checkout main
 #!/bin/bash
 # Script to update all references from "sms-teacher" to "sms-teacher"
 
@@ -16,6 +17,7 @@ find . -name "*.sh" -type f -exec sed -i 's|sms-teacher|sms-teacher|g' {} \;
 # Update PHP files (but be careful not to break strings)
 echo "Updating PHP files..."
 find . -name "*.php" -type f ! -path "*/vendor/*" ! -path "*/node_modules/*" -exec sed -i 's|sms-teacher|sms-teacher|g' {} \;
+git checkout main
 
 # Update JavaScript/HTML files
 echo "Updating HTML/JS files..."
