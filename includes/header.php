@@ -20,15 +20,17 @@
                 <div class="school-acronym">EST. 2025</div>
             </div>
             
+            <?php 
+            $dash_prefix = ($_SESSION['user_type'] ?? '') == 'accountant' ? '/accountant-dashboard' : '';
+            ?>
             <ul class="sidebar-menu">
-                <li><a href="<?php echo BASE_URL; ?>/index.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>"><i class="fas fa-chart-line"></i> Dashboard</a></li>
-                <li><a href="<?php echo BASE_URL; ?>/payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'payment.php' ? 'active' : ''; ?>"><i class="fas fa-credit-card"></i> Payments</a></li>
-                <li><a href="<?php echo BASE_URL; ?>/dashboard/fees.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'fees.php' ? 'active' : ''; ?>"><i class="fas fa-file-invoice-dollar"></i> Fees</a></li>
-                <li><a href="<?php echo BASE_URL; ?>/students.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'students.php' ? 'active' : ''; ?>"><i class="fas fa-users"></i> Students</a></li>
-                <li><a href="<?php echo BASE_URL; ?>/inventory.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'inventory.php' ? 'active' : ''; ?>"><i class="fas fa-box-open"></i> Inventory</a></li>
-                <li><a href="<?php echo BASE_URL; ?>/dashboard/expenses.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'expenses.php' ? 'active' : ''; ?>"><i class="fas fa-money-bill-wave"></i> Expenses</a></li>
-                <li><a href="<?php echo BASE_URL; ?>/reports.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : ''; ?>"><i class="fas fa-chart-pie"></i> Reports</a></li>
-
+                <li><a href="<?php echo BASE_URL . $dash_prefix; ?>/index.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'index.php' ? 'active' : ''; ?>"><i class="fas fa-chart-line"></i> Dashboard</a></li>
+                <li><a href="<?php echo BASE_URL . $dash_prefix; ?>/payment.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'payment.php' ? 'active' : ''; ?>"><i class="fas fa-credit-card"></i> Payments</a></li>
+                <li><a href="<?php echo BASE_URL . $dash_prefix; ?>/fees.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'fees.php' ? 'active' : ''; ?>"><i class="fas fa-file-invoice-dollar"></i> Fees</a></li>
+                <li><a href="<?php echo BASE_URL . $dash_prefix; ?>/students.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'students.php' ? 'active' : ''; ?>"><i class="fas fa-users"></i> Students</a></li>
+                <li><a href="<?php echo BASE_URL . $dash_prefix; ?>/inventory.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'inventory.php' ? 'active' : ''; ?>"><i class="fas fa-box-open"></i> Inventory</a></li>
+                <li><a href="<?php echo BASE_URL . $dash_prefix; ?>/expenses.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'expenses.php' ? 'active' : ''; ?>"><i class="fas fa-money-bill-wave"></i> Expenses</a></li>
+                <li><a href="<?php echo BASE_URL . $dash_prefix; ?>/reports.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : ''; ?>"><i class="fas fa-chart-pie"></i> Reports</a></li>
             </ul>
         </nav>
 
@@ -40,6 +42,6 @@
                     <i class="fas fa-bars"></i>
                 </div>
                 <div class="user-profile">
-                    <span style="font-weight: 600; color: var(--brand-navy);">Admin User <i class="fas fa-chevron-down" style="color: var(--brand-orange); margin-left: 5px;"></i></span>
+                    <span style="font-weight: 600; color: var(--brand-navy);"><?php echo htmlspecialchars($_SESSION['user_name'] ?? 'User'); ?> <i class="fas fa-chevron-down" style="color: var(--brand-orange); margin-left: 5px;"></i></span>
                 </div>
             </header>

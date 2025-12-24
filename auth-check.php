@@ -16,7 +16,7 @@ function checkAuth($requiredRole = null) {
         $token = $_GET['token'] ?? $_POST['token'] ?? '';
         
         if (!empty($token)) {
-            require_once 'config/database.php';
+            require_once __DIR__ . '/config/database.php';
             $database = new Database();
             $db = $database->getConnection();
             
@@ -51,7 +51,8 @@ function checkAuth($requiredRole = null) {
         } else {
             // Redirect to login with return URL
             $current_url = urlencode($_SERVER['REQUEST_URI']);
-            header('Location: login-form.php?return_url=' . $current_url);
+            require_once __DIR__ . '/config/config.php';
+            header('Location: ' . BASE_URL . '/login-form.php?return_url=' . $current_url);
             exit();
         }
     }
@@ -83,7 +84,8 @@ function hasPermission($requiredPermission) {
     $permissions = [
         'teacher' => ['manage_classes', 'view_students', 'submit_grades'],
         'student' => ['view_grades', 'view_attendance'],
-        'staff' => ['manage_records', 'view_reports']
+        'staff' => ['manage_records', 'view_reports'],
+        'accountant' => ['manage_payments', 'view_reports', 'manage_expenses', 'manage_inventory']
     ];
     
     return in_array($requiredPermission, $permissions[$userType] ?? []);

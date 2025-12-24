@@ -1,6 +1,6 @@
 <?php
 require_once '../auth-check.php';
-// checkAuth('admin'); 
+checkAuth('accountant'); 
 
 include '../includes/header.php';
 require_once '../config/database.php';

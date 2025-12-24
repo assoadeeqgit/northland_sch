@@ -1192,7 +1192,7 @@
                         'student': 'dashboard/student-dashboard.php',
                         'staff': 'dashboard/staff-dashboard.php',
                         'principal': 'dashboard/admin-dashboard.php',
-                        'accountant': 'index.php'
+                        'accountant': 'accountant-dashboard/index.php'
                     };
                     dashboard = dashboards[userType] || 'dashboard/default-dashboard.html';
                 }

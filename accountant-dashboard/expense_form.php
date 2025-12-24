@@ -1,4 +1,8 @@
-<?php include 'includes/header.php'; ?>
+<?php 
+require_once '../auth-check.php';
+checkAuth('accountant');
+include '../includes/header.php'; 
+?>
 
 <div class="content-body" style="padding: 30px;">
     
@@ -68,4 +72,4 @@
 
 </div>
 
-<?php include 'includes/footer.php'; ?>
+<?php include '../includes/footer.php'; ?>

@@ -1,10 +1,10 @@
 <?php
-require_once 'auth-check.php';
-// checkAuth('admin');
+require_once '../auth-check.php';
+checkAuth('accountant');
 
-require_once 'config/config.php';
-include 'includes/header.php';
-require_once 'config/database.php';
+require_once '../config/config.php';
+include '../includes/header.php';
+require_once '../config/database.php';
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -285,7 +285,7 @@ if ($selectedStudent) {
             <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px;">
                 <h4 style="margin-bottom: 10px;">Need Help?</h4>
                 <p style="font-size: 14px; margin-bottom: 15px; opacity: 0.9;">Verify transaction references before confirming bank transfers.</p>
-                <a href="<?php echo BASE_URL; ?>/dashboard/fees.php" class="btn" style="background: rgba(255,255,255,0.2); color: white; width: 100%; border: none; display: block; text-align: center; padding: 10px; text-decoration: none; border-radius: 6px;">
+                <a href="fees.php" class="btn" style="background: rgba(255,255,255,0.2); color: white; width: 100%; border: none; display: block; text-align: center; padding: 10px; text-decoration: none; border-radius: 6px;">
                     View Fee Structures
                 </a>
             </div>
@@ -302,4 +302,4 @@ a[href*="student_id"]:hover {
 }
 </style>
 
-<?php include 'includes/footer.php'; ?>
+<?php include '../includes/footer.php'; ?>

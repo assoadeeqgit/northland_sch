@@ -1,6 +1,6 @@
 <?php
 require_once '../auth-check.php';
-// checkAuth('admin'); 
+checkAuth('accountant'); 
 
 include '../includes/header.php';
 require_once '../config/database.php';
@@ -161,7 +161,7 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 
-    <div class="content-body" style="padding: 30px; margin-left: 250px;">
+    <div class="content-body" style="padding: 30px;">
         
         <?php if ($message): ?>
             <div class="alert alert-<?php echo $messageType; ?>" style="padding: 15px; margin-bottom: 20px; border-radius: 5px; background-color: <?php echo $messageType == 'success' ? '#d4edda' : ($messageType == 'warning' ? '#fff3cd' : '#f8d7da'); ?>; color: <?php echo $messageType == 'success' ? '#155724' : ($messageType == 'warning' ? '#856404' : '#721c24'); ?>;">

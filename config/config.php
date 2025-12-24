@@ -12,7 +12,7 @@ $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : '
 $host = $_SERVER['HTTP_HOST'];
 
 // Define the base path (adjust if your app is in a subdirectory)
-$base_path = '/northland_sch';
+$base_path = '/nsknbkp1';
 
 // Construct the full base URL
 define('BASE_URL', $protocol . '://' . $host . $base_path);
@@ -22,8 +22,8 @@ define('BASE_PATH', dirname(__DIR__));
 
 // Database configuration (centralized)
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'northland_sch');
-define('DB_USER', 'northland_user');
-define('DB_PASS', 'secure_password_2025');
+define('DB_NAME', 'northland_schools_kano');
+define('DB_USER', 'root');
+define('DB_PASS', 'A@123456.Aaa');
 
 ?>

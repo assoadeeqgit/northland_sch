@@ -1,8 +1,8 @@
 <?php
-require_once 'auth-check.php';
-// checkAuth('admin'); // Optional: restrict access
+require_once '../auth-check.php';
+checkAuth('accountant');
 
-require_once 'config/database.php';
+require_once '../config/database.php';
 $db = new Database();
 $conn = $db->getConnection();
 
@@ -215,7 +215,7 @@ if (!$payment) {
     <div class="receipt-container">
         <div class="header">
             <div class="school-info">
-                <img src="assets/images/logo.jpeg" alt="Logo" class="logo">
+                <img src="../assets/images/logo.jpeg" alt="Logo" class="logo">
                 <h1>Northland Schools Kano</h1>
                 <p>123 Education Lane, Kano State</p>
                 <p>Tel: +234 800 123 4567</p>
