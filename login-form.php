@@ -482,6 +482,10 @@
                                         <i class="fas fa-user-tie text-2xl text-primary mb-2"></i>
                                         <p class="text-sm font-medium text-foreground">Staff</p>
                                     </div>
+                                    <div class="role-card" data-role="accountant">
+                                        <i class="fas fa-calculator text-2xl text-primary mb-2"></i>
+                                        <p class="text-sm font-medium text-foreground">Accountant</p>
+                                    </div>
                                     <div class="role-card" data-role="admin">
                                         <i class="fas fa-user-shield text-2xl text-primary mb-2"></i>
                                         <p class="text-sm font-medium text-foreground">Admin</p>
@@ -677,6 +681,20 @@
                     id: 'supervisor',
                     label: 'Supervisor Name',
                     required: false
+                }
+                ],
+                accountant: [{
+                    type: 'text',
+                    id: 'qualification',
+                    label: 'Qualification',
+                    required: true
+                },
+                {
+                    type: 'select',
+                    id: 'employmentType',
+                    label: 'Employment Type',
+                    options: ['Full-time', 'Part-time', 'Contract'],
+                    required: true
                 }
                 ],
                 admin: [{
@@ -1173,7 +1191,8 @@
                         'admin': 'dashboard/admin-dashboard.php',
                         'student': 'dashboard/student-dashboard.php',
                         'staff': 'dashboard/staff-dashboard.php',
-                        'principal': 'dashboard/admin-dashboard.php'
+                        'principal': 'dashboard/admin-dashboard.php',
+                        'accountant': 'index.php'
                     };
                     dashboard = dashboards[userType] || 'dashboard/default-dashboard.html';
                 }
