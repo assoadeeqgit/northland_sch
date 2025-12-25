@@ -54,6 +54,17 @@ CREATE TABLE IF NOT EXISTS `sections` (
   FOREIGN KEY (`class_id`) REFERENCES `classes`(`id`) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS `terms` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `name` VARCHAR(50) NOT NULL, -- e.g., First Term, Second Term
+  `academic_year_id` INT NOT NULL,
+  `start_date` DATE NOT NULL,
+  `end_date` DATE NOT NULL,
+  `status` ENUM('active', 'completed') DEFAULT 'active',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`academic_year_id`) REFERENCES `academic_years`(`id`)
+);
+
 -- -----------------------------------------------------
 -- Students
 -- -----------------------------------------------------
@@ -153,3 +164,31 @@ INSERT INTO `roles` (`name`, `description`) VALUES ('admin', 'System Administrat
 INSERT INTO `users` (`username`, `password_hash`, `role_id`, `full_name`) VALUES ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 1, 'System Admin');
 
 INSERT INTO `fee_types` (`name`) VALUES ('Tuition Fee'), ('exam Fee'), ('Transport Fee'), ('Uniform'), ('Books');
+
+INSERT INTO `academic_years` (`name`, `start_date`, `end_date`, `is_active`) VALUES
+('2025-2026', '2025-09-01', '2026-07-30', TRUE),
+('2026-2027', '2026-09-01', '2027-07-30', FALSE);
+
+INSERT INTO `classes` (`name`, `level`) VALUES
+('Grade 1', 1),
+('Grade 2', 2),
+('Grade 3', 3),
+('SS 1', 4),
+('SS 2', 5),
+('SS 3', 6);
+
+INSERT INTO `sections` (`class_id`, `name`) VALUES
+(1, 'A'),
+(1, 'B'),
+(2, 'A'),
+(2, 'B'),
+(3, 'A'),
+(3, 'B'),
+(4, 'A'),
+(5, 'A'),
+(6, 'A');
+
+INSERT INTO `terms` (`name`, `academic_year_id`, `start_date`, `end_date`, `status`) VALUES
+('First Term', 1, '2025-09-01', '2025-12-15', 'completed'),
+('Second Term', 1, '2026-01-10', '2026-04-15', 'active'),
+('Third Term', 1, '2026-05-01', '2026-07-30', 'completed');

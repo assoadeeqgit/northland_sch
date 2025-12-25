@@ -100,6 +100,11 @@ $session_token = $_SESSION['session_token'] ?? '';
                     text: 'Timetable'
                 },
                 {
+                    href: 'term-management.php',
+                    icon: 'fas fa-calendar-alt',
+                    text: 'Term Management'
+                },
+                {
                     href: 'report.php',
                     icon: 'fas fa-chart-bar',
                     text: 'Reports'

@@ -85,6 +85,20 @@ try {
             }
         }
 
+        // Fetch Current Term
+        $termStmt = $db->prepare("SELECT term_name, start_date, end_date FROM terms WHERE is_current = 1 LIMIT 1");
+        $termStmt->execute();
+        $currentTerm = $termStmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($currentTerm) {
+            $currentTermName = $currentTerm['term_name'];
+            $currentTermStart = $currentTerm['start_date'];
+            $currentTermEnd = $currentTerm['end_date'];
+        } else {
+            $currentTermName = 'No Active Term';
+            $currentTermStart = '';
+            $currentTermEnd = '';
+        }
     }
 } catch (Exception $e) {
     // Handle error
@@ -320,12 +334,12 @@ try {
                             foreach ($allClassesData as $class):
                                 if ($class['class_level'] == 'Early Childhood'):
                                     $levelClassCount++;
-                                    ?>
+                            ?>
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-700"><?= htmlspecialchars($class['class_name']) ?></span>
                                         <span class="font-bold text-nskblue"><?= $class['capacity'] ?></span>
                                     </div>
-                                    <?php
+                            <?php
                                 endif;
                             endforeach;
                             ?>
@@ -352,12 +366,12 @@ try {
                             foreach ($allClassesData as $class):
                                 if ($class['class_level'] == 'Primary'):
                                     $levelClassCount++;
-                                    ?>
+                            ?>
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-700"><?= htmlspecialchars($class['class_name']) ?></span>
                                         <span class="font-bold text-nskgreen"><?= $class['capacity'] ?></span>
                                     </div>
-                                    <?php
+                            <?php
                                 endif;
                             endforeach;
                             ?>
@@ -384,12 +398,12 @@ try {
                             foreach ($allClassesData as $class):
                                 if ($class['class_level'] == 'Secondary'):
                                     $levelClassCount++;
-                                    ?>
+                            ?>
                                     <div class="flex justify-between items-center">
                                         <span class="text-gray-700"><?= htmlspecialchars($class['class_name']) ?></span>
                                         <span class="font-bold text-nskgold"><?= $class['capacity'] ?></span>
                                     </div>
-                                    <?php
+                            <?php
                                 endif;
                             endforeach;
                             ?>
@@ -427,6 +441,13 @@ try {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div class="current-term bg-white shadow-md rounded-lg p-4 mb-6">
+                <h2 class="text-xl font-bold text-nskblue">Current Term</h2>
+                <p class="text-gray-700">Term: <span class="font-semibold"><?= $currentTermName ?></span></p>
+                <p class="text-gray-700">Start Date: <span class="font-semibold"><?= $currentTermStart ?></span></p>
+                <p class="text-gray-700">End Date: <span class="font-semibold"><?= $currentTermEnd ?></span></p>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -487,11 +508,11 @@ try {
 
     <script>
         // Wait for everything to load including sidebar
-        window.addEventListener('load', function () {
+        window.addEventListener('load', function() {
             // Mobile menu toggle
             const mobileMenuToggle = document.getElementById('mobileMenuToggle');
             if (mobileMenuToggle) {
-                mobileMenuToggle.addEventListener('click', function () {
+                mobileMenuToggle.addEventListener('click', function() {
                     const sidebar = document.querySelector('.sidebar');
                     if (sidebar) {
                         sidebar.classList.toggle('mobile-show');
@@ -500,7 +521,7 @@ try {
             }
 
             // Initialize charts after a small delay to ensure canvas is ready
-            setTimeout(function () {
+            setTimeout(function() {
                 initializeStudentCharts();
             }, 200);
         });
@@ -543,7 +564,7 @@ try {
                             },
                             tooltip: {
                                 callbacks: {
-                                    label: function (context) {
+                                    label: function(context) {
                                         const label = context.label || '';
                                         const value = context.parsed;
                                         const total = context.dataset.data.reduce((a, b) => a + b, 0);

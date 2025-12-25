@@ -471,6 +471,43 @@ $settings = $settingsStmt->fetchAll(PDO::FETCH_KEY_PAIR);
         </form>
       </section>
 
+      <!-- Term Management Settings -->
+      <section class="settings-card bg-white rounded-xl shadow-md p-6 mb-6">
+        <div class="flex items-center mb-6">
+          <div class="w-12 h-12 rounded-full bg-nskblue flex items-center justify-center text-white mr-4">
+            <i class="fas fa-calendar-alt text-xl"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold text-nsknavy">Academic Terms</h2>
+            <p class="text-gray-600">Configure and manage school terms</p>
+          </div>
+        </div>
+        <div class="space-y-4">
+          <div class="p-4 bg-blue-50 rounded-lg border border-nsklightblue">
+            <h3 class="font-semibold text-nskblue mb-3">Nigerian Academic Calendar</h3>
+            <p class="text-sm text-gray-600 mb-4">Standard Nigerian school terms:</p>
+            <ul class="text-sm text-gray-600 mb-4 list-disc list-inside space-y-1">
+              <li><strong>First Term:</strong> September 9 - December 13 (96 days)</li>
+              <li><strong>Second Term:</strong> January 6 - April 11 (95 days)</li>
+              <li><strong>Third Term:</strong> April 28 - July 25 (88 days)</li>
+            </ul>
+            <a href="term-management.php" class="inline-block bg-nsklightblue text-white px-4 py-2 rounded font-semibold hover:bg-nskblue transition">
+              <i class="fas fa-cog mr-2"></i>Go to Term Management
+            </a>
+          </div>
+          <div class="p-4 bg-green-50 rounded-lg border border-nskgreen">
+            <h3 class="font-semibold text-nskgreen mb-2"><i class="fas fa-check-circle mr-2"></i>Features Available:</h3>
+            <ul class="text-sm text-gray-600 space-y-1 list-disc list-inside">
+              <li>Activate/Deactivate terms</li>
+              <li>Edit term start and end dates</li>
+              <li>Sync with Nigerian academic calendar</li>
+              <li>Promote students to next class</li>
+              <li>View term duration and status</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
       <!-- Other sections (Theme, Language, Notifications) are static HTML -->
       <!-- <section class="settings-card bg-white rounded-xl shadow-md p-6 mb-6">
         <div class="flex items-center mb-6">
@@ -504,7 +541,7 @@ $settings = $settingsStmt->fetchAll(PDO::FETCH_KEY_PAIR);
 
   <!-- Scripts -->
   <script>
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', function() {
       // Note: The sidebar.php file handles its own initialization
       // so we don't need to call sidebarManager.init() here anymore.
       // We only keep the code that is UNIQUE to this page.
