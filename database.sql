@@ -861,6 +861,9 @@ UNLOCK TABLES;
 
 --
 -- Table structure for table `students`
+-- Updated: 2025-12-27 - Added status and graduation_date columns for graduation system
+-- - status: enum('active','graduated','transferred','withdrawn') - Tracks student enrollment status
+-- - graduation_date: date - Records when student graduated (NULL for non-graduated students)
 --
 
 DROP TABLE IF EXISTS `students`;
@@ -872,6 +875,8 @@ CREATE TABLE `students` (
   `student_id` varchar(20) NOT NULL,
   `admission_number` varchar(50) NOT NULL,
   `class_id` int NOT NULL,
+  `status` enum('active','graduated','transferred','withdrawn') NOT NULL DEFAULT 'active',
+  `graduation_date` date DEFAULT NULL,
   `parent_id` int DEFAULT NULL,
   `admission_date` date NOT NULL,
   `religion` varchar(50) DEFAULT NULL,

@@ -230,7 +230,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             fputcsv($output, $headers);
 
             // Build the same WHERE clause as the main query to respect filters
-            $whereConditions = ["u.user_type = 'student'", "u.is_active = 1"];
+            $whereConditions = ["u.user_type = 'student'", "u.is_active = 1", "s.status = 'active'"];
             $params = [];
 
             // Apply search filter if present
@@ -1113,7 +1113,7 @@ if (isset($_GET['edit']) && !empty($_GET['edit'])) {
 try {
     if ($db) {
         // Build the WHERE clause based on filters
-        $whereConditions = ["u.user_type = 'student'", "u.is_active = 1"];
+        $whereConditions = ["u.user_type = 'student'", "u.is_active = 1", "s.status = 'active'"];
         $params = [];
 
         // Add search filter

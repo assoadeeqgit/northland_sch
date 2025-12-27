@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->execute([$term_id]);
 
             $message = "Term activated successfully!";
-            logActivity($db, 'TERM_CHANGED', "Term ID: $term_id activated", $_SESSION['user_id']);
+            logActivity($db, $_SESSION['user_name'] ?? 'Admin', 'Term Changed', "Term ID: $term_id activated", 'fas fa-calendar-check', 'bg-nsklightblue');
         } catch (Exception $e) {
             $error = "Failed to activate term: " . $e->getMessage();
         }
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->execute([$start_date, $end_date, $term_id]);
 
             $message = "Term dates updated successfully!";
-            logActivity($db, 'TERM_DATES_UPDATED', "Term ID: $term_id dates updated", $_SESSION['user_id']);
+            logActivity($db, $_SESSION['user_name'] ?? 'Admin', 'Term Dates Updated', "Term ID: $term_id dates updated", 'fas fa-calendar-alt', 'bg-nskgold');
         } catch (Exception $e) {
             $error = "Failed to update term dates: " . $e->getMessage();
         }
@@ -74,53 +74,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($action === 'sync_nigerian_calendar') {
         try {
-            // Get the first academic year (or create one if needed)
-            $yearStmt = $db->query("SELECT id FROM academic_years ORDER BY id DESC LIMIT 1");
-            $year = $yearStmt->fetch(PDO::FETCH_ASSOC);
-            $academic_year_id = $year['id'] ?? 1;
+            // Get the current academic session
+            $sessionStmt = $db->query("SELECT id FROM academic_sessions WHERE is_current = 1 ORDER BY id DESC LIMIT 1");
+            $session = $sessionStmt->fetch(PDO::FETCH_ASSOC);
+            $academic_session_id = $session['id'] ?? 1;
 
             // Update or insert Nigerian terms
             foreach ($nigerianTerms as $index => $term) {
-                $termId = $index + 4; // Assuming IDs 4, 5, 6 for the new terms
                 $stmt = $db->prepare("UPDATE terms SET start_date = ?, end_date = ? 
                                      WHERE academic_session_id = ? AND term_name = ?");
-                $stmt->execute([$term['start_date'], $term['end_date'], $academic_year_id, $term['term_name']]);
+                $stmt->execute([$term['start_date'], $term['end_date'], $academic_session_id, $term['term_name']]);
             }
 
             $message = "Calendar synced with Nigerian academic calendar successfully!";
-            logActivity($db, 'CALENDAR_SYNCED', "Synced with Nigerian calendar", $_SESSION['user_id']);
+            logActivity($db, $_SESSION['user_name'] ?? 'Admin', 'Calendar Synced', "Synced with Nigerian academic calendar", 'fas fa-sync', 'bg-nskgreen');
         } catch (Exception $e) {
             $error = "Failed to sync calendar: " . $e->getMessage();
         }
     }
 
     if ($action === 'promote_students') {
-        $academic_year_id = intval($_POST['academic_year_id']);
+        $academic_session_id = intval($_POST['academic_session_id']);
 
         try {
-            // Get all students from the academic year
-            $stmt = $db->prepare("SELECT s.id, s.current_class_id FROM students s 
-                                  WHERE s.current_class_id IS NOT NULL");
+            // Define class progression order (matching exact database class names)
+            $classProgression = [
+                'Garden (Age 2-3)' => 'Pre-Nursery (Age 3-4)',
+                'Pre-Nursery (Age 3-4)' => 'Nursery 1 (Age 4-5)',
+                'Nursery 1 (Age 4-5)' => 'Nursery 2 (Age 5-6)',
+                'Nursery 2 (Age 5-6)' => 'Primary 1',
+                'Primary 1' => 'Primary 2',
+                'Primary 2' => 'Primary 3',
+                'Primary 3' => 'Primary 4',
+                'Primary 4' => 'Primary 5',
+                'Primary 5' => 'JSS 1',
+                'JSS 1' => 'JSS 2',
+                'JSS 2' => 'JSS 3',
+                'JSS 3' => 'SS 1',
+                'SS 1' => 'SS 2',
+                'SS 2' => 'SS 3'
+            ];
+
+            // Get all active students
+            $stmt = $db->prepare("SELECT s.id, s.class_id, c.class_name 
+                                  FROM students s 
+                                  JOIN classes c ON s.class_id = c.id
+                                  WHERE s.class_id IS NOT NULL AND s.status = 'active'");
             $stmt->execute();
             $students = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             $promoted_count = 0;
+            $graduated_count = 0;
 
             foreach ($students as $student) {
-                // Get the current class level
-                $classStmt = $db->prepare("SELECT level FROM classes WHERE id = ?");
-                $classStmt->execute([$student['current_class_id']]);
-                $currentClass = $classStmt->fetch(PDO::FETCH_ASSOC);
-
-                if ($currentClass) {
-                    // Get the next class (increment level)
-                    $nextClassStmt = $db->prepare("SELECT id FROM classes WHERE level = ? LIMIT 1");
-                    $nextClassStmt->execute([$currentClass['level'] + 1]);
+                $currentClassName = $student['class_name'];
+                
+                // Check if student is in SS 3 (final class) - mark as graduated
+                if ($currentClassName === 'SS 3') {
+                    // Mark student as graduated
+                    $graduateStmt = $db->prepare("UPDATE students 
+                                                  SET status = 'graduated', 
+                                                      graduation_date = CURDATE() 
+                                                  WHERE id = ?");
+                    $graduateStmt->execute([$student['id']]);
+                    $graduated_count++;
+                }
+                // Check if there's a next class for this student
+                elseif (isset($classProgression[$currentClassName])) {
+                    $nextClassName = $classProgression[$currentClassName];
+                    
+                    // Get the next class ID
+                    $nextClassStmt = $db->prepare("SELECT id FROM classes WHERE class_name = ? LIMIT 1");
+                    $nextClassStmt->execute([$nextClassName]);
                     $nextClass = $nextClassStmt->fetch(PDO::FETCH_ASSOC);
 
                     if ($nextClass) {
                         // Update student's class
-                        $updateStmt = $db->prepare("UPDATE students SET current_class_id = ? WHERE id = ?");
+                        $updateStmt = $db->prepare("UPDATE students SET class_id = ? WHERE id = ?");
                         $updateStmt->execute([$nextClass['id'], $student['id']]);
                         $promoted_count++;
                     }
@@ -128,22 +158,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
 
             $message = "$promoted_count students have been promoted to the next class!";
-            logActivity($db, 'STUDENT_PROMOTION', "Promoted $promoted_count students", $_SESSION['user_id']);
+            if ($graduated_count > 0) {
+                $message .= " $graduated_count students have graduated!";
+            }
+            
+            logActivity($db, $_SESSION['user_name'] ?? 'Admin', 'Student Promotion', 
+                       "Promoted $promoted_count students, Graduated $graduated_count students", 
+                       'fas fa-graduation-cap', 'bg-nskgreen');
         } catch (Exception $e) {
             $error = "Failed to promote students: " . $e->getMessage();
         }
     }
 }
 
-// Fetch all terms
-$termsStmt = $db->query("SELECT t.*, a.name as academic_year_name FROM terms t 
-                         LEFT JOIN academic_years a ON t.academic_session_id = a.id
-                         ORDER BY a.id DESC, t.id DESC");
+// Get selected academic year filter (default to current session)
+$selectedSessionId = $_GET['session_filter'] ?? null;
+
+// If no filter selected, get the current academic session
+if (!$selectedSessionId) {
+    $currentSessionStmt = $db->query("SELECT id FROM academic_sessions WHERE is_current = 1 ORDER BY id DESC LIMIT 1");
+    $currentSession = $currentSessionStmt->fetch(PDO::FETCH_ASSOC);
+    $selectedSessionId = $currentSession['id'] ?? null;
+}
+
+// Fetch terms based on filter
+if ($selectedSessionId && $selectedSessionId !== 'all') {
+    $termsStmt = $db->prepare("SELECT t.*, a.session_name as academic_year_name FROM terms t 
+                               LEFT JOIN academic_sessions a ON t.academic_session_id = a.id
+                               WHERE t.academic_session_id = ?
+                               ORDER BY t.id ASC");
+    $termsStmt->execute([$selectedSessionId]);
+} else {
+    // Show all terms if "All Years" is selected
+    $termsStmt = $db->query("SELECT t.*, a.session_name as academic_year_name FROM terms t 
+                             LEFT JOIN academic_sessions a ON t.academic_session_id = a.id
+                             ORDER BY a.id DESC, t.id DESC");
+}
 $terms = $termsStmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch academic years
-$yearsStmt = $db->query("SELECT * FROM academic_years ORDER BY id DESC");
-$academicYears = $yearsStmt->fetchAll(PDO::FETCH_ASSOC);
+// Fetch academic sessions for filters and promotion dropdown
+$sessionsStmt = $db->query("SELECT id, session_name as name, is_current FROM academic_sessions ORDER BY id DESC");
+$academicYears = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -226,7 +281,23 @@ $academicYears = $yearsStmt->fetchAll(PDO::FETCH_ASSOC);
 
                 <!-- Terms Table -->
                 <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-                    <h2 class="text-2xl font-bold text-nskblue mb-4">Academic Terms</h2>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-bold text-nskblue">Academic Terms</h2>
+                        
+                        <!-- Academic Year Filter -->
+                        <div class="flex items-center gap-3">
+                            <label class="text-gray-700 font-semibold">Filter by Year:</label>
+                            <select id="sessionFilter" class="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-nskblue" onchange="filterBySession()">
+                                <option value="all" <?= ($selectedSessionId === 'all') ? 'selected' : '' ?>>All Years</option>
+                                <?php foreach ($academicYears as $year): ?>
+                                    <option value="<?= $year['id'] ?>" <?= ($selectedSessionId == $year['id']) ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($year['name']) ?>
+                                        <?= $year['is_current'] ? ' (Current)' : '' ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
 
                     <div class="overflow-x-auto">
                         <table class="w-full">
@@ -299,9 +370,9 @@ $academicYears = $yearsStmt->fetchAll(PDO::FETCH_ASSOC);
                         <input type="hidden" name="action" value="promote_students">
 
                         <div class="mb-4">
-                            <label class="block text-gray-700 font-semibold mb-2">Select Academic Year</label>
-                            <select name="academic_year_id" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-nskblue" required>
-                                <option value="">-- Select Academic Year --</option>
+                            <label class="block text-gray-700 font-semibold mb-2">Select Academic Session</label>
+                            <select name="academic_session_id" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-nskblue" required>
+                                <option value="">-- Select Academic Session --</option>
                                 <?php foreach ($academicYears as $year): ?>
                                     <option value="<?= $year['id'] ?>"><?= htmlspecialchars($year['name']) ?></option>
                                 <?php endforeach; ?>
@@ -358,6 +429,12 @@ $academicYears = $yearsStmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
 
     <script>
+        // Filter terms by academic session
+        function filterBySession() {
+            const sessionId = document.getElementById('sessionFilter').value;
+            window.location.href = '?session_filter=' + sessionId;
+        }
+
         function openEditModal(termId, termName, startDate, endDate) {
             document.getElementById('editTermId').value = termId;
             document.getElementById('editTermName').value = termName;
