@@ -295,3 +295,38 @@ footer {
     background: var(--white);
     border-top: 1px solid var(--border-color);
 }
+/* Responsive Design */
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+        z-index: 1000;
+        width: var(--sidebar-width);
+    }
+    
+    .sidebar.active {
+        transform: translateX(0);
+    }
+
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .top-navbar {
+        padding: 10px 20px;
+    }
+
+    .stats-grid {
+        grid-template-columns: 1fr; /* Stack cards on mobile */
+        padding: 20px;
+    }
+    
+    .table-container {
+        margin: 0 15px 30px;
+        overflow-x: auto; /* Enable horizontal scroll for tables */
+    }
+
+    .stat-card .value {
+        font-size: 1.5rem;
+    }
+}

@@ -1,5 +1,6 @@
 <?php 
 require_once '../auth-check.php';
+require_once '../config/database.php';
 checkAuth('accountant');
 include '../includes/header.php'; 
 ?>
@@ -72,62 +73,62 @@ include '../includes/header.php';
                 </tr>
             </thead>
             <tbody>
-                <tr>
-                    <td>
-                        <div style="font-weight: 600;">JSS 1 Boys Uniform (Set)</div>
-                        <div style="font-size: 0.8rem; color: var(--text-light);">SKU: UNIF-J-B-S</div>
-                    </td>
-                    <td>Uniforms</td>
-                    <td><span style="font-weight: 600;">$45.00</span></td>
-                    <td>150 Units</td>
-                    <td><span class="text-success" style="background: rgba(46, 125, 50, 0.1); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">In Stock</span></td>
-                    <td>
-                        <button class="btn" style="padding: 6px; color: var(--brand-navy);"><i class="fas fa-edit"></i></button>
-                        <button class="btn" style="padding: 6px; color: var(--text-light);"><i class="fas fa-history"></i></button>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div style="font-weight: 600;">New General Mathematics (SS 1)</div>
-                        <div style="font-size: 0.8rem; color: var(--text-light);">SKU: BK-BJ-MATH-1</div>
-                    </td>
-                    <td>Textbooks</td>
-                    <td><span style="font-weight: 600;">$12.50</span></td>
-                    <td>42 Units</td>
-                    <td><span class="text-success" style="background: rgba(46, 125, 50, 0.1); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">In Stock</span></td>
-                    <td>
-                        <button class="btn" style="padding: 6px; color: var(--brand-navy);"><i class="fas fa-edit"></i></button>
-                        <button class="btn" style="padding: 6px; color: var(--text-light);"><i class="fas fa-history"></i></button>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div style="font-weight: 600;">School Badge (Woven)</div>
-                        <div style="font-size: 0.8rem; color: var(--text-light);">SKU: ACC-BADGE-01</div>
-                    </td>
-                    <td>Accessories</td>
-                    <td><span style="font-weight: 600;">$5.00</span></td>
-                    <td><span style="color: var(--brand-orange); font-weight: 700;">5 Units</span></td>
-                    <td><span class="text-warning" style="background: rgba(245, 127, 23, 0.1); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Low Stock</span></td>
-                    <td>
-                        <button class="btn" style="padding: 6px; color: var(--brand-navy);"><i class="fas fa-edit"></i></button>
-                        <button class="btn" style="padding: 6px; color: var(--success);" title="Restock"><i class="fas fa-plus-circle"></i></button>
-                    </td>
-                </tr>
-                <tr>
-                    <td>
-                        <div style="font-weight: 600;">Integrated Science Workbook</div>
-                        <div style="font-size: 0.8rem; color: var(--text-light);">SKU: BK-SCI-WB</div>
-                    </td>
-                    <td>Textbooks</td>
-                    <td><span style="font-weight: 600;">$8.00</span></td>
-                    <td>0 Units</td>
-                    <td><span class="text-danger" style="background: rgba(211, 47, 47, 0.1); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;">Out of Stock</span></td>
-                    <td>
-                        <button class="btn" style="padding: 6px; color: var(--brand-navy);"><i class="fas fa-edit"></i></button>
-                        <button class="btn" style="padding: 6px; color: var(--success);" title="Restock"><i class="fas fa-plus-circle"></i></button>
-                    </td>
-                </tr>
+                <?php
+                try {
+                    $database = new Database();
+                    $db = $database->getConnection();
+                    // Fetch inventory
+                    $query = "SELECT * FROM inventory ORDER BY created_at DESC";
+                    $stmt = $db->prepare($query);
+                    $stmt->execute();
+                    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                    if (count($items) > 0) {
+                        foreach ($items as $item) {
+                            $stock_status_class = 'text-success';
+                            $stock_status_bg = 'rgba(46, 125, 50, 0.1)';
+                            $stock_status_text = 'In Stock';
+                            $min_qty = $item['min_quantity'] ?? 5;
+
+                            if ($item['quantity'] == 0) {
+                                $stock_status_class = 'text-danger';
+                                $stock_status_bg = 'rgba(211, 47, 47, 0.1)';
+                                $stock_status_text = 'Out of Stock';
+                            } elseif ($item['quantity'] <= $min_qty) {
+                                $stock_status_class = 'text-warning';
+                                $stock_status_bg = 'rgba(245, 127, 23, 0.1)';
+                                $stock_status_text = 'Low Stock';
+                            }
+                            ?>
+                            <tr>
+                                <td>
+                                    <div style="font-weight: 600;"><?php echo htmlspecialchars($item['item_name']); ?></div>
+                                    <div style="font-size: 0.8rem; color: var(--text-light);">SKU: <?php echo htmlspecialchars($item['item_code']); ?></div>
+                                </td>
+                                <td><?php echo htmlspecialchars($item['category']); ?></td>
+                                <td><span style="font-weight: 600;">$<?php echo number_format($item['unit_price'], 2); ?></span></td>
+                                <td>
+                                    <?php if ($item['quantity'] <= $min_qty): ?>
+                                        <span style="color: var(--brand-orange); font-weight: 700;"><?php echo $item['quantity']; ?> Units</span>
+                                    <?php else: ?>
+                                        <?php echo $item['quantity']; ?> Units
+                                    <?php endif; ?>
+                                </td>
+                                <td><span class="<?php echo $stock_status_class; ?>" style="background: <?php echo $stock_status_bg; ?>; padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600;"><?php echo $stock_status_text; ?></span></td>
+                                <td>
+                                    <a href="inventory_form.php?id=<?php echo $item['id']; ?>" class="btn" style="padding: 6px; color: var(--brand-navy);" title="Edit"><i class="fas fa-edit"></i></a>
+                                    <!-- Optional: Add delete or history here -->
+                                </td>
+                            </tr>
+                            <?php
+                        }
+                    } else {
+                        echo '<tr><td colspan="6" style="text-align:center; padding: 20px;">No inventory items found. Add one!</td></tr>';
+                    }
+                } catch(Exception $e) {
+                    echo '<tr><td colspan="6" style="text-align:center; color:red;">Error loading inventory.</td></tr>';
+                }
+                ?>
             </tbody>
         </table>
     </div>

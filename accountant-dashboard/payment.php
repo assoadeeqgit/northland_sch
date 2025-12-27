@@ -5,6 +5,7 @@ checkAuth('accountant');
 require_once '../config/config.php';
 include '../includes/header.php';
 require_once '../config/database.php';
+require_once 'activity_logger.php';
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -30,6 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['process_payment'])) {
             $stmt = $conn->prepare("INSERT INTO payments (student_id, fee_structure_id, amount_paid, payment_method, academic_session_id, term_id, remarks, payment_date, received_by) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), 1)");
             $stmt->execute([$student_id, $fee_structure_id, $amount, $payment_method, $academic_session_id, $term_id, $remarks]);
             $payment_id = $conn->lastInsertId();
+            
+            // Log the payment activity
+            logAccountantActivity('Payment Processed', "Payment ID: $payment_id, Amount: ₦" . number_format($amount, 2), $amount);
             
             $message = "Payment of ₦" . number_format($amount, 2) . " recorded successfully! <a href='receipt.php?id=" . $payment_id . "' target='_blank' style='margin-left:10px; text-decoration:underline; font-weight:bold;'>Print Receipt <i class='fas fa-print'></i></a>";
             $messageType = "success";

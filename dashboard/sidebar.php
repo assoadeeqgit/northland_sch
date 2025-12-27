@@ -100,6 +100,29 @@ $session_token = $_SESSION['session_token'] ?? '';
                     text: 'Timetable'
                 },
                 {
+                    href: '#',
+                    icon: 'fas fa-money-bill-wave',
+                    text: 'Finance',
+                    isDropdown: true,
+                    submenu: [
+                        {
+                            href: 'finance-fees.php',
+                            icon: 'fas fa-receipt',
+                            text: 'Fee Collection Report'
+                        },
+                        {
+                            href: 'finance-income.php',
+                            icon: 'fas fa-chart-line',
+                            text: 'Income Statement'
+                        },
+                        {
+                            href: 'finance-defaulters.php',
+                            icon: 'fas fa-exclamation-triangle',
+                            text: 'Defaulters List'
+                        }
+                    ]
+                },
+                {
                     href: 'report.php',
                     icon: 'fas fa-chart-bar',
                     text: 'Reports'
@@ -140,16 +163,70 @@ $session_token = $_SESSION['session_token'] ?? '';
                 if (item.href === 'report.php') item.href = 'report.php';
                 if (currentPage === 'report.php') currentPage = 'report.php';
 
-                const isActive = currentPage === item.href;
-                const activeClass = isActive ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white';
+                if (item.isDropdown) {
+                    // Create dropdown menu
+                    const submenuItems = item.submenu.map(subitem => `
+                        <a href="${subitem.href}" class="flex items-center p-2 pl-12 rounded-lg hover:bg-nskblue hover:text-white transition nav-item">
+                            <i class="${subitem.icon} mr-3 text-sm"></i>
+                            <span class="text-sm">${subitem.text}</span>
+                        </a>
+                    `).join('');
 
-                return `
-                <a href="${item.href}" class="flex items-center p-3 rounded-lg ${activeClass} transition nav-item">
-                    <i class="${item.icon} mr-3"></i>
-                    <span>${item.text}</span>
-                </a>
-            `;
+                    return `
+                        <div class="dropdown-container">
+                            <a href="#" class="flex items-center p-3 rounded-lg hover:bg-nskblue hover:text-white transition nav-item dropdown-toggle">
+                                <i class="${item.icon} mr-3"></i>
+                                <span>${item.text}</span>
+                                <i class="fas fa-chevron-down ml-auto dropdown-arrow transition-transform"></i>
+                            </a>
+                            <div class="dropdown-menu hidden">
+                                ${submenuItems}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    const isActive = currentPage === item.href;
+                    const activeClass = isActive ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white';
+
+                    return `
+                        <a href="${item.href}" class="flex items-center p-3 rounded-lg ${activeClass} transition nav-item">
+                            <i class="${item.icon} mr-3"></i>
+                            <span>${item.text}</span>
+                        </a>
+                    `;
+                }
             }).join('');
+
+            // Setup dropdown functionality
+            this.setupDropdowns();
+        }
+
+        // Setup dropdown functionality
+        setupDropdowns() {
+            const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+            dropdownToggles.forEach(toggle => {
+                toggle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const container = toggle.parentElement;
+                    const menu = container.querySelector('.dropdown-menu');
+                    const arrow = toggle.querySelector('.dropdown-arrow');
+                    
+                    // Toggle current dropdown
+                    menu.classList.toggle('hidden');
+                    arrow.classList.toggle('rotate-180');
+                    
+                    // Close other dropdowns
+                    dropdownToggles.forEach(otherToggle => {
+                        if (otherToggle !== toggle) {
+                            const otherContainer = otherToggle.parentElement;
+                            const otherMenu = otherContainer.querySelector('.dropdown-menu');
+                            const otherArrow = otherToggle.querySelector('.dropdown-arrow');
+                            otherMenu.classList.add('hidden');
+                            otherArrow.classList.remove('rotate-180');
+                        }
+                    });
+                });
+            });
         }
 
         // Setup event listeners

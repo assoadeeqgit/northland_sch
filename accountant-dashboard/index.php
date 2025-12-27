@@ -4,6 +4,7 @@ checkAuth('accountant');
 
 include '../includes/header.php'; 
 require_once '../config/database.php';
+require_once 'activity_logger.php';
 
 $db = new Database();
 $conn = $db->getConnection();
@@ -39,8 +40,22 @@ $revenue_month = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
 $net_cash_flow = $revenue_month - $total_expenses_month;
 
 // 5. Recent Transactions
-$stmt = $conn->query("SELECT * FROM payments ORDER BY payment_date DESC LIMIT 5");
+// 5. Recent Transactions
+$stmt = $conn->query("
+    SELECT p.*, s.admission_number, u.first_name, u.last_name 
+    FROM payments p
+    JOIN students s ON p.student_id = s.id
+    JOIN users u ON s.user_id = u.id
+    ORDER BY p.payment_date DESC 
+    LIMIT 5
+");
 $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Log dashboard access
+logAccountantActivity('Dashboard Access', 'Viewed financial dashboard');
+
+// Get progress data for admin
+$progress = getAccountantProgress();
 
 ?>
 
@@ -50,6 +65,16 @@ $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     <div class="page-title-box">
         <h1 class="page-title">Financial Dashboard</h1>
         <p style="color: var(--text-light); margin-top: 5px; font-size: 1.05rem;">Overview of <strong style="color: var(--brand-navy);">Northland Schools Kano</strong> financial status.</p>
+        
+        <!-- Progress Report for Admin -->
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 4px solid #28a745;">
+            <h4 style="margin: 0 0 10px 0; color: #28a745;">📊 Today's Progress Report</h4>
+            <div style="display: flex; gap: 20px; font-size: 0.9rem;">
+                <span><strong>Payments Processed:</strong> <?php echo $progress['payments_processed']; ?></span>
+                <span><strong>Total Collected:</strong> ₦<?php echo number_format($progress['total_collected'], 2); ?></span>
+                <span><strong>Last Activity:</strong> <?php echo $progress['last_activity']; ?></span>
+            </div>
+        </div>
     </div>
 
     <!-- Stats Grid -->
@@ -104,8 +129,8 @@ $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
                     <tr>
                         <td>#<?php echo htmlspecialchars($trx['id']); ?></td> <!-- Using ID as receipt for now -->
                         <td>
-                            <span style="font-weight:600;"><?php echo htmlspecialchars($trx['student_id']); ?></span>
-                            <!-- Ideal: Join with students table to get name -->
+                            <span style="font-weight:600;"><?php echo htmlspecialchars($trx['first_name'] . ' ' . $trx['last_name']); ?></span>
+                            <div style="font-size: 0.75rem; color: #6b7280;"><?php echo htmlspecialchars($trx['admission_number']); ?></div>
                         </td>
                         <td><?php echo date('Y-m-d', strtotime($trx['payment_date'])); ?></td>
                         <td><span style="font-weight:700;">₦<?php echo number_format($trx['amount_paid'], 2); ?></span></td>

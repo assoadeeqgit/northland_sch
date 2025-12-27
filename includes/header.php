@@ -32,6 +32,12 @@
                 <li><a href="<?php echo BASE_URL . $dash_prefix; ?>/expenses.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'expenses.php' ? 'active' : ''; ?>"><i class="fas fa-money-bill-wave"></i> Expenses</a></li>
                 <li><a href="<?php echo BASE_URL . $dash_prefix; ?>/reports.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : ''; ?>"><i class="fas fa-chart-pie"></i> Reports</a></li>
             </ul>
+
+            <div class="sidebar-footer" style="padding: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+                <a href="<?php echo BASE_URL; ?>/logout.php" style="display: flex; align-items: center; color: #ff8a80; text-decoration: none; font-weight: 600;">
+                    <i class="fas fa-sign-out-alt" style="margin-right: 12px; width: 20px; text-align: center;"></i> Logout
+                </a>
+            </div>
         </nav>
 
         <!-- Main Content -->

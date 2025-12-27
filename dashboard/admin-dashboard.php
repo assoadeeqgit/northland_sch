@@ -429,7 +429,7 @@ try {
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
                 <div class="dashboard-card bg-white rounded-xl shadow-md p-6">
                     <h2 class="text-xl font-bold text-nsknavy mb-4">Recent Activities</h2>
                     <div class="space-y-4">
@@ -451,6 +451,14 @@ try {
                                 </div>
                             <?php endforeach; ?>
                         <?php endif; ?>
+                    </div>
+                </div>
+
+                <!-- Accountant Progress Widget -->
+                <div class="dashboard-card bg-white rounded-xl shadow-md p-6">
+                    <h2 class="text-xl font-bold text-green-600 mb-4">💰 Accountant Progress</h2>
+                    <div id="accountant-progress">
+                        <div class="text-center text-gray-500">Loading...</div>
                     </div>
                 </div>
 
@@ -486,8 +494,50 @@ try {
     </main>
 
     <script>
+        // Load accountant progress
+        function loadAccountantProgress() {
+            fetch('../api/accountant_progress.php')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('accountant-progress');
+                    if (data.status === 'success') {
+                        const progress = data.data;
+                        container.innerHTML = `
+                            <div class="space-y-3">
+                                <div class="flex justify-between">
+                                    <span class="text-sm text-gray-600">Payments Today:</span>
+                                    <span class="font-bold text-green-600">${progress.payments_processed}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm text-gray-600">Collection:</span>
+                                    <span class="font-bold text-green-600">₦${Number(progress.total_collected).toLocaleString()}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm text-gray-600">Activities:</span>
+                                    <span class="font-bold text-blue-600">${progress.total_activities}</span>
+                                </div>
+                                <div class="text-xs text-gray-500 mt-2">
+                                    Last activity: ${progress.last_activity ? new Date(progress.last_activity).toLocaleTimeString() : 'None today'}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        container.innerHTML = '<div class="text-red-500 text-sm">Error loading progress</div>';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('accountant-progress').innerHTML = '<div class="text-red-500 text-sm">Connection error</div>';
+                });
+        }
+
         // Wait for everything to load including sidebar
         window.addEventListener('load', function () {
+            // Load accountant progress
+            loadAccountantProgress();
+            
+            // Refresh every 30 seconds
+            setInterval(loadAccountantProgress, 30000);
+            
             // Mobile menu toggle
             const mobileMenuToggle = document.getElementById('mobileMenuToggle');
             if (mobileMenuToggle) {

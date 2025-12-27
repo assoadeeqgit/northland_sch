@@ -64,6 +64,27 @@
     width: 100%;
 }
 
+/* Dropdown styles */
+.dropdown-container {
+    position: relative;
+}
+
+.dropdown-menu {
+    background: rgba(30, 58, 138, 0.8);
+    border-radius: 8px;
+    margin-top: 4px;
+    padding: 4px 0;
+    transition: all 0.3s ease;
+}
+
+.dropdown-arrow {
+    transition: transform 0.3s ease;
+}
+
+.rotate-180 {
+    transform: rotate(180deg);
+}
+
 /* Scrollbar styling for sidebar navigation */
 #sidebar-nav {
     scrollbar-width: thin;

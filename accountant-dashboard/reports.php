@@ -12,18 +12,30 @@ include '../includes/header.php';
     </div>
 
     <!-- Controls -->
+    <?php
+    $start_date = $_GET['start_date'] ?? date('Y-m-01');
+    $end_date = $_GET['end_date'] ?? date('Y-m-t');
+    ?>
     <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; display: flex; gap: 20px; align-items: flex-end;">
         <div style="flex: 1;">
              <label style="display: block; font-weight: 500; margin-bottom: 8px;">Date Range</label>
              <div style="display: flex; gap: 10px;">
-                 <input type="date" value="2024-01-01" style="padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                 <input type="date" id="startDate" value="<?php echo htmlspecialchars($start_date); ?>" style="padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
                  <span style="align-self: center;">to</span>
-                 <input type="date" value="2024-12-31" style="padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                 <input type="date" id="endDate" value="<?php echo htmlspecialchars($end_date); ?>" style="padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
              </div>
         </div>
-        <button class="btn btn-primary"><i class="fas fa-filter"></i> Apply Filters</button>
+        <button onclick="applyFilters()" class="btn btn-primary"><i class="fas fa-filter"></i> Apply Filters</button>
         <button class="btn" style="border: 1px solid #e5e7eb;"><i class="fas fa-download"></i> Export All</button>
     </div>
+
+    <script>
+    function applyFilters() {
+        const start = document.getElementById('startDate').value;
+        const end = document.getElementById('endDate').value;
+        window.location.href = `reports.php?start_date=${start}&end_date=${end}`;
+    }
+    </script>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
         
@@ -37,7 +49,7 @@ include '../includes/header.php';
                 <p style="font-size: 14px; color: #6b7280;">Detailed breakdown of fees collected by class, type, and date.</p>
             </div>
             <div style="padding: 15px 20px; background: #f9fafb; display: flex; justify-content: space-between;">
-                <a href="#" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View Report</a>
+                <a href="report_fees.php?start_date=<?php echo $start_date; ?>&end_date=<?php echo $end_date; ?>" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View Report</a>
                 <span style="font-size: 12px; color: #9ca3af;">Updated Today</span>
             </div>
         </div>
@@ -52,7 +64,7 @@ include '../includes/header.php';
                 <p style="font-size: 14px; color: #6b7280;">Profit and loss statement for the selected period.</p>
             </div>
             <div style="padding: 15px 20px; background: #f9fafb; display: flex; justify-content: space-between;">
-                <a href="#" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View Report</a>
+                <a href="report_income.php?start_date=<?php echo $start_date; ?>&end_date=<?php echo $end_date; ?>" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View Report</a>
                 <span style="font-size: 12px; color: #9ca3af;">Monthly</span>
             </div>
         </div>
@@ -67,7 +79,7 @@ include '../includes/header.php';
                 <p style="font-size: 14px; color: #6b7280;">List of students with outstanding balances.</p>
             </div>
             <div style="padding: 15px 20px; background: #f9fafb; display: flex; justify-content: space-between;">
-                <a href="#" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View Report</a>
+                <a href="report_defaulters.php?start_date=<?php echo $start_date; ?>&end_date=<?php echo $end_date; ?>" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View Report</a>
                 <span style="font-size: 12px; color: #9ca3af;">Critical</span>
             </div>
         </div>
