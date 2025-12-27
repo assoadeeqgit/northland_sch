@@ -105,6 +105,11 @@ $session_token = $_SESSION['session_token'] ?? '';
                     text: 'Term Management'
                 },
                 {
+                    href: '../accountant-dashboard/index.php',
+                    icon: 'fas fa-dollar-sign',
+                    text: 'Finance'
+                },
+                {
                     href: 'report.php',
                     icon: 'fas fa-chart-bar',
                     text: 'Reports'
