@@ -248,8 +248,6 @@ try {
         require_once 'header.php';
         ?>
 
-        <!-- SPA Content Area - Only this div updates on navigation -->
-        <div id="main-content-area" class="transition-opacity duration-200">
         <div class="p-6">
             <?php if (isset($_SESSION['success'])): ?>
                 <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
@@ -504,8 +502,6 @@ try {
                 </div>
             </div>
         </div>
-        </div>
-        <!-- End SPA Content Area -->
 
         <script src="./footer.js"></script>
     </main>
@@ -663,9 +659,6 @@ try {
             });
         }, 3000);
     </script>
-
-    <!-- SPA Loader - Enables smooth navigation without page reloads -->
-    <script src="spa-loader.js"></script>
 </body>
 
 </html>

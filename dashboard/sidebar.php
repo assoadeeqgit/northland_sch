@@ -214,7 +214,7 @@ $session_token = $_SESSION['session_token'] ?? '';
                                 const isActive = currentPage.includes(subitem.href);
                                 const activeClass = isActive ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white';
                                 return `
-                                <a href="${subitem.href}" data-spa-link class="flex items-center p-2 pl-3 rounded-lg ${activeClass} transition nav-item mb-1">
+                                <a href="${subitem.href}" class="flex items-center p-2 pl-3 rounded-lg ${activeClass} transition nav-item mb-1">
                                     <i class="${subitem.icon} mr-3 text-sm"></i>
                                     <span class="text-sm">${subitem.text}</span>
                                 </a>
@@ -230,7 +230,7 @@ $session_token = $_SESSION['session_token'] ?? '';
                 const activeClass = isActive ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white';
 
                 return `
-                <a href="${item.href}" data-spa-link class="flex items-center p-3 rounded-lg ${activeClass} transition nav-item">
+                <a href="${item.href}" class="flex items-center p-3 rounded-lg ${activeClass} transition nav-item">
                     <i class="${item.icon} mr-3"></i>
                     <span>${item.text}</span>
                 </a>
