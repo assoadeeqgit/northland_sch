@@ -1,16 +1,18 @@
 :root {
-    /* Brand Palette extracted from Logo */
-    --brand-navy: #1a237e;
-    /* Primary Deep Blue */
-    --brand-green: #2e7d32;
-    /* Laurel Green */
-    --brand-orange: #f57f17;
-    /* Star Orange */
+    /* Brand Palette - Matching Admin Dashboard */
+    --brand-navy: #1e3a8a;
+    /* Primary Deep Blue - matches nsknavy */
+    --brand-green: #10b981;
+    /* Success Green - matches nskgreen */
+    --brand-orange: #f59e0b;
+    /* Star Orange - matches nskgold */
 
     /* Functional Colors */
     --primary-color: var(--brand-navy);
-    --primary-dark: #000051;
-    --primary-light: #534bae;
+    --primary-dark: #1e40af;
+    /* matches nskblue */
+    --primary-light: #3b82f6;
+    /* matches nsklightblue */
 
     --secondary-color: #f3f4f6;
     --white: #ffffff;
