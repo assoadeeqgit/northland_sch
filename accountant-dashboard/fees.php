@@ -1,6 +1,5 @@
 <?php
-require_once '../auth-check.php';
-checkAuth('accountant'); 
+require_once 'auth-check.php'; // Allows both admin and accountant 
 
 include '../includes/header.php';
 require_once '../config/database.php';
