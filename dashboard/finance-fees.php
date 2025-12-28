@@ -174,162 +174,200 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fee Collection Report - Northland Schools</title>
-    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        nskblue: '#1e40af',
+                        nsklightblue: '#3b82f6',
+                        nsknavy: '#1e3a8a',
+                        nskgold: '#f59e0b',
+                        nsklight: '#f0f9ff',
+                        nskgreen: '#10b981',
+                        nskred: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="sidebar.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: #f8fafc;
+        }
+    </style>
 </head>
-<body class="flex">
+<body class="bg-gray-50">
 
 <?php include 'sidebar.php'; ?>
 
-<main class="main-content">
-    <div class="content-body" style="padding: 30px;">
+<main class="main-content min-h-screen">
+    <div class="content-body p-6">
         
         <?php if ($message): ?>
-            <div class="alert alert-<?php echo $messageType; ?>" style="padding: 15px; margin-bottom: 20px; border-radius: 5px; background-color: <?php echo $messageType == 'success' ? '#d4edda' : ($messageType == 'warning' ? '#fff3cd' : '#f8d7da'); ?>; color: <?php echo $messageType == 'success' ? '#155724' : ($messageType == 'warning' ? '#856404' : '#721c24'); ?>;">
+            <div class="alert alert-<?php echo $messageType; ?> mb-6 p-4 rounded-lg <?php echo $messageType == 'success' ? 'bg-green-50 text-green-800 border border-green-200' : ($messageType == 'warning' ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' : 'bg-red-50 text-red-800 border border-red-200'); ?>">
                 <?php echo $message; ?>
-            </main>
+            </div>
         <?php endif; ?>
 
-        <div class="page-title-box" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div class="page-title-box flex justify-between items-center mb-6">
             <div>
-                <h1 class="page-title">Fee Management</h1>
-                <p style="color: var(--text-light); margin-top: 5px;">Configure fee structures and manage school fees for <strong style="color: var(--brand-navy);">Northland Schools Kano</strong>.</p>
-            </main>
-            <div style="display: flex; gap: 10px;">
-                <button class="btn" style="background: white; border: 1px solid var(--border-color); color: var(--text-color);"><i class="fas fa-file-export" style="margin-right:8px;"></i> Export</button>
-                <button onclick="document.getElementById('addFeeModal').style.display='block'" class="btn btn-primary"><i class="fas fa-plus" style="margin-right:8px;"></i> Create New Structure</button>
-            </main>
-        </main>
+                <h1 class="text-2xl font-bold text-gray-900">Fee Management</h1>
+                <p class="text-gray-600 mt-1">Configure fee structures and manage school fees for <strong class="text-blue-900">Northland Schools Kano</strong>.</p>
+            </div>
+            <div class="flex gap-3">
+                <button class="btn bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-file-export mr-2"></i> Export
+                </button>
+                <button onclick="document.getElementById('addFeeModal').style.display='block'" class="btn bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    <i class="fas fa-plus mr-2"></i> Create New Structure
+                </button>
+            </div>
+        </div>
 
         <!-- Fee Stats -->
-        <div class="stats-grid" style="padding: 0 0 30px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-            <div class="stat-card blue" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <span class="label" style="display: block; color: var(--text-light); font-size: 0.9rem;">Total Expected (All Active)</span>
-                <span class="value" style="display: block; font-size: 1.8rem; font-weight: bold; margin: 10px 0;">₦<?php echo number_format($total_expected, 2); ?></span>
-                <span class="trend" style="font-size: 0.85rem; color: #666;">Based on enrolled students</span>
-            </main>
-            <div class="stat-card orange" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <span class="label" style="display: block; color: var(--text-light); font-size: 0.9rem;">Assigned Structures</span>
-                <span class="value" style="display: block; font-size: 1.8rem; font-weight: bold; margin: 10px 0;"><?php echo $total_structures; ?></span>
-                <span class="trend" style="font-size: 0.85rem;">Across <?php echo $classes_count; ?> Classes</span>
-            </main>
-            <div class="stat-card green" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <span class="label" style="display: block; color: var(--text-light); font-size: 0.9rem;">Total Collected</span>
-                <span class="value" style="display: block; font-size: 1.8rem; font-weight: bold; margin: 10px 0;">₦<?php echo number_format($total_collected, 2); ?></span>
-                <span class="trend text-success" style="font-size: 0.85rem;"><?php echo $collection_percentage; ?>% of Target</span>
-            </main>
-        </main>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow-sm border">
+                <div class="text-sm text-gray-600 mb-2">Total Expected (All Active)</div>
+                <div class="text-2xl font-bold text-gray-900 mb-1">₦<?php echo number_format($total_expected, 2); ?></div>
+                <div class="text-sm text-gray-500">Based on enrolled students</div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm border">
+                <div class="text-sm text-gray-600 mb-2">Assigned Structures</div>
+                <div class="text-2xl font-bold text-gray-900 mb-1"><?php echo $total_structures; ?></div>
+                <div class="text-sm text-gray-500">Across <?php echo $classes_count; ?> Classes</div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-sm border">
+                <div class="text-sm text-gray-600 mb-2">Total Collected</div>
+                <div class="text-2xl font-bold text-gray-900 mb-1">₦<?php echo number_format($total_collected, 2); ?></div>
+                <div class="text-sm text-green-600"><?php echo $collection_percentage; ?>% of Target</div>
+            </div>
+        </div>
 
         <!-- Filter Section -->
-        <form method="GET" style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 30px; border: 1px solid var(--border-color);">
-            <h4 style="margin-bottom: 15px; color: var(--brand-navy); font-size: 1.1rem; font-weight: 600;">Filter Fee Structures</h4>
-            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                <div style="flex: 2; min-width: 250px;">
-                    <input type="text" name="search" placeholder="Search by fee type or class..." value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.95rem;">
-                </main>
-                <div style="flex: 1; min-width: 150px;">
-                    <select name="term" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-color); font-size: 0.95rem;">
+        <form method="GET" class="bg-white p-6 rounded-lg shadow-sm border mb-8">
+            <h4 class="text-lg font-semibold text-gray-900 mb-4">Filter Fee Structures</h4>
+            <div class="flex flex-wrap gap-4">
+                <div class="flex-1 min-w-64">
+                    <input type="text" name="search" placeholder="Search by fee type or class..." value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="min-w-40">
+                    <select name="term" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">All Terms</option>
                         <?php foreach ($all_terms as $term): ?>
                             <option value="<?php echo $term['id']; ?>" <?php echo (($_GET['term'] ?? '') == $term['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($term['term_name']); ?></option>
                         <?php endforeach; ?>
                     </select>
-                </main>
-                <button type="submit" class="btn btn-primary" style="padding: 12px 24px;">Filter</button>
+                </div>
+                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">Filter</button>
                 <?php if (!empty($_GET['search']) || !empty($_GET['term'])): ?>
-                    <a href="fees.php" class="btn" style="padding: 12px 24px; border: 1px solid var(--border-color); text-decoration: none;">Clear</a>
+                    <a href="finance-fees.php" class="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 transition-colors">Clear</a>
                 <?php endif; ?>
-            </main>
+            </div>
         </form>
 
         <!-- Content Area -->
-        <div class="table-container" style="margin: 0; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: 20px;">
-            <div class="table-header" style="margin-bottom: 20px;">
-                <h3>Fee Structures (<?php echo $current_session['session_name'] ?? '2024-2025'; ?>)</h3>
-            </main>
-            <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="border-bottom: 2px solid #eee; text-align: left;">
-                        <th style="padding: 12px;">Fee Type</th>
-                        <th style="padding: 12px;">Class</th>
-                        <th style="padding: 12px;">Term</th>
-                        <th style="padding: 12px;">Amount</th>
-                        <th style="padding: 12px;">Students</th>
-                        <th style="padding: 12px;">Due Date</th>
-                        <th style="padding: 12px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($fee_structures)): ?>
-                    <tr>
-                        <td colspan="7" style="padding: 20px; text-align: center; color: #666;">No fee structures found. Create your first one!</td>
-                    </tr>
-                    <?php else: ?>
-                        <?php foreach ($fee_structures as $structure): ?>
-                        <tr style="border-bottom: 1px solid #eee;">
-                            <td style="padding: 12px;">
-                                <div style="font-weight: 600;"><?php echo htmlspecialchars($structure['fee_type']); ?></main>
-                            </td>
-                            <td style="padding: 12px;"><?php echo htmlspecialchars($structure['class_name'] ?? 'N/A'); ?></td>
-                            <td style="padding: 12px;"><?php echo htmlspecialchars($structure['term_name'] ?? 'N/A'); ?></td>
-                            <td style="padding: 12px;"><span style="font-weight: 700; color: var(--text-color);">₦<?php echo number_format($structure['amount'], 2); ?></span></td>
-                            <td style="padding: 12px;"><?php echo $structure['student_count']; ?></td>
-                            <td style="padding: 12px;"><?php echo $structure['due_date'] ? date('M d, Y', strtotime($structure['due_date'])) : '-'; ?></td>
-                            <td style="padding: 12px;">
-                                <button onclick="editFeeStructure(<?php echo htmlspecialchars(json_encode($structure)); ?>)" class="btn" style="padding: 6px; color: var(--brand-navy); margin-right: 5px;" title="Edit">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                                <button onclick="deleteFeeStructure(<?php echo $structure['id']; ?>, '<?php echo htmlspecialchars($structure['fee_type']); ?>')" class="btn" style="padding: 6px; color: #dc3545;" title="Delete">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </td>
+        <div class="bg-white rounded-lg shadow-sm border">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Fee Structures (<?php echo $current_session['session_name'] ?? '2024-2025'; ?>)</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fee Type</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Term</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Students</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                         </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </main>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <?php if (empty($fee_structures)): ?>
+                        <tr>
+                            <td colspan="7" class="px-6 py-12 text-center text-gray-500">No fee structures found. Create your first one!</td>
+                        </tr>
+                        <?php else: ?>
+                            <?php foreach ($fee_structures as $structure): ?>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-6 py-4">
+                                    <div class="font-semibold text-gray-900"><?php echo htmlspecialchars($structure['fee_type']); ?></div>
+                                </td>
+                                <td class="px-6 py-4 text-gray-700"><?php echo htmlspecialchars($structure['class_name'] ?? 'N/A'); ?></td>
+                                <td class="px-6 py-4 text-gray-700"><?php echo htmlspecialchars($structure['term_name'] ?? 'N/A'); ?></td>
+                                <td class="px-6 py-4"><span class="font-bold text-gray-900">₦<?php echo number_format($structure['amount'], 2); ?></span></td>
+                                <td class="px-6 py-4 text-gray-700"><?php echo $structure['student_count']; ?></td>
+                                <td class="px-6 py-4 text-gray-700"><?php echo $structure['due_date'] ? date('M d, Y', strtotime($structure['due_date'])) : '-'; ?></td>
+                                <td class="px-6 py-4">
+                                    <div class="flex space-x-2">
+                                        <button onclick="editFeeStructure(<?php echo htmlspecialchars(json_encode($structure)); ?>)" class="text-blue-600 hover:text-blue-800 p-1" title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button onclick="deleteFeeStructure(<?php echo $structure['id']; ?>, '<?php echo htmlspecialchars($structure['fee_type']); ?>')" class="text-red-600 hover:text-red-800 p-1" title="Delete">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
-    </main>
+    </div>
 </main>
 
 <!-- Add Fee Structure Modal -->
-<div id="addFeeModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
-    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 25px; border: 1px solid #888; width: 600px; border-radius: 8px; max-height: 90vh; overflow-y: auto;">
-        <span onclick="document.getElementById('addFeeModal').style.display='none'" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
-        <h2 style="margin-top: 0; color: var(--brand-navy); margin-bottom: 20px;">Create New Fee Structure</h2>
+<div id="addFeeModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl mx-4 max-h-screen overflow-y-auto">
+        <div class="p-6 border-b border-gray-200">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-semibold text-gray-900">Create New Fee Structure</h2>
+                <button onclick="document.getElementById('addFeeModal').style.display='none'" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+        </div>
         
-        <form method="POST">
+        <form method="POST" class="p-6">
             <input type="hidden" name="add_fee_structure" value="1">
             
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Fee Type *</label>
-                <input type="text" name="fee_type" required placeholder="e.g., Tuition, Development Levy, Exam Fee" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            </main>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Fee Type *</label>
+                <input type="text" name="fee_type" required placeholder="e.g., Tuition, Development Levy, Exam Fee" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Class *</label>
-                    <select name="class_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Class *</label>
+                    <select name="class_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">Select Class</option>
                         <?php foreach ($all_classes as $class): ?>
                             <option value="<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['class_name']); ?></option>
                         <?php endforeach; ?>
                     </select>
-                </main>
+                </div>
                 <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Amount (₦) *</label>
-                    <input type="number" name="amount" step="0.01" required placeholder="0.00" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                </main>
-            </main>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Amount (₦) *</label>
+                    <input type="number" name="amount" step="0.01" required placeholder="0.00" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+            </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Academic Session *</label>
-                    <select name="academic_session_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Academic Session *</label>
+                    <select name="academic_session_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">Select Session</option>
                         <?php foreach ($all_sessions as $session): ?>
                             <option value="<?php echo $session['id']; ?>" <?php echo $session['id'] == $current_session_id ? 'selected' : ''; ?>>
@@ -337,10 +375,10 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                             </option>
                         <?php endforeach; ?>
                     </select>
-                </main>
+                </div>
                 <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Term *</label>
-                    <select name="term_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Term *</label>
+                    <select name="term_id" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">Select Term</option>
                         <?php foreach ($all_terms as $term): ?>
                             <option value="<?php echo $term['id']; ?>" <?php echo $term['id'] == $current_term_id ? 'selected' : ''; ?>>
@@ -348,21 +386,21 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                             </option>
                         <?php endforeach; ?>
                     </select>
-                </main>
-            </main>
+                </div>
+            </div>
 
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Due Date (Optional)</label>
-                <input type="date" name="due_date" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            </main>
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Due Date (Optional)</label>
+                <input type="date" name="due_date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+            </div>
 
-            <div style="text-align: right;">
-                <button type="button" onclick="document.getElementById('addFeeModal').style.display='none'" class="btn" style="margin-right: 10px; border: 1px solid #ddd;">Cancel</button>
-                <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">Create Fee Structure</button>
-            </main>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="document.getElementById('addFeeModal').style.display='none'" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50">Cancel</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Create Fee Structure</button>
+            </div>
         </form>
-    </main>
-</main>
+    </div>
+</div>
 
 <!-- Edit Fee Structure Modal -->
 <div id="editFeeModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">

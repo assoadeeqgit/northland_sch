@@ -91,45 +91,69 @@ $userInitial = strtoupper(substr($userName, 0, 1));
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fee Defaulters - Northland Schools</title>
-    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        nskblue: '#1e40af',
+                        nsklightblue: '#3b82f6',
+                        nsknavy: '#1e3a8a',
+                        nskgold: '#f59e0b',
+                        nsklight: '#f0f9ff',
+                        nskgreen: '#10b981',
+                        nskred: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
     <link rel="stylesheet" href="sidebar.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: #f8fafc;
+        }
+    </style>
 </head>
-<body class="flex">
+<body class="bg-gray-50">
 
 <?php include 'sidebar.php'; ?>
 
-<main class="main-content">
-    <div class="content-body" style="padding: 30px;">
+<main class="main-content min-h-screen">
+    <div class="content-body p-6">
         
-        <div class="page-title-box" style="margin-bottom: 30px;">
-            <h1 class="page-title">Fee Defaulters List</h1>
-            <p style="color: var(--text-light); margin-top: 5px;">Students with outstanding fee balances at <strong style="color: var(--brand-navy);">Northland Schools Kano</strong></p>
+        <div class="page-title-box mb-8">
+            <h1 class="text-2xl font-bold text-gray-900">Fee Defaulters List</h1>
+            <p class="text-gray-600 mt-1">Students with outstanding fee balances at <strong class="text-blue-900">Northland Schools Kano</strong></p>
         </div>
 
         <!-- Statistics Cards -->
-        <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
-            <div class="stat-card orange" style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <span class="label" style="display: block; color: #6b7280; font-size: 0.9rem; margin-bottom: 10px;">Total Defaulters</span>
-                <span class="value" style="display: block; font-size: 2rem; font-weight: bold; color: #f59e0b; margin-bottom: 5px;"><?= $total_defaulters ?></span>
-                <span class="trend" style="font-size: 0.85rem; color: #f59e0b;"><i class="fas fa-exclamation-triangle"></i> Students with debt</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow-sm border">
+                <div class="text-sm text-gray-600 mb-2">Total Defaulters</div>
+                <div class="text-2xl font-bold text-orange-600 mb-1"><?= $total_defaulters ?></div>
+                <div class="text-sm text-orange-600"><i class="fas fa-exclamation-triangle"></i> Students with debt</div>
             </div>
             
-            <div style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <span class="label" style="display: block; color: #6b7280; font-size: 0.9rem; margin-bottom: 10px;">Total Outstanding</span>
-                <span class="value" style="display: block; font-size: 2rem; font-weight: bold; color: #ef4444; margin-bottom: 5px;">₦<?= number_format($total_outstanding, 2) ?></span>
-                <span class="trend" style="font-size: 0.85rem; color: #ef4444;"><i class="fas fa-arrow-down"></i> Unpaid fees</span>
+            <div class="bg-white p-6 rounded-lg shadow-sm border">
+                <div class="text-sm text-gray-600 mb-2">Total Outstanding</div>
+                <div class="text-2xl font-bold text-red-600 mb-1">₦<?= number_format($total_outstanding, 2) ?></div>
+                <div class="text-sm text-red-600"><i class="fas fa-arrow-down"></i> Unpaid fees</div>
             </div>
         </div>
 
         <!-- Filter Form -->
-        <form method="GET" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <h4 style="margin-bottom: 15px; color: var(--brand-navy);">Filter Defaulters</h4>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; align-items: end;">
+        <form method="GET" class="bg-white p-6 rounded-lg shadow-sm border mb-8">
+            <h4 class="text-lg font-semibold text-gray-900 mb-4">Filter Defaulters</h4>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                 <div>
-                    <label style="display: block; font-weight: 500; margin-bottom: 8px;">Academic Session</label>
-                    <select name="session" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Academic Session</label>
+                    <select name="session" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">All Sessions</option>
                         <?php foreach ($sessions as $session): ?>
                         <option value="<?= $session['id'] ?>" <?= $session_filter == $session['id'] ? 'selected' : '' ?>>
@@ -140,8 +164,8 @@ $userInitial = strtoupper(substr($userName, 0, 1));
                 </div>
                 
                 <div>
-                    <label style="display: block; font-weight: 500; margin-bottom: 8px;">Term</label>
-                    <select name="term" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Term</label>
+                    <select name="term" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">All Terms</option>
                         <?php foreach ($terms as $term): ?>
                         <option value="<?= $term['id'] ?>" <?= $term_filter == $term['id'] ? 'selected' : '' ?>>
@@ -152,8 +176,8 @@ $userInitial = strtoupper(substr($userName, 0, 1));
                 </div>
                 
                 <div>
-                    <label style="display: block; font-weight: 500; margin-bottom: 8px;">Class</label>
-                    <select name="class" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Class</label>
+                    <select name="class" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
                         <option value="">All Classes</option>
                         <?php foreach ($classes as $class): ?>
                         <option value="<?= $class['id'] ?>" <?= $class_filter == $class['id'] ? 'selected' : '' ?>>
@@ -163,70 +187,70 @@ $userInitial = strtoupper(substr($userName, 0, 1));
                     </select>
                 </div>
                 
-                <div style="display: flex; gap: 10px;">
-                    <button type="submit" class="btn btn-primary">Apply Filter</button>
-                    <a href="?" class="btn" style="border: 1px solid #e5e7eb; text-decoration: none;">Reset</a>
+                <div class="flex gap-3">
+                    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">Apply Filter</button>
+                    <a href="?" class="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 transition-colors">Reset</a>
                 </div>
             </div>
         </form>
 
         <!-- Defaulters Table -->
-        <div class="table-container" style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3>Defaulters List (<?= $total_defaulters ?>)</h3>
-                <button onclick="window.print()" class="btn" style="border: 1px solid #e5e7eb;">
-                    <i class="fas fa-print"></i> Print Report
+        <div class="bg-white rounded-lg shadow-sm border">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-gray-900">Defaulters List (<?= $total_defaulters ?>)</h3>
+                <button onclick="window.print()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors">
+                    <i class="fas fa-print mr-2"></i> Print Report
                 </button>
             </div>
             
             <?php if (empty($defaulters)): ?>
-            <div style="text-align: center; padding: 60px 20px; color: #6b7280;">
-                <i class="fas fa-check-circle" style="font-size: 48px; color: #10b981; margin-bottom: 15px;"></i>
-                <h3 style="margin-bottom: 10px;">Great! No Defaulters Found</h3>
-                <p>All students have paid their fees for the selected period.</p>
+            <div class="text-center py-16 px-6">
+                <i class="fas fa-check-circle text-5xl text-green-500 mb-4"></i>
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">Great! No Defaulters Found</h3>
+                <p class="text-gray-600">All students have paid their fees for the selected period.</p>
             </div>
             <?php else: ?>
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="border-bottom: 2px solid #e5e7eb; background: #f9fafb;">
-                            <th style="padding: 12px; text-align: left;">#</th>
-                            <th style="padding: 12px; text-align: left;">Student ID</th>
-                            <th style="padding: 12px; text-align: left;">Name</th>
-                            <th style="padding: 12px; text-align: left;">Class</th>
-                            <th style="padding: 12px; text-align: left;">Phone</th>
-                            <th style="padding: 12px; text-align: right;">Total Due</th>
-                            <th style="padding: 12px; text-align: right;">Paid</th>
-                            <th style="padding: 12px; text-align: right;">Balance</th>
-                            <th style="padding: 12px; text-align: center;">Status</th>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student ID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Class</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Due</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Paid</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="bg-white divide-y divide-gray-200">
                         <?php foreach ($defaulters as $index => $student): ?>
-                        <tr style="border-bottom: 1px solid #f3f4f6;">
-                            <td style="padding: 12px;"><?= $index + 1 ?></td>
-                            <td style="padding: 12px; font-weight: 600;"><?= htmlspecialchars($student['student_id']) ?></td>
-                            <td style="padding: 12px;">
-                                <div style="font-weight: 600;"><?= htmlspecialchars($student['first_name'] . ' ' . $student['last_name']) ?></div>
-                                <div style="font-size: 0.85rem; color: #6b7280;"><?= htmlspecialchars($student['admission_number']) ?></div>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 text-gray-700"><?= $index + 1 ?></td>
+                            <td class="px-6 py-4 font-semibold text-gray-900"><?= htmlspecialchars($student['student_id']) ?></td>
+                            <td class="px-6 py-4">
+                                <div class="font-semibold text-gray-900"><?= htmlspecialchars($student['first_name'] . ' ' . $student['last_name']) ?></div>
+                                <div class="text-sm text-gray-500"><?= htmlspecialchars($student['admission_number']) ?></div>
                             </td>
-                            <td style="padding: 12px;"><?= htmlspecialchars($student['class_name']) ?></td>
-                            <td style="padding: 12px; color: #6b7280;"><?= htmlspecialchars($student['phone'] ?? 'N/A') ?></td>
-                            <td style="padding: 12px; text-align: right; font-weight: 600;">₦<?= number_format($student['total_due'], 2) ?></td>
-                            <td style="padding: 12px; text-align: right; color: #10b981;">₦<?= number_format($student['total_paid'], 2) ?></td>
-                            <td style="padding: 12px; text-align: right; font-weight: 700; color: #ef4444;">₦<?= number_format($student['balance'], 2) ?></td>
-                            <td style="padding: 12px; text-align: center;">
-                                <span style="padding: 4px 12px; border-radius: 12px; font-size: 0.85rem; background: #fef2f2; color: #ef4444;">
-                                    <i class="fas fa-exclamation-circle"></i> Owing
+                            <td class="px-6 py-4 text-gray-700"><?= htmlspecialchars($student['class_name']) ?></td>
+                            <td class="px-6 py-4 text-gray-600"><?= htmlspecialchars($student['phone'] ?? 'N/A') ?></td>
+                            <td class="px-6 py-4 text-right font-semibold text-gray-900">₦<?= number_format($student['total_due'], 2) ?></td>
+                            <td class="px-6 py-4 text-right text-green-600">₦<?= number_format($student['total_paid'], 2) ?></td>
+                            <td class="px-6 py-4 text-right font-bold text-red-600">₦<?= number_format($student['balance'], 2) ?></td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    <i class="fas fa-exclamation-circle mr-1"></i> Owing
                                 </span>
                             </td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
-                    <tfoot>
-                        <tr style="background: #fef2f2; font-weight: 700;">
-                            <td colspan="7" style="padding: 15px; text-align: right;">Total Outstanding:</td>
-                            <td style="padding: 15px; text-align: right; color: #ef4444; font-size: 1.1rem;">₦<?= number_format($total_outstanding, 2) ?></td>
+                    <tfoot class="bg-red-50">
+                        <tr class="font-bold">
+                            <td colspan="7" class="px-6 py-4 text-right text-gray-900">Total Outstanding:</td>
+                            <td class="px-6 py-4 text-right text-red-600 text-lg">₦<?= number_format($total_outstanding, 2) ?></td>
                             <td></td>
                         </tr>
                     </tfoot>

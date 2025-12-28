@@ -82,118 +82,150 @@ $userInitial = strtoupper(substr($userName, 0, 1));
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Income Statement - Northland Schools</title>
-    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        nskblue: '#1e40af',
+                        nsklightblue: '#3b82f6',
+                        nsknavy: '#1e3a8a',
+                        nskgold: '#f59e0b',
+                        nsklight: '#f0f9ff',
+                        nskgreen: '#10b981',
+                        nskred: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
     <link rel="stylesheet" href="sidebar.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background: #f8fafc;
+        }
+    </style>
 </head>
-<body class="flex">
+<body class="bg-gray-50">
 
 <?php include 'sidebar.php'; ?>
 
-<main class="main-content">
-    <div class="content-body" style="padding: 30px;">
+<main class="main-content min-h-screen">
+    <div class="content-body p-6">
         
-        <div class="page-title-box" style="margin-bottom: 30px;">
-            <h1 class="page-title">Income Statement</h1>
-            <p style="color: var(--text-light); margin-top: 5px;">Profit and Loss Statement for <strong style="color: var(--brand-navy);">Northland Schools Kano</strong></p>
-        </main>
+        <div class="page-title-box mb-8">
+            <h1 class="text-2xl font-bold text-gray-900">Income Statement</h1>
+            <p class="text-gray-600 mt-1">Profit and Loss Statement for <strong class="text-blue-900">Northland Schools Kano</strong></p>
+        </div>
 
         <!-- Date Range Filter -->
-        <form method="GET" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <div style="display: flex; gap: 15px; align-items: flex-end;">
-                <div style="flex: 1;">
-                    <label style="display: block; font-weight: 500; margin-bottom: 8px;">Start Date</label>
-                    <input type="date" name="start_date" value="<?= htmlspecialchars($start_date) ?>" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
-                </main>
-                <div style="flex: 1;">
-                    <label style="display: block; font-weight: 500; margin-bottom: 8px;">End Date</label>
-                    <input type="date" name="end_date" value="<?= htmlspecialchars($end_date) ?>" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
-                </main>
-                <button type="submit" class="btn btn-primary">Apply Filter</button>
-                <a href="?" class="btn" style="border: 1px solid #e5e7eb;">Reset</a>
-            </main>
+        <form method="GET" class="bg-white p-6 rounded-lg shadow-sm border mb-8">
+            <div class="flex flex-wrap gap-4 items-end">
+                <div class="flex-1 min-w-48">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                    <input type="date" name="start_date" value="<?= htmlspecialchars($start_date) ?>" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="flex-1 min-w-48">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                    <input type="date" name="end_date" value="<?= htmlspecialchars($end_date) ?>" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">Apply Filter</button>
+                <a href="?" class="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 transition-colors">Reset</a>
+            </div>
         </form>
 
         <!-- Summary Cards -->
-        <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 30px;">
-            <div class="stat-card green" style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <span class="label" style="display: block; color: #6b7280; font-size: 0.9rem; margin-bottom: 10px;">Total Revenue</span>
-                <span class="value" style="display: block; font-size: 2rem; font-weight: bold; color: #10b981; margin-bottom: 5px;">₦<?= number_format($total_revenue, 2) ?></span>
-                <span class="trend" style="font-size: 0.85rem; color: #6b7280;"><?= $payment_count ?> transactions</span>
-            </main>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-lg shadow-sm border">
+                <div class="text-sm text-gray-600 mb-2">Total Revenue</div>
+                <div class="text-2xl font-bold text-green-600 mb-1">₦<?= number_format($total_revenue, 2) ?></div>
+                <div class="text-sm text-gray-500"><?= $payment_count ?> transactions</div>
+            </div>
             
-            <div class="stat-card orange" style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <span class="label" style="display: block; color: #6b7280; font-size: 0.9rem; margin-bottom: 10px;">Total Expenses</span>
-                <span class="value" style="display: block; font-size: 2rem; font-weight: bold; color: #f59e0b; margin-bottom: 5px;">₦<?= number_format($total_expenses, 2) ?></span>
-                <span class="trend" style="font-size: 0.85rem; color: #6b7280;"><?= $expense_count ?> expenses</span>
-            </main>
+            <div class="bg-white p-6 rounded-lg shadow-sm border">
+                <div class="text-sm text-gray-600 mb-2">Total Expenses</div>
+                <div class="text-2xl font-bold text-orange-600 mb-1">₦<?= number_format($total_expenses, 2) ?></div>
+                <div class="text-sm text-gray-500"><?= $expense_count ?> expenses</div>
+            </div>
             
-            <div class="stat-card <?= $net_income >= 0 ? 'blue' : '' ?>" style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <span class="label" style="display: block; color: #6b7280; font-size: 0.9rem; margin-bottom: 10px;">Net Income</span>
-                <span class="value" style="display: block; font-size: 2rem; font-weight: bold; color: <?= $net_income >= 0 ? '#3b82f6' : '#ef4444' ?>; margin-bottom: 5px;">₦<?= number_format($net_income, 2) ?></span>
-                <span class="trend" style="font-size: 0.85rem; color: <?= $net_income >= 0 ? '#10b981' : '#ef4444' ?>;">
+            <div class="bg-white p-6 rounded-lg shadow-sm border">
+                <div class="text-sm text-gray-600 mb-2">Net Income</div>
+                <div class="text-2xl font-bold <?= $net_income >= 0 ? 'text-blue-600' : 'text-red-600' ?> mb-1">₦<?= number_format($net_income, 2) ?></div>
+                <div class="text-sm <?= $net_income >= 0 ? 'text-green-600' : 'text-red-600' ?>">
                     <i class="fas fa-<?= $net_income >= 0 ? 'arrow-up' : 'arrow-down' ?>"></i>
                     <?= $net_income >= 0 ? 'Profit' : 'Loss' ?>
-                </span>
-            </main>
-        </main>
+                </div>
+            </div>
+        </div>
 
         <!-- Detailed Income Statement -->
-        <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 30px;">
-            <h3 style="margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e5e7eb;">Income Statement Detail</h3>
+        <div class="bg-white rounded-lg shadow-sm border mb-8">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Income Statement Detail</h3>
+            </div>
             
-            <table style="width: 100%; border-collapse: collapse;">
-                <tbody>
-                    <tr style="border-bottom: 1px solid #e5e7eb;">
-                        <td style="padding: 15px 0; font-weight: 600; color: #10b981;">Revenue</td>
-                        <td style="padding: 15px 0; text-align: right; font-weight: 600; color: #10b981;">₦<?= number_format($total_revenue, 2) ?></td>
-                    </tr>
-                    <tr style="border-bottom: 1px solid #e5e7eb;">
-                        <td style="padding: 15px 0 15px 30px; color: #6b7280;">Fee Payments</td>
-                        <td style="padding: 15px 0; text-align: right;">₦<?= number_format($total_revenue, 2) ?></td>
-                    </tr>
-                    
-                    <tr style="border-bottom: 2px solid #e5e7eb;">
-                        <td style="padding: 20px 0; font-weight: 600; color: #f59e0b;">Less: Expenses</td>
-                        <td style="padding: 20px 0; text-align: right; font-weight: 600; color: #f59e0b;">₦<?= number_format($total_expenses, 2) ?></td>
-                    </tr>
-                    
-                    <?php foreach ($expenses_by_cat as $expense): ?>
-                    <tr style="border-bottom: 1px solid #f3f4f6;">
-                        <td style="padding: 10px 0 10px 30px; color: #6b7280;"><?= htmlspecialchars($expense['category']) ?></td>
-                        <td style="padding: 10px 0; text-align: right; color: #6b7280;">₦<?= number_format($expense['amount'], 2) ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                    
-                    <tr style="background: <?= $net_income >= 0 ? '#f0fdf4' : '#fef2f2' ?>;">
-                        <td style="padding: 20px 0; font-weight: 700; font-size: 1.1rem; color: <?= $net_income >= 0 ? '#10b981' : '#ef4444' ?>;">Net Income (<?= $net_income >= 0 ? 'Profit' : 'Loss' ?>)</td>
-                        <td style="padding: 20px 0; text-align: right; font-weight: 700; font-size: 1.1rem; color: <?= $net_income >= 0 ? '#10b981' : '#ef4444' ?>;">₦<?= number_format($net_income, 2) ?></td>
-                    </tr>
-                </tbody>
-            </table>
-        </main>
+            <div class="p-6">
+                <table class="w-full">
+                    <tbody>
+                        <tr class="border-b border-gray-200">
+                            <td class="py-4 font-semibold text-green-600">Revenue</td>
+                            <td class="py-4 text-right font-semibold text-green-600">₦<?= number_format($total_revenue, 2) ?></td>
+                        </tr>
+                        <tr class="border-b border-gray-100">
+                            <td class="py-3 pl-8 text-gray-600">Fee Payments</td>
+                            <td class="py-3 text-right text-gray-700">₦<?= number_format($total_revenue, 2) ?></td>
+                        </tr>
+                        
+                        <tr class="border-b-2 border-gray-200">
+                            <td class="py-5 font-semibold text-orange-600">Less: Expenses</td>
+                            <td class="py-5 text-right font-semibold text-orange-600">₦<?= number_format($total_expenses, 2) ?></td>
+                        </tr>
+                        
+                        <?php foreach ($expenses_by_cat as $expense): ?>
+                        <tr class="border-b border-gray-100">
+                            <td class="py-2 pl-8 text-gray-600"><?= htmlspecialchars($expense['category']) ?></td>
+                            <td class="py-2 text-right text-gray-700">₦<?= number_format($expense['amount'], 2) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        
+                        <tr class="<?= $net_income >= 0 ? 'bg-green-50' : 'bg-red-50' ?>">
+                            <td class="py-5 font-bold text-lg <?= $net_income >= 0 ? 'text-green-700' : 'text-red-700' ?>">Net Income (<?= $net_income >= 0 ? 'Profit' : 'Loss' ?>)</td>
+                            <td class="py-5 text-right font-bold text-lg <?= $net_income >= 0 ? 'text-green-700' : 'text-red-700' ?>">₦<?= number_format($net_income, 2) ?></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
 
         <!-- Monthly Revenue Trend -->
         <?php if (!empty($revenue_by_month)): ?>
-        <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-            <h3 style="margin-bottom: 20px;">Monthly Revenue Trend</h3>
-            <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr style="border-bottom: 2px solid #e5e7eb;">
-                        <th style="padding: 12px; text-align: left;">Month</th>
-                        <th style="padding: 12px; text-align: right;">Revenue</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($revenue_by_month as $month_data): ?>
-                    <tr style="border-bottom: 1px solid #f3f4f6;">
-                        <td style="padding: 12px;"><?= date('F Y', strtotime($month_data['month'] . '-01')) ?></td>
-                        <td style="padding: 12px; text-align: right; font-weight: 600;">₦<?= number_format($month_data['amount'], 2) ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+        <div class="bg-white rounded-lg shadow-sm border">
+            <div class="p-6 border-b border-gray-200">
+                <h3 class="text-lg font-semibold text-gray-900">Monthly Revenue Trend</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        <?php foreach ($revenue_by_month as $month_data): ?>
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 text-gray-900"><?= date('F Y', strtotime($month_data['month'] . '-01')) ?></td>
+                            <td class="px-6 py-4 text-right font-semibold text-gray-900">₦<?= number_format($month_data['amount'], 2) ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
         <?php endif; ?>
 
