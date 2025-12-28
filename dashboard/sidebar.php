@@ -64,6 +64,32 @@ $session_token = $_SESSION['session_token'] ?? '';
     </div>
 </aside>
 
+<!-- Dropdown Menu Styles -->
+<style>
+    .dropdown-arrow {
+        transition: transform 0.3s ease;
+    }
+    
+    .dropdown-arrow.rotate-180 {
+        transform: rotate(180deg);
+    }
+    
+    .dropdown-menu {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+    
+    .dropdown-menu:not(.hidden) {
+        max-height: 500px;
+        transition: max-height 0.5s ease-in;
+    }
+    
+    .dropdown-container {
+        margin-bottom: 0.5rem;
+    }
+</style>
+
 <!-- This <script> tag contains all the logic from your old sidebar.js file -->
 <script>
     // sidebar.js - Reusable sidebar component
@@ -105,9 +131,31 @@ $session_token = $_SESSION['session_token'] ?? '';
                     text: 'Term Management'
                 },
                 {
-                    href: '../accountant-dashboard/index.php',
                     icon: 'fas fa-dollar-sign',
-                    text: 'Finance'
+                    text: 'Finance',
+                    isDropdown: true,
+                    subitems: [
+                        {
+                            href: '../accountant-dashboard/index.php',
+                            icon: 'fas fa-home',
+                            text: 'Finance Dashboard'
+                        },
+                        {
+                            href: '../accountant-dashboard/reports.php?type=income',
+                            icon: 'fas fa-file-invoice-dollar',
+                            text: 'Income Statement'
+                        },
+                        {
+                            href: '../accountant-dashboard/reports.php?type=collection',
+                            icon: 'fas fa-money-bill-wave',
+                            text: 'Fee Collection Report'
+                        },
+                        {
+                            href: '../accountant-dashboard/reports.php?type=defaulters',
+                            icon: 'fas fa-exclamation-triangle',
+                            text: 'Defaulters List'
+                        }
+                    ]
                 },
                 {
                     href: 'report.php',
@@ -131,6 +179,7 @@ $session_token = $_SESSION['session_token'] ?? '';
             this.hideSidebar = this.hideSidebar.bind(this);
             this.handleLogout = this.handleLogout.bind(this);
             this.handleOutsideClick = this.handleOutsideClick.bind(this);
+            this.toggleDropdown = this.toggleDropdown.bind(this);
         }
 
         // Initialize sidebar
@@ -144,12 +193,44 @@ $session_token = $_SESSION['session_token'] ?? '';
             const navContainer = document.getElementById('sidebar-nav');
             if (!navContainer) return;
 
-            navContainer.innerHTML = this.navigationItems.map(item => {
+            navContainer.innerHTML = this.navigationItems.map((item, index) => {
 
                 // Handle 'report.php' alias
                 if (item.href === 'report.php') item.href = 'report.php';
                 if (currentPage === 'report.php') currentPage = 'report.php';
 
+                // Check if this is a dropdown
+                if (item.isDropdown) {
+                    // Check if any subitem is active
+                    const hasActiveSubitem = item.subitems.some(sub => currentPage.includes(sub.href));
+                    const dropdownClass = hasActiveSubitem ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white';
+                    
+                    return `
+                    <div class="dropdown-container">
+                        <a href="#" class="flex items-center justify-between p-3 rounded-lg ${dropdownClass} transition nav-item dropdown-toggle" data-dropdown="${index}">
+                            <div class="flex items-center">
+                                <i class="${item.icon} mr-3"></i>
+                                <span>${item.text}</span>
+                            </div>
+                            <i class="fas fa-chevron-down dropdown-arrow"></i>
+                        </a>
+                        <div class="dropdown-menu hidden pl-4" id="dropdown-${index}">
+                            ${item.subitems.map(subitem => {
+                                const isActive = currentPage.includes(subitem.href);
+                                const activeClass = isActive ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white';
+                                return `
+                                <a href="${subitem.href}" class="flex items-center p-2 pl-3 rounded-lg ${activeClass} transition nav-item mb-1">
+                                    <i class="${subitem.icon} mr-3 text-sm"></i>
+                                    <span class="text-sm">${subitem.text}</span>
+                                </a>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                    `;
+                }
+
+                // Regular link
                 const isActive = currentPage === item.href;
                 const activeClass = isActive ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white';
 
@@ -164,7 +245,7 @@ $session_token = $_SESSION['session_token'] ?? '';
 
         // Setup event listeners
         setupEventListeners() {
-            // This runs *after* DOMContentLoaded, so we query directly.
+            // This runs *after* DOM ContentLoaded, so we query directly.
             const sidebarToggle = document.querySelector('.sidebar-toggle');
             if (sidebarToggle) {
                 sidebarToggle.addEventListener('click', this.toggleSidebar);
@@ -174,6 +255,16 @@ $session_token = $_SESSION['session_token'] ?? '';
             if (logoutLink) {
                 logoutLink.addEventListener('click', this.handleLogout);
             }
+
+            // Setup dropdown toggles
+            const dropdownToggles = document.querySelectorAll('.dropdown-toggle');
+            dropdownToggles.forEach(toggle => {
+                toggle.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const dropdownId = toggle.getAttribute('data-dropdown');
+                    this.toggleDropdown(dropdownId);
+                });
+            });
 
             const sidebarLinks = document.querySelectorAll('.sidebar a');
             sidebarLinks.forEach(link => {
@@ -185,6 +276,19 @@ $session_token = $_SESSION['session_token'] ?? '';
             });
 
             document.addEventListener('click', this.handleOutsideClick);
+        }
+
+        // Toggle dropdown menu
+        toggleDropdown(dropdownId) {
+            const dropdownMenu = document.getElementById(`dropdown-${dropdownId}`);
+            const dropdownArrow = document.querySelector(`[data-dropdown="${dropdownId}"] .dropdown-arrow`);
+            
+            if (dropdownMenu) {
+                dropdownMenu.classList.toggle('hidden');
+                if (dropdownArrow) {
+                    dropdownArrow.classList.toggle('rotate-180');
+                }
+            }
         }
 
         // Handle outside clicks to close sidebar
