@@ -1,6 +1,5 @@
 <?php
-require_once '../auth-check.php';
-checkAuth('accountant'); // Finance management is for accountants only 
+require_once 'auth-check.php'; // Allows both admin and accountant for viewing fees 
 
 include '../includes/header.php';
 require_once '../config/database.php';

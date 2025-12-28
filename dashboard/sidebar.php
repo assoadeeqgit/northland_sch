@@ -141,7 +141,7 @@ $session_token = $_SESSION['session_token'] ?? '';
                             text: 'Income Statement'
                         },
                         {
-                            href: '../accountant-dashboard/reports.php?type=collection',
+                            href: '../accountant-dashboard/fees.php',
                             icon: 'fas fa-money-bill-wave',
                             text: 'Fee Collection Report'
                         },
