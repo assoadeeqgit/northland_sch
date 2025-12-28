@@ -136,11 +136,6 @@ $session_token = $_SESSION['session_token'] ?? '';
                     isDropdown: true,
                     subitems: [
                         {
-                            href: '../accountant-dashboard/index.php',
-                            icon: 'fas fa-home',
-                            text: 'Finance Dashboard'
-                        },
-                        {
                             href: '../accountant-dashboard/reports.php?type=income',
                             icon: 'fas fa-file-invoice-dollar',
                             text: 'Income Statement'

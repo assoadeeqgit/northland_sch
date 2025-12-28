@@ -1,5 +1,6 @@
 <?php 
-require_once 'auth-check.php'; // Allows both admin and accountant
+require_once '../auth-check.php';
+checkAuth('accountant'); // Finance management is for accountants only
 include '../includes/header.php'; 
 ?>
 
