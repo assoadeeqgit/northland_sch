@@ -256,8 +256,10 @@ $session_token = $_SESSION['session_token'] ?? '';
             dropdownToggles.forEach(toggle => {
                 toggle.addEventListener('click', (e) => {
                     e.preventDefault();
+                    e.stopPropagation();
                     const dropdownId = toggle.getAttribute('data-dropdown');
                     this.toggleDropdown(dropdownId);
+                    return false;
                 });
             });
 
