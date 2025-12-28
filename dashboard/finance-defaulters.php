@@ -94,12 +94,13 @@ $userInitial = strtoupper(substr($userName, 0, 1));
     <link rel="stylesheet" href="../css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="sidebar.css">
 </head>
-<body class="bg-gray-50">
+<body class="flex">
 
 <?php include 'sidebar.php'; ?>
 
-<div class="main-content">
+<main class="main-content">
     <div class="content-body" style="padding: 30px;">
         
         <div class="page-title-box" style="margin-bottom: 30px;">
@@ -235,7 +236,7 @@ $userInitial = strtoupper(substr($userName, 0, 1));
         </div>
 
     </div>
-</div>
+</main>
 
 <style>
 @media print {

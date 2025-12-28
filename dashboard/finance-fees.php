@@ -178,30 +178,31 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="sidebar.css">
 </head>
-<body class="bg-gray-50">
+<body class="flex">
 
 <?php include 'sidebar.php'; ?>
 
-<div class="main-content">
+<main class="main-content">
     <div class="content-body" style="padding: 30px;">
         
         <?php if ($message): ?>
             <div class="alert alert-<?php echo $messageType; ?>" style="padding: 15px; margin-bottom: 20px; border-radius: 5px; background-color: <?php echo $messageType == 'success' ? '#d4edda' : ($messageType == 'warning' ? '#fff3cd' : '#f8d7da'); ?>; color: <?php echo $messageType == 'success' ? '#155724' : ($messageType == 'warning' ? '#856404' : '#721c24'); ?>;">
                 <?php echo $message; ?>
-            </div>
+            </main>
         <?php endif; ?>
 
         <div class="page-title-box" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <div>
                 <h1 class="page-title">Fee Management</h1>
                 <p style="color: var(--text-light); margin-top: 5px;">Configure fee structures and manage school fees for <strong style="color: var(--brand-navy);">Northland Schools Kano</strong>.</p>
-            </div>
+            </main>
             <div style="display: flex; gap: 10px;">
                 <button class="btn" style="background: white; border: 1px solid var(--border-color); color: var(--text-color);"><i class="fas fa-file-export" style="margin-right:8px;"></i> Export</button>
                 <button onclick="document.getElementById('addFeeModal').style.display='block'" class="btn btn-primary"><i class="fas fa-plus" style="margin-right:8px;"></i> Create New Structure</button>
-            </div>
-        </div>
+            </main>
+        </main>
 
         <!-- Fee Stats -->
         <div class="stats-grid" style="padding: 0 0 30px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
@@ -209,18 +210,18 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                 <span class="label" style="display: block; color: var(--text-light); font-size: 0.9rem;">Total Expected (All Active)</span>
                 <span class="value" style="display: block; font-size: 1.8rem; font-weight: bold; margin: 10px 0;">₦<?php echo number_format($total_expected, 2); ?></span>
                 <span class="trend" style="font-size: 0.85rem; color: #666;">Based on enrolled students</span>
-            </div>
+            </main>
             <div class="stat-card orange" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                 <span class="label" style="display: block; color: var(--text-light); font-size: 0.9rem;">Assigned Structures</span>
                 <span class="value" style="display: block; font-size: 1.8rem; font-weight: bold; margin: 10px 0;"><?php echo $total_structures; ?></span>
                 <span class="trend" style="font-size: 0.85rem;">Across <?php echo $classes_count; ?> Classes</span>
-            </div>
+            </main>
             <div class="stat-card green" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                 <span class="label" style="display: block; color: var(--text-light); font-size: 0.9rem;">Total Collected</span>
                 <span class="value" style="display: block; font-size: 1.8rem; font-weight: bold; margin: 10px 0;">₦<?php echo number_format($total_collected, 2); ?></span>
                 <span class="trend text-success" style="font-size: 0.85rem;"><?php echo $collection_percentage; ?>% of Target</span>
-            </div>
-        </div>
+            </main>
+        </main>
 
         <!-- Filter Section -->
         <form method="GET" style="background: white; padding: 25px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 30px; border: 1px solid var(--border-color);">
@@ -228,7 +229,7 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
             <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                 <div style="flex: 2; min-width: 250px;">
                     <input type="text" name="search" placeholder="Search by fee type or class..." value="<?php echo htmlspecialchars($_GET['search'] ?? ''); ?>" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.95rem;">
-                </div>
+                </main>
                 <div style="flex: 1; min-width: 150px;">
                     <select name="term" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-color); font-size: 0.95rem;">
                         <option value="">All Terms</option>
@@ -236,19 +237,19 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                             <option value="<?php echo $term['id']; ?>" <?php echo (($_GET['term'] ?? '') == $term['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($term['term_name']); ?></option>
                         <?php endforeach; ?>
                     </select>
-                </div>
+                </main>
                 <button type="submit" class="btn btn-primary" style="padding: 12px 24px;">Filter</button>
                 <?php if (!empty($_GET['search']) || !empty($_GET['term'])): ?>
                     <a href="fees.php" class="btn" style="padding: 12px 24px; border: 1px solid var(--border-color); text-decoration: none;">Clear</a>
                 <?php endif; ?>
-            </div>
+            </main>
         </form>
 
         <!-- Content Area -->
         <div class="table-container" style="margin: 0; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: 20px;">
             <div class="table-header" style="margin-bottom: 20px;">
                 <h3>Fee Structures (<?php echo $current_session['session_name'] ?? '2024-2025'; ?>)</h3>
-            </div>
+            </main>
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
                     <tr style="border-bottom: 2px solid #eee; text-align: left;">
@@ -270,7 +271,7 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                         <?php foreach ($fee_structures as $structure): ?>
                         <tr style="border-bottom: 1px solid #eee;">
                             <td style="padding: 12px;">
-                                <div style="font-weight: 600;"><?php echo htmlspecialchars($structure['fee_type']); ?></div>
+                                <div style="font-weight: 600;"><?php echo htmlspecialchars($structure['fee_type']); ?></main>
                             </td>
                             <td style="padding: 12px;"><?php echo htmlspecialchars($structure['class_name'] ?? 'N/A'); ?></td>
                             <td style="padding: 12px;"><?php echo htmlspecialchars($structure['term_name'] ?? 'N/A'); ?></td>
@@ -290,10 +291,10 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                     <?php endif; ?>
                 </tbody>
             </table>
-        </div>
+        </main>
 
-    </div>
-</div>
+    </main>
+</main>
 
 <!-- Add Fee Structure Modal -->
 <div id="addFeeModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
@@ -307,7 +308,7 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 500;">Fee Type *</label>
                 <input type="text" name="fee_type" required placeholder="e.g., Tuition, Development Levy, Exam Fee" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
+            </main>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                 <div>
@@ -318,12 +319,12 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                             <option value="<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['class_name']); ?></option>
                         <?php endforeach; ?>
                     </select>
-                </div>
+                </main>
                 <div>
                     <label style="display: block; margin-bottom: 5px; font-weight: 500;">Amount (₦) *</label>
                     <input type="number" name="amount" step="0.01" required placeholder="0.00" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                </div>
-            </div>
+                </main>
+            </main>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                 <div>
@@ -336,7 +337,7 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                             </option>
                         <?php endforeach; ?>
                     </select>
-                </div>
+                </main>
                 <div>
                     <label style="display: block; margin-bottom: 5px; font-weight: 500;">Term *</label>
                     <select name="term_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
@@ -347,21 +348,21 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                             </option>
                         <?php endforeach; ?>
                     </select>
-                </div>
-            </div>
+                </main>
+            </main>
 
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 500;">Due Date (Optional)</label>
                 <input type="date" name="due_date" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
+            </main>
 
             <div style="text-align: right;">
                 <button type="button" onclick="document.getElementById('addFeeModal').style.display='none'" class="btn" style="margin-right: 10px; border: 1px solid #ddd;">Cancel</button>
                 <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">Create Fee Structure</button>
-            </div>
+            </main>
         </form>
-    </div>
-</div>
+    </main>
+</main>
 
 <!-- Edit Fee Structure Modal -->
 <div id="editFeeModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
@@ -376,7 +377,7 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
             <div style="margin-bottom: 15px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 500;">Fee Type *</label>
                 <input type="text" name="fee_type" id="edit_fee_type" required placeholder="e.g., Tuition" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
+            </main>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                 <div>
@@ -387,12 +388,12 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                             <option value="<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['class_name']); ?></option>
                         <?php endforeach; ?>
                     </select>
-                </div>
+                </main>
                 <div>
                     <label style="display: block; margin-bottom: 5px; font-weight: 500;">Amount (₦) *</label>
                     <input type="number" name="amount" id="edit_amount" step="0.01" required placeholder="0.00" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                </div>
-            </div>
+                </main>
+            </main>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                 <div>
@@ -403,7 +404,7 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                             <option value="<?php echo $session['id']; ?>"><?php echo htmlspecialchars($session['session_name']); ?></option>
                         <?php endforeach; ?>
                     </select>
-                </div>
+                </main>
                 <div>
                     <label style="display: block; margin-bottom: 5px; font-weight: 500;">Term *</label>
                     <select name="term_id" id="edit_term_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
@@ -412,21 +413,21 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                             <option value="<?php echo $term['id']; ?>"><?php echo htmlspecialchars($term['term_name']); ?></option>
                         <?php endforeach; ?>
                     </select>
-                </div>
-            </div>
+                </main>
+            </main>
 
             <div style="margin-bottom: 20px;">
                 <label style="display: block; margin-bottom: 5px; font-weight: 500;">Due Date (Optional)</label>
                 <input type="date" name="due_date" id="edit_due_date" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
+            </main>
 
             <div style="text-align: right;">
                 <button type="button" onclick="document.getElementById('editFeeModal').style.display='none'" class="btn" style="margin-right: 10px; border: 1px solid #ddd;">Cancel</button>
                 <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">Update Fee Structure</button>
-            </div>
+            </main>
         </form>
-    </div>
-</div>
+    </main>
+</main>
 
 <!-- Delete Confirmation Form (Hidden) -->
 <form method="POST" id="deleteFeeForm" style="display: none;">
@@ -539,8 +540,9 @@ function deleteFeeStructure(id, feeName) {
 }
 </script>
 
-</div>
-</div>
+</main>
+</main>
+
 
 </body>
 </html>

@@ -85,18 +85,19 @@ $userInitial = strtoupper(substr($userName, 0, 1));
     <link rel="stylesheet" href="../css/styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="sidebar.css">
 </head>
-<body class="bg-gray-50">
+<body class="flex">
 
 <?php include 'sidebar.php'; ?>
 
-<div class="main-content">
+<main class="main-content">
     <div class="content-body" style="padding: 30px;">
         
         <div class="page-title-box" style="margin-bottom: 30px;">
             <h1 class="page-title">Income Statement</h1>
             <p style="color: var(--text-light); margin-top: 5px;">Profit and Loss Statement for <strong style="color: var(--brand-navy);">Northland Schools Kano</strong></p>
-        </div>
+        </main>
 
         <!-- Date Range Filter -->
         <form method="GET" style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
@@ -104,14 +105,14 @@ $userInitial = strtoupper(substr($userName, 0, 1));
                 <div style="flex: 1;">
                     <label style="display: block; font-weight: 500; margin-bottom: 8px;">Start Date</label>
                     <input type="date" name="start_date" value="<?= htmlspecialchars($start_date) ?>" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
-                </div>
+                </main>
                 <div style="flex: 1;">
                     <label style="display: block; font-weight: 500; margin-bottom: 8px;">End Date</label>
                     <input type="date" name="end_date" value="<?= htmlspecialchars($end_date) ?>" style="width: 100%; padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
-                </div>
+                </main>
                 <button type="submit" class="btn btn-primary">Apply Filter</button>
                 <a href="?" class="btn" style="border: 1px solid #e5e7eb;">Reset</a>
-            </div>
+            </main>
         </form>
 
         <!-- Summary Cards -->
@@ -120,13 +121,13 @@ $userInitial = strtoupper(substr($userName, 0, 1));
                 <span class="label" style="display: block; color: #6b7280; font-size: 0.9rem; margin-bottom: 10px;">Total Revenue</span>
                 <span class="value" style="display: block; font-size: 2rem; font-weight: bold; color: #10b981; margin-bottom: 5px;">₦<?= number_format($total_revenue, 2) ?></span>
                 <span class="trend" style="font-size: 0.85rem; color: #6b7280;"><?= $payment_count ?> transactions</span>
-            </div>
+            </main>
             
             <div class="stat-card orange" style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                 <span class="label" style="display: block; color: #6b7280; font-size: 0.9rem; margin-bottom: 10px;">Total Expenses</span>
                 <span class="value" style="display: block; font-size: 2rem; font-weight: bold; color: #f59e0b; margin-bottom: 5px;">₦<?= number_format($total_expenses, 2) ?></span>
                 <span class="trend" style="font-size: 0.85rem; color: #6b7280;"><?= $expense_count ?> expenses</span>
-            </div>
+            </main>
             
             <div class="stat-card <?= $net_income >= 0 ? 'blue' : '' ?>" style="background: white; padding: 25px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                 <span class="label" style="display: block; color: #6b7280; font-size: 0.9rem; margin-bottom: 10px;">Net Income</span>
@@ -135,8 +136,8 @@ $userInitial = strtoupper(substr($userName, 0, 1));
                     <i class="fas fa-<?= $net_income >= 0 ? 'arrow-up' : 'arrow-down' ?>"></i>
                     <?= $net_income >= 0 ? 'Profit' : 'Loss' ?>
                 </span>
-            </div>
-        </div>
+            </main>
+        </main>
 
         <!-- Detailed Income Statement -->
         <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 30px;">
@@ -171,7 +172,7 @@ $userInitial = strtoupper(substr($userName, 0, 1));
                     </tr>
                 </tbody>
             </table>
-        </div>
+        </main>
 
         <!-- Monthly Revenue Trend -->
         <?php if (!empty($revenue_by_month)): ?>
@@ -197,7 +198,7 @@ $userInitial = strtoupper(substr($userName, 0, 1));
         <?php endif; ?>
 
     </div>
-</div>
+</main>
 
 </body>
 </html>
