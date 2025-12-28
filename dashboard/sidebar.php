@@ -136,7 +136,7 @@ $session_token = $_SESSION['session_token'] ?? '';
                     isDropdown: true,
                     subitems: [
                         {
-                            href: '../accountant-dashboard/reports.php?type=income',
+                            href: '../accountant-dashboard/finance-income.php',
                             icon: 'fas fa-file-invoice-dollar',
                             text: 'Income Statement'
                         },
@@ -146,7 +146,7 @@ $session_token = $_SESSION['session_token'] ?? '';
                             text: 'Fee Collection Report'
                         },
                         {
-                            href: '../accountant-dashboard/reports.php?type=defaulters',
+                            href: '../accountant-dashboard/finance-defaulters.php',
                             icon: 'fas fa-exclamation-triangle',
                             text: 'Defaulters List'
                         }
