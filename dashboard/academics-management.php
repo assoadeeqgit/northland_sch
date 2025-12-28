@@ -618,43 +618,6 @@ try {
         width: 100%;
       }
 
-      .sidebar {
-        transition: all 0.3s ease;
-        width: 250px;
-      }
-
-      .sidebar.collapsed {
-        width: 80px;
-      }
-
-      .main-content {
-        transition: all 0.3s ease;
-        margin-left: 250px;
-        width: calc(100% - 250px);
-      }
-
-      .main-content.expanded {
-        margin-left: 80px;
-        width: calc(100% - 80px);
-      }
-
-      @media (max-width: 768px) {
-        .sidebar {
-          margin-left: -250px;
-          z-index: 40;
-        }
-
-        .sidebar.mobile-show {
-          margin-left: 0;
-          box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-        }
-
-        .main-content {
-          margin-left: 0;
-          width: 100%;
-        }
-      }
-
       .notification-dot {
         position: absolute;
         top: -5px;

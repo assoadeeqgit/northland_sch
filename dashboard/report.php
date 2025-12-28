@@ -525,41 +525,6 @@ try {
             color: white;
         }
 
-        .sidebar {
-            transition: all 0.3s ease;
-            width: 250px;
-        }
-
-        .sidebar.collapsed {
-            width: 80px;
-        }
-
-        .main-content {
-            transition: all 0.3s ease;
-            margin-left: 250px;
-            width: calc(100% - 250px);
-        }
-
-        .main-content.expanded {
-            margin-left: 80px;
-            width: calc(100% - 80px);
-        }
-
-        @media (max-width: 768px) {
-            .sidebar {
-                margin-left: -250px;
-            }
-
-            .sidebar.mobile-show {
-                margin-left: 0;
-            }
-
-            .main-content {
-                margin-left: 0;
-                width: 100%;
-            }
-        }
-
         .fade-in {
             animation: fadeIn 0.5s ease-in-out;
         }

@@ -1,6 +1,7 @@
 <?php
 require_once 'auth-check.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/TimetableHelper.php';
 
 checkAuth();
 
@@ -42,7 +43,7 @@ try {
     $termId = $stmt->fetchColumn();
 
     if (!$sessionId || !$termId) {
-        echo json_encode(['success' => false, 'message' => 'Current session or term not active. Please activate a session/term first.']);
+        echo json_encode(['success' => false, 'message' => 'Current session or term not active.']);
         exit;
     }
 } catch (Exception $e) {
@@ -78,56 +79,83 @@ while (($row = fgetcsv($handle)) !== false) {
 
     // 1. Resolve Class
     if (!isset($classes[$className])) {
-        $stmt = $conn->prepare("SELECT id FROM classes WHERE class_name = ?");
+        $stmt = $conn->prepare("SELECT id, class_level FROM classes WHERE class_name = ?");
         $stmt->execute([$className]);
-        $cid = $stmt->fetchColumn();
-        if ($cid)
-            $classes[$className] = $cid;
+        $cinfo = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($cinfo)
+            $classes[$className] = $cinfo;
         else {
             $errors[] = "Row $rowIdx: Class '$className' not found";
             continue;
         }
     }
-    $classId = $classes[$className];
+    $classId = $classes[$className]['id'];
+    $classLevel = $classes[$className]['class_level'];
+    
+    // Time Validation
+    $rules = TimetableHelper::getRules($classLevel, $className);
+    if (strtotime($start) < strtotime($rules['start_time']) || strtotime($end) > strtotime($rules['end_time'])) {
+        $errors[] = "Row $rowIdx: Time $start-$end is outside school hours for $className ({$rules['start_time']}-{$rules['end_time']})";
+        // We continue anyway but mark as warning in a real system, here we enforce rules
+        continue;
+    }
 
     // 2. Resolve Subject
+    $subjectId = null;
+    $isDummy = false;
+    
     if (!isset($subjects[$subjectName])) {
         // Exact match first
-        $stmt = $conn->prepare("SELECT id FROM subjects WHERE subject_name = ? LIMIT 1");
+        $stmt = $conn->prepare("SELECT id, is_dummy FROM subjects WHERE subject_name = ? LIMIT 1");
         $stmt->execute([$subjectName]);
-        $sid = $stmt->fetchColumn();
+        $sinfo = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // If not found, check if it's a Break (case-insensitive)
-        if (!$sid && stripos($subjectName, 'Break') !== false) {
-            $stmt = $conn->query("SELECT id FROM subjects WHERE subject_name LIKE '%Break%' LIMIT 1");
-            $sid = $stmt->fetchColumn();
-        }
+        if ($sinfo) {
+            $subjects[$subjectName] = $sinfo;
+        } else {
+            // Case-insensitive Check for Break
+            if (stripos($subjectName, 'Break') !== false) {
+                 $stmt = $conn->query("SELECT id, is_dummy FROM subjects WHERE subject_name LIKE '%Break%' LIMIT 1");
+                 $sinfo = $stmt->fetch(PDO::FETCH_ASSOC);
+            }
+            
+            // If still not found, use a dummy "Free Period" or similar
+            if (!$sinfo) {
+                $dummyId = TimetableHelper::getRandomDummySubjectId($conn);
+                if ($dummyId) {
+                    $stmt = $conn->prepare("SELECT id, is_dummy FROM subjects WHERE id = ?");
+                    $stmt->execute([$dummyId]);
+                    $sinfo = $stmt->fetch(PDO::FETCH_ASSOC);
+                }
+            }
 
-        if ($sid)
-            $subjects[$subjectName] = $sid;
-        else {
-            $errors[] = "Row $rowIdx: Subject '$subjectName' not found";
-            continue;
+            if ($sinfo) {
+                $subjects[$subjectName] = $sinfo;
+            } else {
+                $errors[] = "Row $rowIdx: Subject '$subjectName' not found and no dummy available";
+                continue;
+            }
         }
     }
-    $subjectId = $subjects[$subjectName];
+    $subjectId = $subjects[$subjectName]['id'];
+    $isDummy = $subjects[$subjectName]['is_dummy'];
 
     // 3. Resolve Teacher
     if (!isset($teachers[$teacherEmail])) {
         if (empty($teacherEmail)) {
-            // If subject is Break, assign to first available teacher just to satisfy FK
-            if (stripos($subjectName, 'Break') !== false) {
+            // If subject is Break or Dummy, assign a placeholder teacher to satisfy FK
+            if (stripos($subjectName, 'Break') !== false || $isDummy) {
                 $stmt = $conn->query("SELECT id FROM teachers LIMIT 1");
                 $tid = $stmt->fetchColumn();
 
                 if ($tid) {
-                    $teachers[$teacherEmail] = $tid; // Cache for empty email
+                    $teachers[$teacherEmail] = $tid;
                 } else {
-                    $errors[] = "Row $rowIdx: No teachers available in system to assign to Break";
+                    $errors[] = "Row $rowIdx: No teachers available in system to assign to Break/Dummy";
                     continue;
                 }
             } else {
-                $errors[] = "Row $rowIdx: Teacher email required for non-break subjects";
+                $errors[] = "Row $rowIdx: Teacher email required for non-break/non-dummy subjects";
                 continue;
             }
         } else {

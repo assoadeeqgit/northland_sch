@@ -415,35 +415,7 @@
 }
 
 /* ========== ANIMATIONS ========== */
-@keyframes slideIn {
-    from {
-        transform: translateX(-100%);
-        opacity: 0;
-    }
-
-    to {
-        transform: translateX(0);
-        opacity: 1;
-    }
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
-}
-
-.sidebar {
-    animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.nav-item {
-    animation: fadeIn 0.5s ease-in-out;
-}
+/* All sidebar animations removed for instant display */
 
 /* ========== BADGES & COUNTERS ========== */
 .nav-badge {

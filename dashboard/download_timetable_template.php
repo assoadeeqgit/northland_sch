@@ -72,22 +72,22 @@ echo '<?xml version="1.0"?>
     <Cell><Data ss:Type="String">Room 1A</Data></Cell>
    </Row>
    <Row>
-    <Cell ss:StyleID="sLocked"><Data ss:Type="String">JSS 1A</Data></Cell>
+    <Cell ss:StyleID="sLocked"><Data ss:Type="String">JSS 1</Data></Cell>
     <Cell ss:StyleID="sLocked"><Data ss:Type="String">Monday</Data></Cell>
-    <Cell ss:StyleID="sLocked"><Data ss:Type="String">09:20</Data></Cell>
-    <Cell ss:StyleID="sLocked"><Data ss:Type="String">09:40</Data></Cell>
-    <Cell ss:StyleID="sLocked"><Data ss:Type="String">Break Time</Data></Cell>
-    <Cell ss:StyleID="sLocked"><Data ss:Type="String">DO NOT EDIT</Data></Cell>
-    <Cell ss:StyleID="sLocked"><Data ss:Type="String">DO NOT EDIT</Data></Cell>
+    <Cell ss:StyleID="sLocked"><Data ss:Type="String">10:40</Data></Cell>
+    <Cell ss:StyleID="sLocked"><Data ss:Type="String">11:00</Data></Cell>
+    <Cell ss:StyleID="sLocked"><Data ss:Type="String">Break</Data></Cell>
+    <Cell ss:StyleID="sLocked"><Data ss:Type="String">N/A</Data></Cell>
+    <Cell ss:StyleID="sLocked"><Data ss:Type="String">N/A</Data></Cell>
    </Row>
-      <Row>
-    <Cell><Data ss:Type="String">JSS 1A</Data></Cell>
+   <Row>
+    <Cell><Data ss:Type="String">JSS 1</Data></Cell>
     <Cell><Data ss:Type="String">Monday</Data></Cell>
-    <Cell><Data ss:Type="String">09:40</Data></Cell>
-    <Cell><Data ss:Type="String">10:20</Data></Cell>
-    <Cell><Data ss:Type="String">Basic Science</Data></Cell>
-    <Cell><Data ss:Type="String">teacher3@example.com</Data></Cell>
-    <Cell><Data ss:Type="String">Room 1A</Data></Cell>
+    <Cell><Data ss:Type="String">13:00</Data></Cell>
+    <Cell><Data ss:Type="String">13:40</Data></Cell>
+    <Cell><Data ss:Type="String">Free Period</Data></Cell> <!-- Will be treated as dummy if not exists as real subject -->
+    <Cell><Data ss:Type="String"></Data></Cell>
+    <Cell><Data ss:Type="String">Library</Data></Cell>
    </Row>
   </Table>
   <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
