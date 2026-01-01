@@ -93,6 +93,7 @@ $session_token = $_SESSION['session_token'] ?? '';
 <!-- This <script> tag contains all the logic from your old sidebar.js file -->
 <script>
     // sidebar.js - Reusable sidebar component
+    // sidebar.js - Reusable sidebar component
     class SidebarManager {
         constructor() {
             this.navigationItems = [{
@@ -106,9 +107,21 @@ $session_token = $_SESSION['session_token'] ?? '';
                     text: 'Students'
                 },
                 {
-                    href: 'teachers-management.php',
                     icon: 'fas fa-chalkboard-teacher',
-                    text: 'Teachers'
+                    text: 'Teachers',
+                    isDropdown: true,
+                    subitems: [
+                        {
+                            href: 'teachers-management.php',
+                            icon: 'fas fa-users',
+                            text: 'Manage Teachers'
+                        },
+                        {
+                            href: 'teacher-assignments.php',
+                            icon: 'fas fa-tasks',
+                            text: 'Teacher Assignments'
+                        }
+                    ]
                 },
                 {
                     href: 'classes.php',
@@ -190,15 +203,16 @@ $session_token = $_SESSION['session_token'] ?? '';
 
             navContainer.innerHTML = this.navigationItems.map((item, index) => {
 
-                // Handle 'report.php' alias
-                if (item.href === 'report.php') item.href = 'report.php';
-                if (currentPage === 'report.php') currentPage = 'report.php';
+                // Handle 'report.php' alias normalization if needed
+                // if (item.href === 'report.php') item.href = 'report.php';
 
                 // Check if this is a dropdown
                 if (item.isDropdown) {
                     // Check if any subitem is active
                     const hasActiveSubitem = item.subitems.some(sub => currentPage.includes(sub.href));
                     const dropdownClass = hasActiveSubitem ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white';
+                    const listHidden = hasActiveSubitem ? '' : 'hidden';
+                    const arrowRotate = hasActiveSubitem ? 'rotate-180' : '';
                     
                     return `
                     <div class="dropdown-container">
@@ -207,12 +221,12 @@ $session_token = $_SESSION['session_token'] ?? '';
                                 <i class="${item.icon} mr-3"></i>
                                 <span>${item.text}</span>
                             </div>
-                            <i class="fas fa-chevron-down dropdown-arrow"></i>
+                            <i class="fas fa-chevron-down dropdown-arrow ${arrowRotate}"></i>
                         </a>
-                        <div class="dropdown-menu hidden pl-4" id="dropdown-${index}">
+                        <div class="dropdown-menu ${listHidden} pl-4" id="dropdown-${index}">
                             ${item.subitems.map(subitem => {
                                 const isActive = currentPage.includes(subitem.href);
-                                const activeClass = isActive ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white';
+                                const activeClass = isActive ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white text-gray-300';
                                 return `
                                 <a href="${subitem.href}" class="flex items-center p-2 pl-3 rounded-lg ${activeClass} transition nav-item mb-1">
                                     <i class="${subitem.icon} mr-3 text-sm"></i>
@@ -226,7 +240,7 @@ $session_token = $_SESSION['session_token'] ?? '';
                 }
 
                 // Regular link
-                const isActive = currentPage === item.href;
+                const isActive = currentPage.includes(item.href) || (item.text === 'Dashboard' && currentPage === 'admin-dashboard.php' && item.href === 'admin-dashboard.php'); 
                 const activeClass = isActive ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white';
 
                 return `

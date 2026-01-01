@@ -96,15 +96,21 @@ try {
     }
 
     // Fetch all classes with teacher info and stats
+    // Support both old (class_teacher_id) and new (teacher_class_assignments) systems
     $classesSql = "SELECT c.*, 
-                          u.first_name as teacher_first_name, 
-                          u.last_name as teacher_last_name,
-                          t.teacher_id as teacher_code,
+                          COALESCE(u_new.first_name, u_old.first_name) as teacher_first_name, 
+                          COALESCE(u_new.last_name, u_old.last_name) as teacher_last_name,
+                          COALESCE(t_new.teacher_id, t_old.teacher_id) as teacher_code,
                           (SELECT COUNT(*) FROM students WHERE class_id = c.id) as student_count,
                           (SELECT COUNT(*) FROM class_subjects WHERE class_id = c.id) as subject_count
                    FROM classes c
-                   LEFT JOIN teachers t ON c.class_teacher_id = t.id
-                   LEFT JOIN users u ON t.user_id = u.id
+                   -- New system: teacher_class_assignments
+                   LEFT JOIN teacher_class_assignments tca ON c.id = tca.class_id AND tca.is_class_teacher = 1
+                   LEFT JOIN teachers t_new ON tca.teacher_id = t_new.id
+                   LEFT JOIN users u_new ON t_new.user_id = u_new.id
+                   -- Old system: class_teacher_id (fallback)
+                   LEFT JOIN teachers t_old ON c.class_teacher_id = t_old.id
+                   LEFT JOIN users u_old ON t_old.user_id = u_old.id
                    ORDER BY c.class_level, c.class_name";
     $classesStmt = $db->query($classesSql);
     $classesData = $classesStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -161,6 +167,25 @@ try {
             }
         }
     </script>
+    <!-- Add jQuery and Select2 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <style>
+        /* Select2 Tailwind Fixes */
+        .select2-container .select2-selection--single {
+            height: 42px !important;
+            border-color: #e5e7eb !important;
+            border-radius: 0.5rem !important;
+            padding-top: 6px !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            top: 8px !important;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 28px !important;
+        }
+    </style>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
 
@@ -249,6 +274,51 @@ try {
             border-left: 4px solid #6366f1;
         }
 
+        .subject-religious {
+            background-color: #ddd6fe;
+            border-left: 4px solid #7c3aed;
+        }
+
+        .subject-computer {
+            background-color: #a7f3d0;
+            border-left: 4px solid #059669;
+        }
+
+        .subject-commercial {
+            background-color: #ffedd5;
+            border-left: 4px solid #f97316;
+        }
+
+        .subject-arts-gov {
+            background-color: #fae8ff;
+            border-left: 4px solid #d946ef;
+        }
+
+        .subject-vocational {
+            background-color: #f1f5f9;
+            border-left: 4px solid #64748b;
+        }
+
+        .subject-language {
+            background-color: #ccfbf1;
+            border-left: 4px solid #14b8a6;
+        }
+
+        .subject-general {
+            background-color: #ecfeff;
+            border-left: 4px solid #06b6d4;
+        }
+
+        .subject-early {
+            background-color: #fff1f2;
+            border-left: 4px solid #f43f5e;
+        }
+
+        .subject-break {
+            background-color: #fef3c7;
+            border-left: 4px solid #f59e0b;
+        }
+
         .modal {
             transition: opacity 0.3s ease, transform 0.3s ease;
             transform: scale(0.9);
@@ -270,12 +340,21 @@ try {
         }
 
         .tab-content {
-            transition: opacity 0.3s ease;
+            display: block;
+            animation: fadeIn 0.3s ease;
         }
 
         .tab-content.hidden {
-            opacity: 0;
-            pointer-events: none;
+            display: none;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
         }
 
         @keyframes fadeIn {
@@ -599,38 +678,24 @@ try {
                                     </option>
                                 <?php endforeach; ?>
                             </select>
-                            <button
+                            <button onclick="window.loadTimetable()"
                                 class="bg-nskblue text-white px-4 py-2 rounded-lg font-semibold hover:bg-nsknavy transition">
                                 Load Timetable
                             </button>
+
+                            <div class="flex bg-gray-100 p-1 rounded-lg ml-auto">
+                                <button class="view-btn px-4 py-1.5 rounded-md text-sm font-medium bg-nskblue text-white active" data-view="weekly">Weekly</button>
+                                <button class="view-btn px-4 py-1.5 rounded-md text-sm font-medium text-gray-600" data-view="daily">Daily</button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Existing timetable content -->
-                    <!-- Timetable Content -->
-                    <div id="timetablePlaceholder"
-                        class="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                        <i class="fas fa-calendar-alt text-4xl text-gray-400 mb-4"></i>
-                        <p class="text-gray-500 text-lg">Select a class and click "Load Timetable" to view the schedule.
-                        </p>
-                    </div>
-
-                    <div id="timetableContent" class="overflow-x-auto hidden">
-                        <table class="w-full border-collapse">
-                            <thead>
-                                <tr>
-                                    <th class="bg-nsklightblue text-white p-3">Time/Day</th>
-                                    <th class="bg-nsklightblue text-white p-3">Monday</th>
-                                    <th class="bg-nsklightblue text-white p-3">Tuesday</th>
-                                    <th class="bg-nsklightblue text-white p-3">Wednesday</th>
-                                    <th class="bg-nsklightblue text-white p-3">Thursday</th>
-                                    <th class="bg-nsklightblue text-white p-3">Friday</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Timetable rows will be populated by JavaScript -->
-                            </tbody>
-                        </table>
+                    <div id="timetableDisplay">
+                        <div id="timetablePlaceholder"
+                            class="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+                            <i class="fas fa-calendar-alt text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-500 text-lg">Select a class and click "Load Timetable" to view the schedule.</p>
+                        </div>
                     </div>
                 </div>
 
@@ -715,7 +780,7 @@ try {
                             <option value="">Select Teacher</option>
                             <?php foreach ($teachersData as $teacher): ?>
                                 <option value="<?= $teacher['id'] ?>">
-                                    <?= htmlspecialchars($teacher['first_name'] . ' ' . $teacher['last_name']) ?>
+                                    <?= htmlspecialchars($teacher['teacher_id'] . ' - ' . $teacher['first_name'] . ' ' . $teacher['last_name']) ?>
                                     <?php if ($teacher['subject_specialization']): ?>
                                         (<?= htmlspecialchars($teacher['subject_specialization']) ?>)
                                     <?php endif; ?>
@@ -933,99 +998,6 @@ try {
 
 </body>
 <script>
-    // Global notification function used by classes_management.js
-    function showNotification(message, type = 'success') {
-        console.log(`[${type.toUpperCase()}] ${message}`);
-
-        // Create a toast notification
-        const toast = document.createElement('div');
-        const bgColor = type === 'success' ? 'bg-nskgreen' : type === 'error' ? 'bg-nskred' : 'bg-blue-500';
-
-        toast.className = `fixed bottom-4 right-4 ${bgColor} text-white px-6 py-3 rounded-lg shadow-lg z-50`;
-        toast.innerHTML = `<i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} mr-2"></i>${message}`;
-
-        document.body.appendChild(toast);
-
-        setTimeout(() => {
-            toast.remove();
-        }, 3000);
-    }
-
-    // Tab functionality
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('.tab-button').forEach(button => {
-            button.addEventListener('click', function () {
-                const tabName = this.getAttribute('data-tab');
-
-                document.querySelectorAll('.tab-button').forEach(btn => {
-                    btn.classList.remove('active');
-                    btn.classList.add('border-gray-300', 'text-gray-700');
-                    btn.classList.remove('border-nskblue', 'text-nskblue', 'bg-nskblue', 'text-white');
-                });
-                this.classList.add('active');
-                this.classList.remove('border-gray-300', 'text-gray-700');
-                this.classList.add('border-nskblue', 'bg-nskblue', 'text-white');
-
-                document.querySelectorAll('.tab-content').forEach(content => {
-                    content.classList.add('hidden');
-                });
-
-                const targetTab = document.getElementById(tabName + 'Tab');
-                if (targetTab) {
-                    targetTab.classList.remove('hidden');
-                }
-            });
-        });
-
-        // Class card animations
-        document.querySelectorAll('.class-card').forEach(card => {
-            card.addEventListener('mouseenter', function () {
-                this.style.transform = 'translateY(-5px)';
-            });
-
-            card.addEventListener('mouseleave', function () {
-                this.style.transform = 'translateY(0)';
-            });
-        });
-
-        // Schedule modal functionality
-        const modal = document.getElementById('addScheduleModal');
-        const addScheduleBtn = document.getElementById('addScheduleBtn');
-        const closeModal = document.getElementById('closeModal');
-        const cancelBtn = document.getElementById('cancelBtn');
-        const scheduleForm = document.getElementById('scheduleForm');
-
-        if (addScheduleBtn) {
-            addScheduleBtn.addEventListener('click', function () {
-                if (modal) modal.classList.add('active');
-            });
-        }
-
-        function closeModalFunc() {
-            if (modal) modal.classList.remove('active');
-        }
-
-        if (closeModal) closeModal.addEventListener('click', closeModalFunc);
-        if (cancelBtn) cancelBtn.addEventListener('click', closeModalFunc);
-
-        if (modal) {
-            modal.addEventListener('click', function (e) {
-                if (e.target === modal) closeModalFunc();
-            });
-        }
-
-        if (scheduleForm) {
-            scheduleForm.addEventListener('submit', function (e) {
-                e.preventDefault();
-                const subject = document.getElementById('subject').value;
-                const day = document.getElementById('day').value;
-                const period = document.getElementById('period').value;
-                alert(`Schedule added for ${subject} on ${day} during period ${period}`);
-                closeModalFunc();
-                scheduleForm.reset();
-            });
-        }
-    });
 </script>
 
 <!-- Include classes management JavaScript - handles all buttons and modals -->

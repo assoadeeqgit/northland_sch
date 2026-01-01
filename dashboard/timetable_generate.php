@@ -52,19 +52,16 @@ try {
         throw new Exception("No active session or term found.");
     }
 
-    // 3. Get Relevant Subjects for this Class Level
-    $categories = [];
-    if ($classInfo['class_level'] === 'Early Childhood') {
-        $categories = ["'Early Childhood'"];
-    } elseif ($classInfo['class_level'] === 'Primary') {
-        $categories = ["'Core'", "'Vocational'", "'Extra-curricular'"];
-    } else {
-        // Secondary
-        $categories = ["'Core'", "'Science'", "'Commercial'", "'Arts'", "'Vocational'"];
-    }
-
-    $catString = implode(',', $categories);
-    $stmt = $conn->query("SELECT id FROM subjects WHERE category IN ($catString) AND is_active = 1 AND is_dummy = 0");
+    // 3. Get Relevant Subjects for this Class using subject_class_assignments
+    $stmt = $conn->prepare("
+        SELECT DISTINCT s.id 
+        FROM subjects s
+        JOIN subject_class_assignments sca ON s.id = sca.subject_id
+        WHERE sca.class_id = ? 
+        AND s.is_active = 1 
+        AND s.is_dummy = 0
+    ");
+    $stmt->execute([$classId]);
     $relevantSubjectIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
     if (empty($relevantSubjectIds)) {
@@ -73,7 +70,7 @@ try {
     }
 
     if (empty($relevantSubjectIds)) {
-        throw new Exception("No suitable subjects found for this class level.");
+        throw new Exception("No subjects assigned to this class. Please assign subjects first.");
     }
 
     // Get Placeholder Teacher

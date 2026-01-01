@@ -28,8 +28,8 @@ try {
     $db = $database->getConnection();
 
     if ($db) {
-        // Total Students
-        $stmt = $db->prepare("SELECT COUNT(*) as total FROM users WHERE user_type = 'student' AND is_active = 1");
+        // Total Students (Excluding graduating, withdrawn, transferred)
+        $stmt = $db->prepare("SELECT COUNT(*) as total FROM students s JOIN users u ON s.user_id = u.id WHERE u.is_active = 1 AND s.status = 'active'");
         $stmt->execute();
         $totalStudents = $stmt->fetch()['total'] ?? 0;
 
@@ -50,28 +50,80 @@ try {
 
         // Fetch data for charts
         // Students per class (Bar Chart)
-        $classStmt = $db->query("SELECT c.class_name, COUNT(s.id) as student_count 
+        $classStmt = $db->query("SELECT c.class_name, c.class_level, COUNT(u.id) as student_count 
                                  FROM classes c 
-                                 LEFT JOIN students s ON c.id = s.class_id 
-                                 LEFT JOIN users u ON s.user_id = u.id
-                                 WHERE u.is_active = 1 OR s.id IS NULL
+                                 LEFT JOIN students s ON c.id = s.class_id AND s.status = 'active' 
+                                 LEFT JOIN users u ON s.user_id = u.id AND u.is_active = 1
                                  GROUP BY c.id 
                                  ORDER BY c.id");
         $classData = $classStmt->fetchAll(PDO::FETCH_ASSOC);
-        $classLabels = array_column($classData, 'class_name');
-        $classCounts = array_column($classData, 'student_count');
+        
+        $classLabels = [];
+        $classCounts = [];
+        $classColors = [];
+        $classBorders = [];
+
+        foreach ($classData as $row) {
+            $classLabels[] = $row['class_name'];
+            $classCounts[] = $row['student_count'];
+            
+            // Assign colors based on level
+            switch ($row['class_level']) {
+                case 'Early Childhood':
+                    $classColors[] = 'rgba(59, 130, 246, 0.7)'; // nskblue
+                    $classBorders[] = 'rgb(59, 130, 246)';
+                    break;
+                case 'Primary':
+                    $classColors[] = 'rgba(16, 185, 129, 0.7)'; // nskgreen
+                    $classBorders[] = 'rgb(16, 185, 129)';
+                    break;
+                case 'Secondary':
+                    $classColors[] = 'rgba(245, 158, 11, 0.7)'; // nskgold
+                    $classBorders[] = 'rgb(245, 158, 11)';
+                    break;
+                default:
+                    $classColors[] = 'rgba(107, 114, 128, 0.7)'; // gray
+                    $classBorders[] = 'rgb(107, 114, 128)';
+            }
+        }
 
         // Student Distribution (Doughnut Chart)
-        $levelStmt = $db->query("SELECT c.class_level, COUNT(s.id) as student_count
+        $levelStmt = $db->query("SELECT c.class_level, COUNT(u.id) as student_count
                                  FROM classes c 
-                                 LEFT JOIN students s ON c.id = s.class_id 
-                                 LEFT JOIN users u ON s.user_id = u.id
-                                 WHERE (u.is_active = 1 OR s.id IS NULL)
-                                 AND c.class_level IN ('Early Childhood', 'Primary', 'Secondary')
-                                 GROUP BY c.class_level");
+                                 LEFT JOIN students s ON c.id = s.class_id AND s.status = 'active'
+                                 LEFT JOIN users u ON s.user_id = u.id AND u.is_active = 1
+                                 WHERE c.class_level IN ('Early Childhood', 'Primary', 'Secondary')
+                                 GROUP BY c.class_level
+                                 ORDER BY FIELD(c.class_level, 'Early Childhood', 'Primary', 'Secondary')");
         $levelData = $levelStmt->fetchAll(PDO::FETCH_ASSOC);
-        $levelLabels = array_column($levelData, 'class_level');
-        $levelCounts = array_column($levelData, 'student_count');
+        
+        $levelLabels = [];
+        $levelCounts = [];
+        $levelColors = [];
+        $levelBorders = [];
+
+        foreach ($levelData as $row) {
+            $levelLabels[] = $row['class_level'];
+            $levelCounts[] = $row['student_count'];
+            
+            switch ($row['class_level']) {
+                case 'Early Childhood':
+                    $levelColors[] = 'rgba(59, 130, 246, 0.8)';
+                    $levelBorders[] = 'rgb(59, 130, 246)';
+                    break;
+                case 'Primary':
+                    $levelColors[] = 'rgba(16, 185, 129, 0.8)';
+                    $levelBorders[] = 'rgb(16, 185, 129)';
+                    break;
+                case 'Secondary':
+                    $levelColors[] = 'rgba(245, 158, 11, 0.8)';
+                    $levelBorders[] = 'rgb(245, 158, 11)';
+                    break;
+                default:
+                    $levelColors[] = 'rgba(107, 114, 128, 0.8)';
+                    $levelBorders[] = 'rgb(107, 114, 128)';
+            }
+        }
 
         // Fetch class capacities
         $capacityStmt = $db->query("SELECT id, class_name, class_level, capacity FROM classes");
@@ -502,16 +554,8 @@ try {
                         labels: <?= json_encode($levelLabels) ?>,
                         datasets: [{
                             data: <?= json_encode($levelCounts) ?>,
-                            backgroundColor: [
-                                'rgba(59, 130, 246, 0.8)',
-                                'rgba(16, 185, 129, 0.8)',
-                                'rgba(245, 158, 11, 0.8)'
-                            ],
-                            borderColor: [
-                                'rgb(59, 130, 246)',
-                                'rgb(16, 185, 129)',
-                                'rgb(245, 158, 11)'
-                            ],
+                            backgroundColor: <?= json_encode($levelColors) ?>,
+                            borderColor: <?= json_encode($levelBorders) ?>,
                             borderWidth: 2
                         }]
                     },
@@ -555,19 +599,8 @@ try {
                         datasets: [{
                             label: 'Number of Students',
                             data: <?= json_encode($classCounts) ?>,
-                            backgroundColor: [
-                                // Early Childhood - Blue
-                                'rgba(59, 130, 246, 0.7)', 'rgba(59, 130, 246, 0.7)', 'rgba(59, 130, 246, 0.7)', 'rgba(59, 130, 246, 0.7)',
-                                // Primary - Green
-                                'rgba(16, 185, 129, 0.7)', 'rgba(16, 185, 129, 0.7)', 'rgba(16, 185, 129, 0.7)', 'rgba(16, 185, 129, 0.7)', 'rgba(16, 185, 129, 0.7)',
-                                // Secondary - Gold
-                                'rgba(245, 158, 11, 0.7)', 'rgba(245, 158, 11, 0.7)', 'rgba(245, 158, 11, 0.7)', 'rgba(245, 158, 11, 0.7)', 'rgba(245, 158, 11, 0.7)', 'rgba(245, 158, 11, 0.7)'
-                            ],
-                            borderColor: [
-                                'rgb(59, 130, 246)', 'rgb(59, 130, 246)', 'rgb(59, 130, 246)', 'rgb(59, 130, 246)',
-                                'rgb(16, 185, 129)', 'rgb(16, 185, 129)', 'rgb(16, 185, 129)', 'rgb(16, 185, 129)', 'rgb(16, 185, 129)',
-                                'rgb(245, 158, 11)', 'rgb(245, 158, 11)', 'rgb(245, 158, 11)', 'rgb(245, 158, 11)', 'rgb(245, 158, 11)', 'rgb(245, 158, 11)'
-                            ],
+                            backgroundColor: <?= json_encode($classColors) ?>,
+                            borderColor: <?= json_encode($classBorders) ?>,
                             borderWidth: 1,
                             borderRadius: 4
                         }]

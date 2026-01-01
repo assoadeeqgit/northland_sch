@@ -173,6 +173,7 @@ function formatMedicalCondition($condition)
 // Get filter parameters - MOVED BEFORE POST HANDLING
 $searchQuery = isset($_REQUEST['search']) ? trim($_REQUEST['search']) : '';
 $classFilter = isset($_REQUEST['class_filter']) ? intval($_REQUEST['class_filter']) : '';
+$graduationFilter = isset($_REQUEST['graduation_filter']) ? $_REQUEST['graduation_filter'] : '';
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -230,7 +231,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             fputcsv($output, $headers);
 
             // Build the same WHERE clause as the main query to respect filters
-            $whereConditions = ["u.user_type = 'student'", "u.is_active = 1", "s.status = 'active'"];
+            $whereConditions = ["u.user_type = 'student'", "u.is_active = 1"];
             $params = [];
 
             // Apply search filter if present
@@ -244,6 +245,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!empty($classFilter)) {
                 $whereConditions[] = "s.class_id = ?";
                 $params[] = $classFilter;
+            }
+
+            // Apply graduation/status filter
+            $exportGraduationFilter = isset($_POST['graduation_filter']) ? $_POST['graduation_filter'] : '';
+            if (!empty($exportGraduationFilter)) {
+                $allowedStatuses = ['active', 'graduated', 'withdrawn', 'transferred'];
+                if (in_array($exportGraduationFilter, $allowedStatuses)) {
+                    $whereConditions[] = "s.status = ?";
+                    $params[] = $exportGraduationFilter;
+                }
+            } else {
+                // Default: Show only active students if no status filter is selected
+                $whereConditions[] = "s.status = 'active'";
             }
 
             $whereClause = implode(" AND ", $whereConditions);
@@ -383,7 +397,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $fieldMappings = [
                     'first_name' => ['first_name', 'firstname', 'fname', 'first name'],
                     'last_name' => ['last_name', 'lastname', 'lname', 'last name', 'surname'],
-                    'email' => ['email', 'email_address', 'email address'],
+                    'email' => ['email', 'email_address', 'email address', 'guardian_email', 'guardian email'],
                     'phone' => ['phone', 'phone_number', 'telephone', 'mobile', 'phone number'],
                     'date_of_birth' => ['date_of_birth', 'dob', 'birthdate', 'birth_date', 'date of birth'],
                     'gender' => ['gender', 'sex'],
@@ -440,6 +454,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         continue;
                     }
 
+                    // Commented out aggressive skipping to prevent ignoring valid rows that might contain these words
+                    /*
                     // Skip comment/instruction rows
                     $rowContent = implode('', $data);
                     if (
@@ -451,6 +467,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $skippedRows++;
                         continue;
                     }
+                    */
 
                     try {
                         // Map data using header map
@@ -497,12 +514,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if (empty($rowData['last_name'])) {
                             throw new Exception("Last name is required");
                         }
+                        /* Email is now optional (Guardian Email)
                         if (empty($rowData['email'])) {
                             throw new Exception("Email is required");
                         }
+                        */
 
-                        // Validate email format
-                        if (!filter_var($rowData['email'], FILTER_VALIDATE_EMAIL)) {
+                        // Validate email format if provided
+                        if (!empty($rowData['email']) && !filter_var($rowData['email'], FILTER_VALIDATE_EMAIL)) {
                             throw new Exception("Invalid email format: " . $rowData['email']);
                         }
 
@@ -543,12 +562,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $rowData['gender'] = 'Male'; // Default if not provided
                         }
 
-                        // Check if email already exists
-                        $emailCheck = $db->prepare("SELECT COUNT(*) FROM users WHERE email = ?");
-                        $emailCheck->execute([$rowData['email']]);
-                        if ($emailCheck->fetchColumn() > 0) {
-                            throw new Exception("Email already exists: " . $rowData['email']);
+                        /* Duplicate Email Check Removed - Siblings may share guardian email
+                        // Check if email already exists (only if provided)
+                        if (!empty($rowData['email'])) {
+                            $emailCheck = $db->prepare("SELECT COUNT(*) FROM users WHERE email = ?");
+                            $emailCheck->execute([$rowData['email']]);
+                            if ($emailCheck->fetchColumn() > 0) {
+                                throw new Exception("Email already exists: " . $rowData['email']);
+                            }
                         }
+                        */
 
                         // Generate unique student IDs
                         $studentId = 'STU' . str_pad(rand(1000, 9999), 4, '0', STR_PAD_LEFT);
@@ -588,7 +611,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         $userStmt->execute([
                             $username,
-                            $rowData['email'],
+                            !empty($rowData['email']) ? $rowData['email'] : null,
                             $password_hash,
                             $rowData['first_name'],
                             $rowData['last_name'],
@@ -767,8 +790,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 function addStudent($db)
 {
     try {
-        if (empty($_POST['first_name']) || empty($_POST['last_name']) || empty($_POST['email'])) {
-            throw new Exception("First name, last name, and email are required.");
+        if (empty($_POST['first_name']) || empty($_POST['last_name'])) {
+            throw new Exception("First name and last name are required.");
         }
 
         $db->beginTransaction();
@@ -810,7 +833,7 @@ function addStudent($db)
 
         $userStmt->execute([
             $username,
-            $_POST['email'],
+            !empty($_POST['email']) ? $_POST['email'] : null,
             $password_hash,
             $firstName,
             $lastName,
@@ -910,7 +933,7 @@ function getStudentData($db, $student_id)
 function updateStudent($db)
 {
     try {
-        if (empty($_POST['student_id']) || empty($_POST['first_name']) || empty($_POST['last_name']) || empty($_POST['email'])) {
+        if (empty($_POST['student_id']) || empty($_POST['first_name']) || empty($_POST['last_name'])) {
             throw new Exception("Required fields are missing.");
         }
 
@@ -947,7 +970,7 @@ function updateStudent($db)
         $userStmt->execute([
             $firstName,
             $lastName,
-            $_POST['email'],
+            !empty($_POST['email']) ? $_POST['email'] : null,
             $_POST['phone'] ?? null,
             $_POST['date_of_birth'] ?? null,
             $_POST['gender'] ?? 'Male',
@@ -1113,7 +1136,8 @@ if (isset($_GET['edit']) && !empty($_GET['edit'])) {
 try {
     if ($db) {
         // Build the WHERE clause based on filters
-        $whereConditions = ["u.user_type = 'student'", "u.is_active = 1", "s.status = 'active'"];
+        // Build the WHERE clause based on filters
+        $whereConditions = ["u.user_type = 'student'", "u.is_active = 1"];
         $params = [];
 
         // Add search filter
@@ -1128,6 +1152,21 @@ try {
             $whereConditions[] = "s.class_id = ?";
             $params[] = $classFilter;
         }
+
+        // Enforce Active Status only (matching Teachers Management)
+        $whereConditions[] = "s.status = 'active'";
+        /* 
+        // Dynamic Status Filter Removed
+        if (!empty($graduationFilter)) {
+            $allowedStatuses = ['active', 'graduated', 'withdrawn', 'transferred'];
+            if (in_array($graduationFilter, $allowedStatuses)) {
+                $whereConditions[] = "s.status = ?";
+                $params[] = $graduationFilter;
+            }
+        } else {
+             $whereConditions[] = "s.status = 'active'";
+        }
+        */
 
         $whereClause = implode(" AND ", $whereConditions);
 
@@ -1171,13 +1210,26 @@ try {
                 s.lga,
                 s.medical_conditions,
                 s.emergency_contact_name,
-                s.emergency_contact_phone
+                s.emergency_contact_phone,
+                adm_sess.session_name as admission_session,
+                grad_sess.session_name as expected_graduation_session
             FROM users u
             INNER JOIN students s ON u.id = s.user_id
             LEFT JOIN classes c ON s.class_id = c.id
+            LEFT JOIN academic_sessions adm_sess ON s.admission_session_id = adm_sess.id
+            LEFT JOIN academic_sessions grad_sess ON s.expected_graduation_session_id = grad_sess.id
             WHERE {$whereClause}
             ORDER BY s.class_id, u.first_name
         ";
+        
+        // Pagination logic variables
+        $limit = 10; 
+        $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+        $offset = ($page - 1) * $limit;
+        $totalPages = ceil($totalStudents / $limit);
+
+        $studentsSql .= " LIMIT $limit OFFSET $offset";
+
         $stmt = $db->prepare($studentsSql);
         $stmt->execute($params);
         $studentsData = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1562,23 +1614,33 @@ try {
             </div>
 
             <div class="bg-white rounded-xl shadow-md p-6 mb-8">
-                <form method="GET" action="" class="space-y-4">
+                <form method="GET" action="" class="space-y-4 relative" id="filterForm">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <h2 class="text-xl font-bold text-nsknavy">All Students</h2>
 
-                        <div class="flex flex-wrap gap-4">
-                            <div class="relative">
-                                <div
-                                    class="flex items-center space-x-2 bg-nsklight rounded-lg py-2 px-4 border border-gray-200">
-                                    <i class="fas fa-search text-gray-500"></i>
-                                    <input type="text" name="search" id="searchInput" placeholder="Search students..."
-                                        value="<?= htmlspecialchars($searchQuery) ?>"
-                                        class="bg-transparent outline-none w-32 md:w-64" />
+                        <div class="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                            <!-- Search Input with Clear Button -->
+                            <div class="relative group">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fas fa-search text-gray-400 group-focus-within:text-nskblue transition-colors"></i>
                                 </div>
+                                <input type="text" name="search" id="searchInput" placeholder="Search by name, ID..."
+                                    value="<?= htmlspecialchars($searchQuery) ?>"
+                                    oninput="debounceSearch()"
+                                    class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-nskblue focus:border-nskblue block w-full pl-10 p-2.5 transition-all shadow-sm group-hover:shadow-md" />
+                                
+                                <?php if (!empty($searchQuery)): ?>
+                                    <a href="<?= $_SERVER['PHP_SELF'] ?>?class_filter=<?= $classFilter ?>&graduation_filter=<?= $graduationFilter ?>" 
+                                       class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
+                                       title="Clear Search">
+                                        <i class="fas fa-times-circle"></i>
+                                    </a>
+                                <?php endif; ?>
                             </div>
 
-                            <select name="class_filter" id="classFilter"
-                                class="px-4 py-2 border rounded-lg form-input focus:border-nskblue">
+                            <!-- Class Filter (Auto-Submit) -->
+                            <select name="class_filter" id="classFilter" onchange="showLoading(); this.form.submit()"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-nskblue focus:border-nskblue block p-2.5 cursor-pointer hover:bg-white transition-all shadow-sm">
                                 <option value="">All Classes</option>
                                 <?php foreach ($classes as $class): ?>
                                     <option value="<?= $class['id'] ?>" <?= $classFilter == $class['id'] ? 'selected' : '' ?>>
@@ -1587,56 +1649,171 @@ try {
                                 <?php endforeach; ?>
                             </select>
 
-                            <button type="submit"
-                                class="bg-nskblue text-white px-4 py-2 rounded-lg font-semibold hover:bg-nsknavy transition flex items-center">
-                                <i class="fas fa-filter mr-2"></i> Filter
-                            </button>
+                            <!-- Status Filter Removed to match Teachers Page -->
+                            <!-- <select name="graduation_filter" ...> </select> -->
 
-                            <?php if (!empty($searchQuery) || !empty($classFilter)): ?>
-                                <a href="<?= $_SERVER['PHP_SELF'] ?>"
-                                    class="bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-600 transition flex items-center">
-                                    <i class="fas fa-times mr-2"></i> Clear
-                                </a>
-                            <?php endif; ?>
+                            <button type="submit" onclick="showLoading()"
+                                class="text-white bg-nskblue hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center gap-2 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                                <i class="fas fa-filter"></i> Apply
+                            </button>
                         </div>
                     </div>
 
+                    <!-- Active Filters Display -->
+                    <div id="activeFiltersContainer">
                     <?php if (!empty($searchQuery) || !empty($classFilter)): ?>
-                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
-                            <div class="flex items-center text-blue-700">
-                                <i class="fas fa-info-circle mr-2"></i>
-                                <span class="text-sm">
-                                    Showing <?= $totalStudents ?> student(s)
-                                    <?php if (!empty($searchQuery)): ?>
-                                        matching "<?= htmlspecialchars($searchQuery) ?>"
-                                    <?php endif; ?>
-                                    <?php if (!empty($classFilter)): ?>
-                                        <?php
-                                        $selectedClassName = '';
-                                        foreach ($classes as $class) {
-                                            if ($class['id'] == $classFilter) {
-                                                $selectedClassName = $class['class_name'];
-                                                break;
-                                            }
-                                        }
-                                        ?>
-                                        in <?= htmlspecialchars($selectedClassName) ?>
-                                    <?php endif; ?>
+                        <div class="flex items-center gap-2 text-sm text-gray-600 animate-fade-in-down">
+                            <span class="font-semibold">Active Filters:</span>
+                            
+                            <?php if (!empty($searchQuery)): ?>
+                                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-400 flex items-center gap-1">
+                                    Search: <?= htmlspecialchars($searchQuery) ?>
+                                    <a href="?search=&class_filter=<?= $classFilter ?>" class="hover:text-blue-900" onclick="event.preventDefault(); updateFilter('search', '');"><i class="fas fa-times"></i></a>
                                 </span>
-                            </div>
+                            <?php endif; ?>
+
+                            <?php if (!empty($classFilter)): ?>
+                                <?php 
+                                    $filteredClass = array_filter($classes, function($c) use ($classFilter) { return $c['id'] == $classFilter; });
+                                    $className = !empty($filteredClass) ? reset($filteredClass)['class_name'] : 'Unknown Class';
+                                ?>
+                                <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded border border-green-400 flex items-center gap-1">
+                                    Class: <?= htmlspecialchars($className) ?>
+                                    <a href="?search=<?= $searchQuery ?>&class_filter=" class="hover:text-green-900" onclick="event.preventDefault(); updateFilter('class_filter', '');"><i class="fas fa-times"></i></a>
+                                </span>
+                            <?php endif; ?>
+
+                            <a href="<?= $_SERVER['PHP_SELF'] ?>" class="text-xs text-red-600 hover:underline ml-2" onclick="clearAllFilters(event)">Clear All</a>
                         </div>
                     <?php endif; ?>
+                    </div>
                 </form>
 
+                <!-- Page Loader -->
+                <div id="pageLoader" class="fixed inset-0 bg-white bg-opacity-80 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
+                    <div class="flex flex-col items-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-4 border-nskblue border-t-transparent"></div>
+                        <p class="mt-4 text-nskblue font-semibold animate-pulse">Updating results...</p>
+                    </div>
+                </div>
+
+                <script>
+                    function showLoading() {
+                        const loader = document.getElementById('pageLoader');
+                        loader.classList.remove('hidden');
+                        loader.style.opacity = '0';
+                        setTimeout(() => { loader.style.opacity = '1'; }, 10);
+                    }
+
+                    function hideLoading() {
+                        const loader = document.getElementById('pageLoader');
+                        loader.style.opacity = '0';
+                        setTimeout(() => { loader.classList.add('hidden'); }, 300);
+                    }
+
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const filterForm = document.getElementById('filterForm');
+                        if(filterForm) {
+                            filterForm.addEventListener('submit', function(e) {
+                                e.preventDefault();
+                                performAjaxSearch();
+                            });
+                        }
+                    });
+
+                    let searchTimeout;
+                    function debounceSearch() {
+                        clearTimeout(searchTimeout);
+                        searchTimeout = setTimeout(() => {
+                            performAjaxSearch();
+                        }, 800);
+                    }
+
+                    function changePage(page) {
+                        performAjaxSearch(page);
+                        // Scroll to top of table
+                        const table = document.querySelector('.student-table');
+                        if(table) table.scrollIntoView({behavior: 'smooth'});
+                    }
+
+                    function performAjaxSearch(page = 1) {
+                        showLoading();
+                        
+                        const form = document.getElementById('filterForm');
+                        const formData = new FormData(form);
+                        formData.append('page', page); // Add page number
+                        
+                        const params = new URLSearchParams(formData);
+                        const url = window.location.pathname + '?' + params.toString();
+                        
+                        window.history.pushState({}, '', url);
+
+                        fetch(url)
+                            .then(response => response.text())
+                            .then(html => {
+                                const parser = new DOMParser();
+                                const doc = parser.parseFromString(html, 'text/html');
+                                
+                                const newBody = doc.getElementById('studentsTableBody');
+                                const currentBody = document.getElementById('studentsTableBody');
+                                if (newBody && currentBody) {
+                                    currentBody.innerHTML = newBody.innerHTML;
+                                }
+
+                                const newFilters = doc.getElementById('activeFiltersContainer');
+                                const currentFilters = document.getElementById('activeFiltersContainer');
+                                if (newFilters && currentFilters) {
+                                    currentFilters.innerHTML = newFilters.innerHTML;
+                                }
+                                
+                                const newPagination = doc.getElementById('paginationContainer');
+                                const currentPagination = document.getElementById('paginationContainer');
+                                if (newPagination && currentPagination) {
+                                    currentPagination.outerHTML = newPagination.outerHTML;
+                                }
+
+                                hideLoading();
+                            })
+                            .catch(err => {
+                                console.error('Search failed:', err);
+                                hideLoading();
+                            });
+                    }
+
+                    function updateFilter(name, value) {
+                        const form = document.getElementById('filterForm');
+                        if (name === 'search') {
+                            const input = document.getElementById('searchInput');
+                            if (input) input.value = value;
+                        } else {
+                            const select = form.querySelector(`[name="${name}"]`);
+                            if (select) select.value = value;
+                        }
+                        performAjaxSearch();
+                    }
+
+                    function clearAllFilters(e) {
+                        e.preventDefault();
+                        const form = document.getElementById('filterForm');
+                        
+                        const searchInput = document.getElementById('searchInput');
+                        if (searchInput) searchInput.value = '';
+                        
+                        const selects = form.querySelectorAll('select');
+                        selects.forEach(select => {
+                             select.value = '';
+                        });
+                        
+                        performAjaxSearch();
+                    }
+                </script>
+
                 <div class="flex flex-wrap gap-4 mt-4">
-                    <?php if (!isset($_POST['show_add_form'])): ?>
-                        <form method="POST" action="" class="inline">
-                            <button type="submit" name="show_add_form" value="true"
-                                class="bg-nskgreen text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition flex items-center">
-                                <i class="fas fa-plus mr-2"></i> Add Student
-                            </button>
-                        </form>
-                    <?php endif; ?>
+                    <!-- Add Student Button (Always Visible) -->
+                    <button type="button" onclick="openAddStudentModal()"
+                        class="bg-nskgreen text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition flex items-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                        <i class="fas fa-plus mr-2"></i> Add Student
+                    </button>
 
                     <!-- Add these new buttons -->
                     <button type="button" onclick="downloadTemplate(this)"
@@ -1652,6 +1829,7 @@ try {
                     <form method="POST" action="" class="inline">
                         <input type="hidden" name="search" value="<?= htmlspecialchars($searchQuery) ?>">
                         <input type="hidden" name="class_filter" value="<?= htmlspecialchars($classFilter) ?>">
+                        <input type="hidden" name="graduation_filter" value="<?= htmlspecialchars($graduationFilter) ?>">
                         <button type="submit" name="export_csv"
                             class="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition flex items-center">
                             <i class="fas fa-file-export mr-2"></i> Export
@@ -1701,10 +1879,21 @@ try {
                                         <p class="text-sm text-gray-600"><?= $student['phone'] ?? 'No phone' ?></p>
                                     </td>
                                     <td class="py-4 px-6">
-                                        <p class="text-sm">Admitted:
-                                            <?= date('M j, Y', strtotime($student['admission_date'])) ?>
-                                        </p>
-                                        <p class="text-sm text-gray-600">Adm No: <?= $student['admission_number'] ?></p>
+                                        <div class="text-sm">
+                                            <p class="font-semibold text-gray-700">Joined:</p>
+                                            <p class="text-gray-600">
+                                                <?= $student['admission_session'] ?? date('Y', strtotime($student['admission_date'])) ?>
+                                            </p>
+                                            
+                                            <?php if (!empty($student['expected_graduation_session'])): ?>
+                                                <p class="font-semibold text-gray-700 mt-1">Graduating:</p>
+                                                <p class="text-nskgreen font-medium">
+                                                    <?= $student['expected_graduation_session'] ?>
+                                                </p>
+                                            <?php else: ?>
+                                                <p class="text-xs text-gray-400 mt-1">Graduation not set</p>
+                                            <?php endif; ?>
+                                        </div>
                                     </td>
                                     <td class="py-4 px-6">
                                         <div class="flex items-center">
@@ -1749,15 +1938,63 @@ try {
                             <?php endif; ?>
                         </tbody>
                     </table>
+                    
+                    <!-- Pagination Controls -->
+                    <?php if (isset($totalPages) && $totalPages > 1): ?>
+                    <div id="paginationContainer" class="flex flex-col sm:flex-row justify-between items-center py-4 px-6 border-t mt-4 bg-white rounded-lg shadow-sm">
+                        <div class="text-sm text-gray-600 mb-2 sm:mb-0">
+                             Showing <span class="font-medium"><?= $offset + 1 ?></span> to <span class="font-medium"><?= min($offset + $limit, $totalStudents) ?></span> of <span class="font-medium"><?= $totalStudents ?></span> students
+                        </div>
+                        <div class="flex space-x-1">
+                             <?php if ($page > 1): ?>
+                                <button onclick="changePage(<?= $page - 1 ?>)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center">
+                                    <i class="fas fa-chevron-left mr-1"></i> Prev
+                                </button>
+                             <?php else: ?>
+                                <button disabled class="px-3 py-1 border rounded text-sm text-gray-300 cursor-not-allowed flex items-center">
+                                    <i class="fas fa-chevron-left mr-1"></i> Prev
+                                </button>
+                             <?php endif; ?>
+                             
+                             <?php
+                             $start = max(1, $page - 2);
+                             $end = min($totalPages, $page + 2);
+                             
+                             if ($start > 1) { 
+                                 echo '<button onclick="changePage(1)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">1</button>';
+                                 if ($start > 2) echo '<span class="px-2 text-gray-400">...</span>';
+                             }
+                             
+                             for ($i = $start; $i <= $end; $i++): ?>
+                                <button onclick="changePage(<?= $i ?>)" class="px-3 py-1 border rounded text-sm <?= $i == $page ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-50' ?>">
+                                    <?= $i ?>
+                                </button>
+                             <?php endfor; 
+                             
+                             if ($end < $totalPages) { 
+                                 if ($end < $totalPages - 1) echo '<span class="px-2 text-gray-400">...</span>';
+                                 echo '<button onclick="changePage(' . $totalPages . ')" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">' . $totalPages . '</button>';
+                             }
+                             ?>
+                             
+                             <?php if ($page < $totalPages): ?>
+                                <button onclick="changePage(<?= $page + 1 ?>)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center">
+                                    Next <i class="fas fa-chevron-right ml-1"></i>
+                                </button>
+                             <?php else: ?>
+                                <button disabled class="px-3 py-1 border rounded text-sm text-gray-300 cursor-not-allowed flex items-center">
+                                    Next <i class="fas fa-chevron-right ml-1"></i>
+                                </button>
+                             <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
 
-        <?php
-        // Show add form if button was clicked
-        if (isset($_POST['show_add_form'])) {
-            ?>
-            <div class="modal active" id="addStudentModal">
+        <!-- Add Student Modal (Always Rendered, Hidden by Default) -->
+        <div class="modal" id="addStudentModal">
                 <div class="modal-content">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-bold text-nsknavy">Add New Student</h2>
@@ -1781,7 +2018,7 @@ try {
                                     value="<?= $_POST['last_name'] ?? '' ?>">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Email *</label>
+                                <label class="block text-sm font-medium text-gray-700">Guardian Email *</label>
                                 <input type="email" name="email" required
                                     class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2"
                                     value="<?= $_POST['email'] ?? '' ?>">
@@ -1885,9 +2122,7 @@ try {
                     </form>
                 </div>
             </div>
-            <?php
-        }
-        ?>
+            <!-- End of Add Student Modal -->
 
         <!-- Import Students Modal -->
         <div id="importModal" class="modal">
@@ -1938,7 +2173,7 @@ try {
                             </h4>
                             <ul class="text-sm text-blue-700 space-y-1 list-disc list-inside">
                                 <li>Download and use the provided template</li>
-                                <li>Required fields: first_name, last_name, email, date_of_birth, gender</li>
+                                <li>Required fields: first_name, last_name, guardian_email (email), date_of_birth, gender</li>
                                 <li>Optional fields: phone, class_id, religion, nationality, etc.</li>
                                 <li>Keep the header row in your CSV file</li>
                                 <li>Maximum 1000 records per import</li>
@@ -2039,7 +2274,7 @@ try {
                                 class="w-full px-3 py-2 border rounded-lg focus:border-nskblue focus:outline-none">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Guardian Email *</label>
                             <input type="email" name="email" id="edit_email" required
                                 class="w-full px-3 py-2 border rounded-lg focus:border-nskblue focus:outline-none">
                         </div>
@@ -2187,21 +2422,16 @@ try {
                 }
             }
 
-            // Close Add Student Modal Function
+            // Add Student Modal Functions
+            function openAddStudentModal() {
+                document.getElementById('addStudentModal').classList.add('active');
+            }
+
             function closeAddStudentModal() {
-                // Create a form and submit to hide the add form
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '';
-
-                const hideInput = document.createElement('input');
-                hideInput.type = 'hidden';
-                hideInput.name = 'hide_add_form';
-                hideInput.value = 'true';
-
-                form.appendChild(hideInput);
-                document.body.appendChild(form);
-                form.submit();
+                document.getElementById('addStudentModal').classList.remove('active');
+                if (document.getElementById('addStudentForm')) {
+                    document.getElementById('addStudentForm').reset();
+                }
             }
 
             // Delete Student Function

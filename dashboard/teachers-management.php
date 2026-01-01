@@ -453,31 +453,37 @@ $departmentFilter = isset($_GET['department_filter']) ? $_GET['department_filter
 
 try {
     // Build the main query
-    $queryParts = [
-        "SELECT u.id as user_id, u.first_name, u.last_name, u.phone, u.email, t.teacher_id, t.employment_date, tp.qualification, tp.subject_specialization, tp.department",
-        "FROM users u",
-        "LEFT JOIN teachers t ON u.id = t.user_id",
-        "LEFT JOIN teacher_profiles tp ON u.id = tp.user_id",
-        "WHERE u.user_type = 'teacher' AND u.is_active = 1"
-    ];
+    // Base Query Components
+    $selectClause = "SELECT u.id as user_id, u.first_name, u.last_name, u.phone, u.email, t.teacher_id, t.employment_date, tp.qualification, tp.subject_specialization, tp.department";
+    $fromClause = "FROM users u LEFT JOIN teachers t ON u.id = t.user_id LEFT JOIN teacher_profiles tp ON u.id = tp.user_id";
+    $whereClause = "WHERE u.user_type = 'teacher' AND u.is_active = 1";
     $params = [];
 
     // Add search filter
     if (!empty($searchQuery)) {
-        $queryParts[] = "AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ? OR t.teacher_id LIKE ? OR tp.department LIKE ? OR tp.subject_specialization LIKE ?)";
+        $whereClause .= " AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ? OR t.teacher_id LIKE ? OR tp.department LIKE ? OR tp.subject_specialization LIKE ?)";
         $searchParam = "%{$searchQuery}%";
         array_push($params, $searchParam, $searchParam, $searchParam, $searchParam, $searchParam, $searchParam);
     }
 
     // Add department filter
     if (!empty($departmentFilter)) {
-        $queryParts[] = "AND tp.department = ?";
+        $whereClause .= " AND tp.department = ?";
         $params[] = $departmentFilter;
     }
 
-    $queryParts[] = "ORDER BY u.first_name";
-    $sql = implode(" ", $queryParts);
+    // Pagination Logic
+    $countStmt = $db->prepare("SELECT COUNT(*) $fromClause $whereClause");
+    $countStmt->execute($params);
+    $totalFilteredTeachers = $countStmt->fetchColumn();
 
+    $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+    $limit = 10;
+    $offset = ($page - 1) * $limit;
+    $totalPages = ceil($totalFilteredTeachers / $limit);
+
+    // Fetch Paginated Data
+    $sql = "$selectClause $fromClause $whereClause ORDER BY u.first_name LIMIT $limit OFFSET $offset";
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
     $teachersData = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -726,22 +732,33 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
             </div>
 
             <div class="bg-white rounded-xl shadow-md p-6 mb-8">
-                <form method="GET" action="" class="space-y-4">
+                <form method="GET" action="" class="space-y-4 relative" id="filterForm">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <h2 class="text-xl font-bold text-nsknavy">All Teachers</h2>
 
-                        <div class="flex flex-wrap gap-4">
-                            <div class="relative">
-                                <div class="flex items-center space-x-2 bg-nsklight rounded-full py-2 px-4">
-                                    <i class="fas fa-search text-gray-500"></i>
-                                    <input type="text" name="search" placeholder="Search teachers..."
-                                        class="bg-transparent outline-none w-32 md:w-64"
-                                        value="<?= htmlspecialchars($searchQuery) ?>">
+                        <div class="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                            <!-- Search Input with Clear Button -->
+                            <div class="relative group">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fas fa-search text-gray-400 group-focus-within:text-nskblue transition-colors"></i>
                                 </div>
+                                <input type="text" name="search" id="searchInput" placeholder="Search teachers..."
+                                    value="<?= htmlspecialchars($searchQuery) ?>"
+                                    oninput="debounceSearch()"
+                                    class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-nskblue focus:border-nskblue block w-full pl-10 p-2.5 transition-all shadow-sm group-hover:shadow-md" />
+                                
+                                <?php if (!empty($searchQuery)): ?>
+                                    <a href="<?= $_SERVER['PHP_SELF'] ?>?department_filter=<?= $departmentFilter ?>" 
+                                       class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
+                                       title="Clear Search">
+                                        <i class="fas fa-times-circle"></i>
+                                    </a>
+                                <?php endif; ?>
                             </div>
 
-                            <select name="department_filter"
-                                class="px-4 py-2 border rounded-lg form-input focus:border-nskblue">
+                            <!-- Department Filter (Auto-Submit) -->
+                            <select name="department_filter" onchange="showLoading(); this.form.submit()"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-nskblue focus:border-nskblue block p-2.5 cursor-pointer hover:bg-white transition-all shadow-sm">
                                 <option value="">All Departments</option>
                                 <?php foreach ($departments as $dept): ?>
                                     <option value="<?= htmlspecialchars($dept['department']) ?>"
@@ -751,20 +768,156 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
                                 <?php endforeach; ?>
                             </select>
 
-                            <button type="submit"
-                                class="bg-nskblue text-white px-4 py-2 rounded-lg font-semibold hover:bg-nsknavy transition flex items-center">
-                                <i class="fas fa-filter mr-2"></i> Filter
+                            <button type="submit" onclick="showLoading()"
+                                class="text-white bg-nskblue hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center gap-2 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                                <i class="fas fa-filter"></i> Filter
                             </button>
-
-                            <?php if (!empty($searchQuery) || !empty($departmentFilter)): ?>
-                                <a href="teachers-management.php"
-                                    class="bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-600 transition flex items-center">
-                                    <i class="fas fa-times mr-2"></i> Clear
-                                </a>
-                            <?php endif; ?>
                         </div>
                     </div>
+
+                    <!-- Active Filters Display -->
+                    <div id="activeFiltersContainer">
+                    <?php if (!empty($searchQuery) || !empty($departmentFilter)): ?>
+                        <div class="flex items-center gap-2 text-sm text-gray-600 animate-fade-in-down">
+                            <span class="font-semibold">Active Filters:</span>
+                            
+                            <?php if (!empty($searchQuery)): ?>
+                                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-400 flex items-center gap-1">
+                                    Search: <?= htmlspecialchars($searchQuery) ?>
+                                    <a href="?search=&department_filter=<?= $departmentFilter ?>" class="hover:text-blue-900" onclick="event.preventDefault(); updateFilter('search', '');"><i class="fas fa-times"></i></a>
+                                </span>
+                            <?php endif; ?>
+
+                            <?php if (!empty($departmentFilter)): ?>
+                                <span class="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded border border-purple-400 flex items-center gap-1">
+                                    Dept: <?= htmlspecialchars($departmentFilter) ?>
+                                    <a href="?search=<?= $searchQuery ?>&department_filter=" class="hover:text-purple-900" onclick="event.preventDefault(); updateFilter('department_filter', '');"><i class="fas fa-times"></i></a>
+                                </span>
+                            <?php endif; ?>
+
+                            <a href="<?= $_SERVER['PHP_SELF'] ?>" class="text-xs text-red-600 hover:underline ml-2" onclick="clearAllFilters(event)">Clear All</a>
+                        </div>
+                    <?php endif; ?>
+                    </div>
                 </form>
+
+                <!-- Page Loader -->
+                <div id="pageLoader" class="fixed inset-0 bg-white bg-opacity-80 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
+                    <div class="flex flex-col items-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-4 border-nskblue border-t-transparent"></div>
+                        <p class="mt-4 text-nskblue font-semibold animate-pulse">Updating results...</p>
+                    </div>
+                </div>
+
+                <script>
+                    function showLoading() {
+                        const loader = document.getElementById('pageLoader');
+                        loader.classList.remove('hidden');
+                        loader.style.opacity = '0';
+                        setTimeout(() => { loader.style.opacity = '1'; }, 10);
+                    }
+
+                    function hideLoading() {
+                        const loader = document.getElementById('pageLoader');
+                        loader.style.opacity = '0';
+                        setTimeout(() => { loader.classList.add('hidden'); }, 300);
+                    }
+
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const filterForm = document.getElementById('filterForm');
+                        if(filterForm) {
+                            filterForm.addEventListener('submit', function(e) {
+                                e.preventDefault();
+                                performAjaxSearch();
+                            });
+                        }
+                    });
+
+                    let searchTimeout;
+                    function debounceSearch() {
+                        clearTimeout(searchTimeout);
+                        searchTimeout = setTimeout(() => {
+                            performAjaxSearch();
+                        }, 800);
+                    }
+
+                    function changePage(page) {
+                        performAjaxSearch(page);
+                        const table = document.querySelector('table');
+                        if(table) table.scrollIntoView({behavior: 'smooth'});
+                    }
+
+                    function performAjaxSearch(page = 1) {
+                        showLoading();
+                        
+                        const form = document.getElementById('filterForm');
+                        const formData = new FormData(form);
+                        formData.append('page', page);
+                        
+                        const params = new URLSearchParams(formData);
+                        const url = window.location.pathname + '?' + params.toString();
+                        
+                        window.history.pushState({}, '', url);
+
+                        fetch(url)
+                            .then(response => response.text())
+                            .then(html => {
+                                const parser = new DOMParser();
+                                const doc = parser.parseFromString(html, 'text/html');
+                                
+                                const newBody = doc.getElementById('teachersTableBody');
+                                const currentBody = document.getElementById('teachersTableBody');
+                                if (newBody && currentBody) {
+                                    currentBody.innerHTML = newBody.innerHTML;
+                                }
+
+                                const newFilters = doc.getElementById('activeFiltersContainer');
+                                const currentFilters = document.getElementById('activeFiltersContainer');
+                                if (newFilters && currentFilters) {
+                                    currentFilters.innerHTML = newFilters.innerHTML;
+                                }
+                                
+                                const newPagination = doc.getElementById('paginationContainer');
+                                const currentPagination = document.getElementById('paginationContainer');
+                                if (newPagination && currentPagination) {
+                                    currentPagination.outerHTML = newPagination.outerHTML;
+                                }
+
+                                hideLoading();
+                            })
+                            .catch(err => {
+                                console.error('Search failed:', err);
+                                hideLoading();
+                            });
+                    }
+
+                    function updateFilter(name, value) {
+                        const form = document.getElementById('filterForm');
+                         if (name === 'search') {
+                            const input = document.getElementById('searchInput');
+                            if (input) input.value = value;
+                        } else {
+                            const select = form.querySelector(`[name="${name}"]`);
+                            if (select) select.value = value;
+                        }
+                        performAjaxSearch();
+                    }
+
+                    function clearAllFilters(e) {
+                        e.preventDefault();
+                        const form = document.getElementById('filterForm');
+                        
+                        const searchInput = document.getElementById('searchInput');
+                        if (searchInput) searchInput.value = '';
+                        
+                        const selects = form.querySelectorAll('select');
+                        selects.forEach(select => {
+                             select.value = '';
+                        });
+                        
+                        performAjaxSearch();
+                    }
+                </script>
 
                 <div class="flex flex-wrap gap-4 mt-6">
                     <form method="POST" action="" class="inline">
@@ -876,6 +1029,57 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
                             <?php endif; ?>
                         </tbody>
                     </table>
+
+                    <!-- Pagination Controls -->
+                    <?php if (isset($totalPages) && $totalPages > 1): ?>
+                    <div id="paginationContainer" class="flex flex-col sm:flex-row justify-between items-center py-4 px-6 border-t mt-4 bg-white rounded-lg shadow-sm">
+                        <div class="text-sm text-gray-600 mb-2 sm:mb-0">
+                             Showing <span class="font-medium"><?= $offset + 1 ?></span> to <span class="font-medium"><?= min($offset + $limit, $totalFilteredTeachers) ?></span> of <span class="font-medium"><?= $totalFilteredTeachers ?></span> teachers
+                        </div>
+                        <div class="flex space-x-1">
+                             <?php if ($page > 1): ?>
+                                <button onclick="changePage(<?= $page - 1 ?>)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center">
+                                    <i class="fas fa-chevron-left mr-1"></i> Prev
+                                </button>
+                             <?php else: ?>
+                                <button disabled class="px-3 py-1 border rounded text-sm text-gray-300 cursor-not-allowed flex items-center">
+                                    <i class="fas fa-chevron-left mr-1"></i> Prev
+                                </button>
+                             <?php endif; ?>
+                             
+                             <?php
+                             $start = max(1, $page - 2);
+                             $end = min($totalPages, $page + 2);
+                             
+                             if ($start > 1) { 
+                                 echo '<button onclick="changePage(1)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">1</button>';
+                                 if ($start > 2) echo '<span class="px-2 text-gray-400">...</span>';
+                             }
+                             
+                             for ($i = $start; $i <= $end; $i++): ?>
+                                <button onclick="changePage(<?= $i ?>)" class="px-3 py-1 border rounded text-sm <?= $i == $page ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-50' ?>">
+                                    <?= $i ?>
+                                </button>
+                             <?php endfor; 
+                             
+                             if ($end < $totalPages) { 
+                                 if ($end < $totalPages - 1) echo '<span class="px-2 text-gray-400">...</span>';
+                                 echo '<button onclick="changePage(' . $totalPages . ')" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">' . $totalPages . '</button>';
+                             }
+                             ?>
+                             
+                             <?php if ($page < $totalPages): ?>
+                                <button onclick="changePage(<?= $page + 1 ?>)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center">
+                                    Next <i class="fas fa-chevron-right ml-1"></i>
+                                </button>
+                             <?php else: ?>
+                                <button disabled class="px-3 py-1 border rounded text-sm text-gray-300 cursor-not-allowed flex items-center">
+                                    Next <i class="fas fa-chevron-right ml-1"></i>
+                                </button>
+                             <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
 

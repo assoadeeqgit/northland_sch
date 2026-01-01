@@ -94,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 
     if ($action === 'promote_students') {
-        $academic_session_id = intval($_POST['academic_session_id']);
+        // Promotion logic applies to global student list
 
         try {
             // Define class progression order (matching exact database class names)
@@ -369,14 +369,19 @@ $academicYears = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
                     <form method="POST" onsubmit="return confirm('Are you sure you want to promote all students? This action cannot be undone.');">
                         <input type="hidden" name="action" value="promote_students">
 
-                        <div class="mb-4">
-                            <label class="block text-gray-700 font-semibold mb-2">Select Academic Session</label>
-                            <select name="academic_session_id" class="w-full px-4 py-2 border border-gray-300 rounded focus:outline-none focus:border-nskblue" required>
-                                <option value="">-- Select Academic Session --</option>
-                                <?php foreach ($academicYears as $year): ?>
-                                    <option value="<?= $year['id'] ?>"><?= htmlspecialchars($year['name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                        <!-- Session Selector Removed (Logic promotes all active students irrespective of session) -->
+                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                            <div class="flex">
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-exclamation-triangle text-yellow-600"></i>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm text-yellow-700">
+                                        This action will promote <strong>ALL active students</strong> to their next assigned class sequence.<br>
+                                        Graduating class (SS 3) will be marked as 'Graduated'.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
                         <button type="submit" class="bg-nskred text-white px-6 py-3 rounded font-semibold hover:bg-red-700">

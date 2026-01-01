@@ -44,35 +44,43 @@ function initializeEventListeners() {
 
 // Tab switching functionality
 function switchTab(tabName) {
+  if (!tabName) return;
+
   // Update button states
   document.querySelectorAll(".tab-button").forEach((btn) => {
-    btn.classList.remove(
-      "active",
-      "border-nskblue",
-      "text-nskblue",
-      "bg-nskblue",
-      "text-white"
-    );
-    btn.classList.add("border-gray-300", "text-gray-700");
+    if (btn && btn.classList) {
+      btn.classList.remove(
+        "active",
+        "border-nskblue",
+        "text-nskblue",
+        "bg-nskblue",
+        "text-white"
+      );
+      btn.classList.add("border-gray-300", "text-gray-700");
+    }
   });
 
   // Activate clicked button
-  const activeButton = document.querySelector(`[data-tab="${tabName}"]`);
-  activeButton.classList.add(
-    "active",
-    "border-nskblue",
-    "bg-nskblue",
-    "text-white"
-  );
-  activeButton.classList.remove("border-gray-300", "text-gray-700");
+  const activeButton = document.querySelector(`.tab-button[data-tab="${tabName}"]`);
+  if (activeButton && activeButton.classList) {
+    activeButton.classList.add(
+      "active",
+      "border-nskblue",
+      "bg-nskblue",
+      "text-white"
+    );
+    activeButton.classList.remove("border-gray-300", "text-gray-700");
+  }
 
   // Show/hide tab content
   document.querySelectorAll(".tab-content").forEach((content) => {
-    content.classList.add("hidden");
+    if (content && content.classList) {
+      content.classList.add("hidden");
+    }
   });
 
   const targetTab = document.getElementById(tabName + "Tab");
-  if (targetTab) {
+  if (targetTab && targetTab.classList) {
     targetTab.classList.remove("hidden");
   }
 }
@@ -169,8 +177,12 @@ function applyFilters() {
 
 // Clear filters function (globally accessible)
 window.clearFilters = function clearFilters() {
-  document.getElementById("classFilter").value = "";
-  document.getElementById("sectionFilter").value = "";
+  const classFilter = document.getElementById("classFilter");
+  const sectionFilter = document.getElementById("sectionFilter");
+
+  if (classFilter) classFilter.value = "";
+  if (sectionFilter) sectionFilter.value = "";
+
   document.querySelectorAll(".class-card").forEach((card) => {
     card.style.display = "block";
   });
@@ -184,6 +196,15 @@ function showCreateClassModal() {
   if (modal) {
     modal.classList.add("active");
     modal.style.display = "flex";
+
+    // Initialize Select2
+    if ($.fn.select2) {
+      $('#classTeacher').select2({
+        dropdownParent: $('#createClassModal'),
+        width: '100%',
+        placeholder: "Select Teacher"
+      });
+    }
   }
 }
 
@@ -510,13 +531,13 @@ function showAssignTeacherModal(classId, teachers, classData) {
                     
                     <div>
                         <label class="block text-gray-700 mb-2">Select Teacher</label>
-                        <select name="teacher_id" class="w-full px-4 py-2 border rounded-lg focus:border-nskblue" required>
+                        <select id="assignTeacherSelect" name="teacher_id" class="w-full px-4 py-2 border rounded-lg focus:border-nskblue" required>
                             <option value="">Choose a teacher...</option>
                             ${teachers
       .map(
         (teacher) => `
                                 <option value="${teacher.id}" ${parseInt(teacher.id) === parseInt(currentTeacherId) ? 'selected' : ''}>
-                                    ${teacher.first_name} ${teacher.last_name
+                                    [${teacher.teacher_id}] ${teacher.first_name} ${teacher.last_name
           } ${teacher.subject_specialization
             ? "(" + teacher.subject_specialization + ")"
             : ""
@@ -547,10 +568,18 @@ function showAssignTeacherModal(classId, teachers, classData) {
 
   document.body.insertAdjacentHTML("beforeend", modalHTML);
 
+  if ($.fn.select2) {
+    $('#assignTeacherSelect').select2({
+      dropdownParent: $('#assignTeacherModal'),
+      width: '100%',
+      placeholder: "Choose a teacher..."
+    });
+  }
+
   // Handle form submission
-  document
-    .getElementById("assignTeacherForm")
-    .addEventListener("submit", async function (e) {
+  const assignForm = document.getElementById("assignTeacherForm");
+  if (assignForm) {
+    assignForm.addEventListener("submit", async function (e) {
       e.preventDefault();
       const formData = new FormData(this);
       formData.append("action", "assign_teacher");
@@ -578,6 +607,7 @@ function showAssignTeacherModal(classId, teachers, classData) {
         showNotification("Network error: " + error.message, "error");
       }
     });
+  }
 }
 
 window.closeAssignTeacherModal = function closeAssignTeacherModal() {
@@ -658,7 +688,7 @@ window.editClass = async function editClass(classId) {
                             <option value="">Select Teacher</option>
                             ${teachers.map(teacher => `
                                 <option value="${teacher.id}" ${parseInt(classData.class_teacher_id) === parseInt(teacher.id) ? 'selected' : ''}>
-                                    ${teacher.first_name} ${teacher.last_name} ${teacher.subject_specialization ? `(${teacher.subject_specialization})` : ''}
+                                    [${teacher.teacher_id}] ${teacher.first_name} ${teacher.last_name} ${teacher.subject_specialization ? `(${teacher.subject_specialization})` : ''}
                                 </option>
                             `).join('')}
                         </select>
@@ -688,31 +718,42 @@ window.editClass = async function editClass(classId) {
 
     document.body.insertAdjacentHTML("beforeend", modalHTML);
 
+    if ($.fn.select2) {
+      $('#editClassTeacher').select2({
+        dropdownParent: $('#editClassModal'),
+        width: '100%',
+        placeholder: "Select Teacher"
+      });
+    }
+
     // Handle form submission
-    document.getElementById("editClassForm").addEventListener("submit", async function (e) {
-      e.preventDefault();
-      const formData = new FormData(this);
+    const editForm = document.getElementById("editClassForm");
+    if (editForm) {
+      editForm.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
 
-      showNotification("Updating class...");
+        showNotification("Updating class...");
 
-      try {
-        const response = await fetch("../api/classes_api.php", {
-          method: "POST",
-          body: formData
-        });
-        const result = await response.json();
+        try {
+          const response = await fetch("../api/classes_api.php", {
+            method: "POST",
+            body: formData
+          });
+          const result = await response.json();
 
-        if (result.success) {
-          showNotification("Class updated successfully!");
-          closeEditClassModal();
-          setTimeout(() => window.location.reload(), 1500);
-        } else {
-          showNotification("Error: " + result.message, "error");
+          if (result.success) {
+            showNotification("Class updated successfully!");
+            closeEditClassModal();
+            setTimeout(() => window.location.reload(), 1500);
+          } else {
+            showNotification("Error: " + result.message, "error");
+          }
+        } catch (error) {
+          showNotification("Network error: " + error.message, "error");
         }
-      } catch (error) {
-        showNotification("Network error: " + error.message, "error");
-      }
-    });
+      });
+    }
 
   } catch (error) {
     showNotification("Error loading class details: " + error.message, "error");
@@ -725,118 +766,244 @@ window.closeEditClassModal = function () {
 }
 
 // Load timetable function (globally accessible)
+// Timetable functionality for Classes Management
 window.loadTimetable = async function loadTimetable() {
   const classSelect = document.getElementById("classSelect");
+  if (!classSelect) {
+    showNotification("System error: Class selector not found", "error");
+    return;
+  }
+
   const selectedClassId = classSelect.value;
-  const selectedClassName = classSelect.options[classSelect.selectedIndex].text;
+  const selectedClassName = classSelect.selectedIndex >= 0 ? classSelect.options[classSelect.selectedIndex].text : "Class";
 
   if (!selectedClassId) {
     showNotification("Please select a class first", "error");
     return;
   }
 
-  showNotification(`Loading timetable for ${selectedClassName}...`);
+  const container = document.getElementById("timetableDisplay");
+  if (container) {
+    container.innerHTML = `
+        <div class="text-center py-12">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-nskblue"></div>
+            <p class="mt-4 text-gray-600">Loading timetable for ${selectedClassName}...</p>
+        </div>
+    `;
+  }
 
   try {
-    const response = await fetch(`../api/classes_api.php?action=get_timetable&class_id=${selectedClassId}`);
+    const response = await fetch(`timetable_api.php?class_id=${selectedClassId}`);
     const result = await response.json();
 
     if (result.success) {
-      document.getElementById("timetablePlaceholder").classList.add("hidden");
-      document.getElementById("timetableContent").classList.remove("hidden");
-      renderTimetable(result.data);
+      window.currentTimetableData = result;
+      window.currentView = window.currentView || 'weekly';
+      renderTimetable();
     } else {
       showNotification("Error loading timetable: " + result.message, "error");
+      showTimetablePlaceholder();
     }
   } catch (error) {
+    console.error("Timetable Load Error:", error);
     showNotification("Network error: " + error.message, "error");
+    showTimetablePlaceholder();
   }
 };
 
-function renderTimetable(timetableData) {
-  const tbody = document.querySelector("#timetableTab tbody");
-  tbody.innerHTML = "";
-
-  if (!timetableData || timetableData.length === 0) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="6" class="text-center py-8 text-gray-500">
-          <i class="fas fa-calendar-times text-4xl mb-4"></i>
-          <p>No schedule found for this class.</p>
-        </td>
-      </tr>
-    `;
+function showTimetablePlaceholder() {
+  const container = document.getElementById("timetableDisplay");
+  if (!container) {
+    console.warn('Timetable display container not found');
     return;
   }
-
-  // Define standard periods (you might want to fetch this from DB in a real app)
-  const periods = [
-    { time: "08:00 - 08:45", start: "08:00:00" },
-    { time: "08:45 - 09:30", start: "08:45:00" },
-    { time: "09:30 - 10:00", start: "09:30:00", label: "Break" }, // Break
-    { time: "10:00 - 10:45", start: "10:00:00" },
-    { time: "10:45 - 11:30", start: "10:45:00" },
-    { time: "11:30 - 12:15", start: "11:30:00" },
-    { time: "12:15 - 13:00", start: "12:15:00" }
-  ];
-
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
-
-  periods.forEach(period => {
-    const row = document.createElement("tr");
-
-    // Time column
-    const timeCell = document.createElement("td");
-    timeCell.className = "bg-nsklight p-3 font-semibold text-center";
-    timeCell.textContent = period.time;
-    row.appendChild(timeCell);
-
-    // Day columns
-    days.forEach(day => {
-      const cell = document.createElement("td");
-      cell.className = "p-2";
-
-      // Find entry for this day and time
-      // Note: This is a simple match. In production, you'd handle time ranges more robustly.
-      const entry = timetableData.find(t =>
-        t.day_of_week === day &&
-        t.start_time.startsWith(period.start.substring(0, 5))
-      );
-
-      if (entry) {
-        // Determine color based on subject (simple hash or predefined)
-        const subjectColors = {
-          'Mathematics': 'blue',
-          'English': 'yellow',
-          'Science': 'green',
-          'History': 'purple',
-          'Art': 'red',
-          'PE': 'indigo'
-        };
-        const color = subjectColors[entry.subject_name] || 'blue';
-        const teacherName = entry.teacher_first_name ? `${entry.teacher_first_name} ${entry.teacher_last_name}` : 'No Teacher';
-
-        cell.innerHTML = `
-          <div class="timetable-cell bg-${color}-100 border-l-4 border-${color}-500 p-3 rounded-lg">
-            <p class="font-semibold text-sm">${entry.subject_name || 'Subject'}</p>
-            <p class="text-xs text-gray-600">${teacherName}</p>
-            <p class="text-xs text-gray-500">${entry.room || ''}</p>
-          </div>
-        `;
-      } else if (period.label === "Break") {
-        cell.innerHTML = `
-          <div class="bg-gray-100 p-2 rounded text-center text-gray-500 text-sm">
-            Break
-          </div>
-        `;
-      }
-
-      row.appendChild(cell);
-    });
-
-    tbody.appendChild(row);
-  });
+  container.innerHTML = `
+      <div id="timetablePlaceholder" class="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
+          <i class="fas fa-calendar-alt text-4xl text-gray-400 mb-4"></i>
+          <p class="text-gray-500 text-lg">Select a class and click "Load Timetable" to view the schedule.</p>
+      </div>
+  `;
 }
+
+function subjectToCss(name) {
+  if (!name) return '';
+  const n = name.toLowerCase();
+  if (n.includes('break')) return 'subject-break';
+  if (n.includes('math') || n.includes('mathemat')) return 'subject-math';
+  if (n.includes('science') || n.includes('phy') || n.includes('chem') || n.includes('bio')) return 'subject-science';
+  if (n.includes('english') || n.includes('literature')) return 'subject-english';
+  if (n.includes('history') || n.includes('social')) return 'subject-history';
+  if (n.includes('music')) return 'subject-music';
+  if (n.includes('art')) return 'subject-art';
+  if (n.includes('sport') || n.includes('physical') || n.includes('pe')) return 'subject-pe';
+  if (n.includes('relig') || n.includes('irs') || n.includes('crs') || n.includes('i.r.k')) return 'subject-religious';
+  if (n.includes('comp') || n.includes('ict')) return 'subject-computer';
+  if (n.includes('account') || n.includes('commerce') || n.includes('business') || n.includes('econ')) return 'subject-commercial';
+  if (n.includes('gov') || n.includes('civic')) return 'subject-arts-gov';
+  if (n.includes('husban') || n.includes('cater') || n.includes('craft') || n.includes('vocation')) return 'subject-vocational';
+  if (n.includes('arab') || n.includes('haus') || n.includes('french') || n.includes('phonics')) return 'subject-language';
+  if (n.includes('quant') || n.includes('verb') || n.includes('values') || n.includes('security')) return 'subject-general';
+  if (n.includes('habits') || n.includes('coloring') || n.includes('rhymes')) return 'subject-early';
+  return 'bg-gray-50 border-gray-200';
+}
+
+function renderTimetable() {
+  const result = window.currentTimetableData;
+  if (!result || !result.data) return;
+
+  const view = window.currentView || 'weekly';
+  const container = document.getElementById("timetableDisplay");
+  if (!container) return;
+
+  if (view === 'weekly') {
+    container.innerHTML = generateWeeklyHTML(result.data, result.rules, result.periods);
+  } else {
+    container.innerHTML = generateDailyHTML(result.data, result.rules, result.periods);
+  }
+}
+
+function generateWeeklyHTML(data, rules, periods) {
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const classSelect = document.getElementById("classSelect");
+  const className = classSelect.options[classSelect.selectedIndex].text;
+
+  return `
+      <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-semibold text-nsknavy">Weekly Timetable - ${className}</h3>
+          <div class="text-xs font-medium px-3 py-1 bg-nsklight rounded-full text-nskblue border border-nskblue">
+              ${rules.period_duration} mins per period
+          </div>
+      </div>
+      <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+          <table class="w-full border-collapse bg-white">
+              <thead>
+                  <tr>
+                      <th class="bg-nsknavy text-white p-3 border-r border-blue-800 w-32">Time</th>
+                      ${days.map(day => `<th class="bg-nsknavy text-white p-3 border-r border-blue-800">${day}</th>`).join('')}
+                  </tr>
+              </thead>
+              <tbody>
+                  ${periods.map(period => {
+    if (period.is_break) {
+      return `
+                          <tr class="bg-amber-50">
+                              <td class="p-3 font-bold text-center text-amber-800 border-r border-amber-200">${period.start} - ${period.end}</td>
+                              <td colspan="5" class="p-3 text-center font-bold tracking-widest text-amber-800 uppercase bg-amber-100">
+                                  --- BREAK TIME ---
+                              </td>
+                          </tr>
+                      `;
+    }
+    return `
+                      <tr class="hover:bg-gray-50 border-b border-gray-100">
+                          <td class="bg-gray-50 p-3 font-semibold text-center border-r border-gray-200 text-nsknavy">${period.start} - ${period.end}</td>
+                          ${days.map(day => {
+      const slot = data.find(d => d.day_of_week === day && d.start_time.startsWith(period.start));
+      if (slot) {
+        const cssClass = slot.is_dummy == 1 ? 'bg-gray-100 border-l-4 border-gray-300' : subjectToCss(slot.subject_name);
+        return `
+                                  <td class="p-2 border-r border-gray-100">
+                                      <div class="timetable-cell ${cssClass} p-2 rounded shadow-sm border-l-4">
+                                          <p class="font-bold text-xs text-nsknavy truncate">${slot.subject_name}</p>
+                                          <p class="text-[10px] text-gray-600 truncate">${slot.teacher_name || 'Teacher'}</p>
+                                      </div>
+                                  </td>
+                              `;
+      }
+      return `
+                              <td class="p-2 border-r border-gray-100">
+                                  <div class="bg-gray-50 p-2 rounded border border-dashed border-gray-200 text-center opacity-40">
+                                      <p class="text-[10px] font-bold text-gray-400 uppercase">FREE</p>
+                                  </div>
+                              </td>
+                          `;
+    }).join('')}
+                      </tr>
+                  `;
+  }).join('')}
+              </tbody>
+          </table>
+      </div>
+  `;
+}
+
+function generateDailyHTML(data, rules, periods) {
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  window.selectedDay = window.selectedDay || 'Monday';
+  const classSelect = document.getElementById("classSelect");
+  const className = classSelect.options[classSelect.selectedIndex].text;
+
+  return `
+      <div class="flex justify-between items-center mb-4">
+          <div class="flex items-center space-x-4">
+              <h3 class="text-lg font-semibold text-nsknavy">Daily Schedule</h3>
+              <select onchange="window.selectedDay = this.value; renderTimetable()" class="px-3 py-1 border rounded-lg text-sm bg-white">
+                  ${days.map(d => `<option value="${d}" ${d === window.selectedDay ? 'selected' : ''}>${d}</option>`).join('')}
+              </select>
+          </div>
+          <span class="text-sm font-medium px-3 py-1 bg-nsklight rounded-full text-nskblue border border-nskblue">${className}</span>
+      </div>
+      <div class="rounded-xl border border-gray-200 shadow-sm overflow-hidden bg-white">
+          <table class="w-full border-collapse">
+              <thead class="bg-nsknavy text-white text-left">
+                  <tr>
+                      <th class="p-4 border-r border-blue-800 w-32 text-center">Time</th>
+                      <th class="p-4">Subject & Teacher</th>
+                      <th class="p-4 w-32 text-center">Room</th>
+                  </tr>
+              </thead>
+              <tbody>
+                  ${periods.map(period => {
+    if (period.is_break) {
+      return `<tr class="bg-amber-50 italic text-amber-800"><td class="p-4 text-center border-r border-amber-200 font-bold">${period.start}-${period.end}</td><td colspan="2" class="p-4 text-center font-bold uppercase tracking-widest bg-amber-100/50">Break Time</td></tr>`;
+    }
+    const slot = data.find(d => d.day_of_week === window.selectedDay && d.start_time.startsWith(period.start));
+    return `
+                          <tr class="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                              <td class="p-4 text-center border-r border-gray-100 font-semibold text-nsknavy bg-gray-50">${period.start} - ${period.end}</td>
+                              <td class="p-4">
+                                  ${slot ? `
+                                      <div class="flex items-center">
+                                          <div class="w-1.5 h-10 rounded-full ${subjectToCss(slot.subject_name).replace('border-l-4', 'bg-current')} mr-4" style="background-color: currentColor; opacity: 0.8;"></div>
+                                          <div>
+                                              <p class="font-bold text-nsknavy text-lg">${slot.subject_name}</p>
+                                              <p class="text-sm text-gray-500"><i class="fas fa-user-tie mr-2"></i>${slot.teacher_name || 'Not assigned'}</p>
+                                          </div>
+                                      </div>
+                                  ` : `<p class="text-gray-400 italic">Free Period</p>`}
+                              </td>
+                              <td class="p-4 text-center text-gray-500">${slot?.room || '-'}</td>
+                          </tr>
+                      `;
+  }).join('')}
+              </tbody>
+          </table>
+      </div>
+  `;
+}
+
+// Add event listeners for view buttons
+document.addEventListener('click', function (e) {
+  const viewBtn = e.target.closest('.view-btn');
+  if (viewBtn && viewBtn.classList) {
+    const view = viewBtn.dataset.view;
+    window.currentView = view;
+
+    // Update buttons
+    document.querySelectorAll('.view-btn').forEach(btn => {
+      if (btn && btn.classList) {
+        btn.classList.remove('bg-nskblue', 'text-white');
+        btn.classList.add('text-gray-600');
+      }
+    });
+    viewBtn.classList.add('bg-nskblue', 'text-white');
+    viewBtn.classList.remove('text-gray-600');
+
+    if (window.currentTimetableData) {
+      renderTimetable();
+    }
+  }
+});
 
 // Close create class modal handlers
 document.addEventListener("DOMContentLoaded", function () {
@@ -893,7 +1060,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (cancelDeleteBtn) {
     cancelDeleteBtn.addEventListener('click', function () {
-      if (deleteModal) {
+      if (deleteModal && deleteModal.classList) {
         deleteModal.classList.remove('active');
         setTimeout(() => {
           deleteModal.style.display = 'none';
@@ -905,7 +1072,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (deleteModal) {
     deleteModal.addEventListener('click', function (e) {
-      if (e.target === deleteModal) {
+      if (e.target === deleteModal && deleteModal.classList) {
         deleteModal.classList.remove('active');
         setTimeout(() => {
           deleteModal.style.display = 'none';
@@ -971,9 +1138,11 @@ window.confirmDeleteClass = function confirmDeleteClass(classId, className) {
 
     // Add active class for animation
     setTimeout(() => {
-      deleteModal.classList.add('active');
-      console.log('Modal active class added');
-      console.log('Modal is now visible');
+      if (deleteModal && deleteModal.classList) {
+        deleteModal.classList.add('active');
+        console.log('Modal active class added');
+        console.log('Modal is now visible');
+      }
     }, 10);
 
   } catch (error) {

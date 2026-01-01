@@ -88,6 +88,29 @@ class AuthController
             throw new Exception('Your account is not active. Please contact an administrator.');
         }
 
+        // Step 5: If Teacher, check if Form Master (Class Teacher)
+        if ($user['user_type'] === 'teacher') {
+            $tStmt = $this->db->prepare("SELECT id FROM teachers WHERE user_id = ?");
+            $tStmt->execute([$user['id']]);
+            $teacherId = $tStmt->fetchColumn();
+
+            if ($teacherId) {
+                // Check if assigned as class teacher
+                $cStmt = $this->db->prepare("SELECT COUNT(*) FROM classes WHERE class_teacher_id = ?");
+                $cStmt->execute([$teacherId]);
+                $isFormMaster = $cStmt->fetchColumn() > 0;
+
+                if (!$isFormMaster) {
+                    $this->logAuthEvent($user['id'], 'failed_login', $_SERVER['REMOTE_ADDR'], 'Not a Form Master');
+                    throw new Exception('Access Denied: You must be a Form Master (Class Teacher) to access the dashboard.');
+                }
+            } else {
+                 throw new Exception('Teacher profile not found.');
+            }
+        }
+
+
+
         // --- All checks passed, user is valid and active ---
 
         // Reset login attempts on successful login

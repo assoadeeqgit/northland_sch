@@ -104,6 +104,27 @@ function addUser($db)
                 $_POST['employment_type'] ?? 'Full-time', // <-- FIXED
                 $teacherId
             ]);
+        } else if ($user_type === 'accountant') {
+            // Generate Accountant ID
+            $accountantId = 'ACC' . str_pad(rand(100, 9999), 4, '0', STR_PAD_LEFT);
+            $checkStmt = $db->prepare("SELECT COUNT(*) FROM accountant_profiles WHERE accountant_id = ?");
+            $checkStmt->execute([$accountantId]);
+            if ($checkStmt->fetchColumn() > 0) {
+                $accountantId = 'ACC' . str_pad(rand(100, 9999), 4, '0', STR_PAD_LEFT);
+            }
+            
+            $profileSql = "INSERT INTO accountant_profiles (user_id, accountant_id, qualification, certification, department, employment_type, employment_date) 
+                          VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $profileStmt = $db->prepare($profileSql);
+            $profileStmt->execute([
+                $userId, 
+                $accountantId, 
+                $_POST['qualification'] ?? null,
+                $_POST['certification'] ?? null,
+                $_POST['department'] ?? null,
+                $_POST['employment_type'] ?? 'Full-time',
+                $_POST['employment_date'] ?? null
+            ]);
         } else if ($user_type === 'staff') {
             $staffId = 'STF' . str_pad(rand(100, 9999), 4, '0', STR_PAD_LEFT);
             $profileSql = "INSERT INTO staff_profiles (user_id, staff_id, department, position) VALUES (?, ?, ?, ?)";
@@ -202,6 +223,8 @@ function getRoleBadge($role)
             return '<span class="role-badge bg-blue-100 text-nskblue">Administrator</span>';
         case 'teacher':
             return '<span class="role-badge bg-green-100 text-nskgreen">Teacher</span>';
+        case 'accountant':
+            return '<span class="role-badge bg-yellow-100 text-nskgold">Accountant</span>';
         case 'staff':
             return '<span class="role-badge bg-purple-100 text-purple-700">Staff</span>';
         case 'principal':
@@ -267,30 +290,43 @@ try {
     $stats['parents'] = 0; // Parent table/role not defined in schema
 
     // Build main query
-    $queryParts = ["SELECT id, first_name, last_name, email, user_type, is_active, last_login FROM users WHERE user_type != 'student'"];
+    // Base Query
+    $selectClause = "SELECT id, first_name, last_name, email, user_type, is_active, last_login";
+    $fromClause = "FROM users";
+    $whereClause = "WHERE user_type != 'student'";
     $params = [];
 
     // Add search filter
     if (!empty($searchQuery)) {
-        $queryParts[] = "AND (first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR username LIKE ?)";
+        $whereClause .= " AND (first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR username LIKE ?)";
         $searchParam = "%{$searchQuery}%";
         array_push($params, $searchParam, $searchParam, $searchParam, $searchParam);
     }
 
     // Add role filter
     if (!empty($roleFilter)) {
-        $queryParts[] = "AND user_type = ?";
+        $whereClause .= " AND user_type = ?";
         $params[] = $roleFilter;
     }
 
     // Add status filter
     if ($statusFilter !== '') {
-        $queryParts[] = "AND is_active = ?";
+        $whereClause .= " AND is_active = ?";
         $params[] = $statusFilter;
     }
 
-    $queryParts[] = "ORDER BY first_name, last_name";
-    $sql = implode(" ", $queryParts);
+    // Pagination Logic
+    $countStmt = $db->prepare("SELECT COUNT(*) $fromClause $whereClause");
+    $countStmt->execute($params);
+    $totalFilteredUsers = $countStmt->fetchColumn();
+
+    $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+    $limit = 10;
+    $offset = ($page - 1) * $limit;
+    $totalPages = ceil($totalFilteredUsers / $limit);
+
+    // Fetch Paginated Data
+    $sql = "$selectClause $fromClause $whereClause ORDER BY first_name, last_name LIMIT $limit OFFSET $offset";
 
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
@@ -677,52 +713,206 @@ try {
             </div>
 
             <div class="bg-white rounded-xl shadow-md p-6 mb-8">
-                <form method="GET" action="">
+                <form method="GET" action="" class="space-y-4 relative" id="filterForm">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <h2 class="text-xl font-bold text-nsknavy">All Users (Non-Students)</h2>
 
-                        <div class="flex flex-wrap gap-4">
-                            <div class="relative">
-                                <div class="flex items-center space-x-2 bg-nsklight rounded-full py-2 px-4">
-                                    <i class="fas fa-search text-gray-500"></i>
-                                    <input type="text" name="search" placeholder="Search users..."
-                                        class="bg-transparent outline-none w-32 md:w-64"
-                                        value="<?= htmlspecialchars($searchQuery) ?>">
+                        <div class="flex flex-col md:flex-row gap-4 w-full md:w-auto">
+                            <!-- Search Input with Clear Button -->
+                            <div class="relative group">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fas fa-search text-gray-400 group-focus-within:text-nskblue transition-colors"></i>
                                 </div>
+                                <input type="text" name="search" id="searchInput" placeholder="Search users..."
+                                    value="<?= htmlspecialchars($searchQuery) ?>"
+                                    oninput="debounceSearch()"
+                                    class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-nskblue focus:border-nskblue block w-full pl-10 p-2.5 transition-all shadow-sm group-hover:shadow-md" />
+                                
+                                <?php if (!empty($searchQuery)): ?>
+                                    <a href="<?= $_SERVER['PHP_SELF'] ?>?role_filter=<?= $roleFilter ?>&status_filter=<?= $statusFilter ?>" 
+                                       class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
+                                       title="Clear Search">
+                                        <i class="fas fa-times-circle"></i>
+                                    </a>
+                                <?php endif; ?>
                             </div>
 
-                            <select name="role_filter"
-                                class="px-4 py-2 border rounded-lg form-input focus:border-nskblue">
+                            <!-- Role Filter (Auto-Submit) -->
+                            <select name="role_filter" onchange="showLoading(); this.form.submit()"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-nskblue focus:border-nskblue block p-2.5 cursor-pointer hover:bg-white transition-all shadow-sm">
                                 <option value="">All Roles</option>
-                                <option value="admin" <?= $roleFilter == 'admin' ? 'selected' : '' ?>>Administrator
-                                </option>
+                                <option value="admin" <?= $roleFilter == 'admin' ? 'selected' : '' ?>>Administrator</option>
                                 <option value="teacher" <?= $roleFilter == 'teacher' ? 'selected' : '' ?>>Teacher</option>
+                                <option value="accountant" <?= $roleFilter == 'accountant' ? 'selected' : '' ?>>Accountant</option>
                                 <option value="staff" <?= $roleFilter == 'staff' ? 'selected' : '' ?>>Staff</option>
-                                <option value="principal" <?= $roleFilter == 'principal' ? 'selected' : '' ?>>Principal
-                                </option>
+                                <option value="principal" <?= $roleFilter == 'principal' ? 'selected' : '' ?>>Principal</option>
                             </select>
 
-                            <select name="status_filter"
-                                class="px-4 py-2 border rounded-lg form-input focus:border-nskblue">
+                            <!-- Status Filter (Auto-Submit) -->
+                            <select name="status_filter" onchange="showLoading(); this.form.submit()"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-nskblue focus:border-nskblue block p-2.5 cursor-pointer hover:bg-white transition-all shadow-sm">
                                 <option value="">All Status</option>
                                 <option value="1" <?= $statusFilter === '1' ? 'selected' : '' ?>>Active</option>
                                 <option value="0" <?= $statusFilter === '0' ? 'selected' : '' ?>>Inactive</option>
                             </select>
 
-                            <button type="submit"
-                                class="bg-nskblue text-white px-4 py-2 rounded-lg font-semibold hover:bg-nsknavy transition flex items-center">
-                                <i class="fas fa-filter mr-2"></i> Filter
+                            <button type="submit" onclick="showLoading()"
+                                class="text-white bg-nskblue hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center gap-2 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                                <i class="fas fa-filter"></i> Filter
                             </button>
-
-                            <?php if (!empty($searchQuery) || !empty($roleFilter) || $statusFilter !== ''): ?>
-                                <a href="user-management.php"
-                                    class="bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-600 transition flex items-center">
-                                    <i class="fas fa-times mr-2"></i> Clear
-                                </a>
-                            <?php endif; ?>
                         </div>
                     </div>
+
+                    <!-- Active Filters Display -->
+                    <div id="activeFiltersContainer">
+                    <?php if (!empty($searchQuery) || !empty($roleFilter) || $statusFilter !== ''): ?>
+                        <div class="flex items-center gap-2 text-sm text-gray-600 animate-fade-in-down">
+                            <span class="font-semibold">Active Filters:</span>
+                            
+                            <?php if (!empty($searchQuery)): ?>
+                                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-400 flex items-center gap-1">
+                                    Search: <?= htmlspecialchars($searchQuery) ?>
+                                    <a href="?search=&role_filter=<?= $roleFilter ?>&status_filter=<?= $statusFilter ?>" class="hover:text-blue-900" onclick="event.preventDefault(); updateFilter('search', '');"><i class="fas fa-times"></i></a>
+                                </span>
+                            <?php endif; ?>
+
+                            <?php if (!empty($roleFilter)): ?>
+                                <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded border border-green-400 flex items-center gap-1">
+                                    Role: <?= ucfirst($roleFilter) ?>
+                                    <a href="?search=<?= $searchQuery ?>&role_filter=&status_filter=<?= $statusFilter ?>" class="hover:text-green-900" onclick="event.preventDefault(); updateFilter('role_filter', '');"><i class="fas fa-times"></i></a>
+                                </span>
+                            <?php endif; ?>
+
+                            <?php if ($statusFilter !== ''): ?>
+                                <span class="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded border border-purple-400 flex items-center gap-1">
+                                    Status: <?= $statusFilter === '1' ? 'Active' : 'Inactive' ?>
+                                    <a href="?search=<?= $searchQuery ?>&role_filter=<?= $roleFilter ?>&status_filter=" class="hover:text-purple-900" onclick="event.preventDefault(); updateFilter('status_filter', '');"><i class="fas fa-times"></i></a>
+                                </span>
+                            <?php endif; ?>
+
+                            <a href="<?= $_SERVER['PHP_SELF'] ?>" class="text-xs text-red-600 hover:underline ml-2" onclick="clearAllFilters(event)">Clear All</a>
+                        </div>
+                    <?php endif; ?>
+                    </div>
                 </form>
+
+                <!-- Page Loader -->
+                <div id="pageLoader" class="fixed inset-0 bg-white bg-opacity-80 z-50 hidden flex items-center justify-center backdrop-blur-sm transition-opacity duration-300">
+                    <div class="flex flex-col items-center">
+                        <div class="animate-spin rounded-full h-12 w-12 border-4 border-nskblue border-t-transparent"></div>
+                        <p class="mt-4 text-nskblue font-semibold animate-pulse">Updating results...</p>
+                    </div>
+                </div>
+
+                <script>
+                    function showLoading() {
+                         const loader = document.getElementById('pageLoader');
+                        loader.classList.remove('hidden');
+                        loader.style.opacity = '0';
+                        setTimeout(() => { loader.style.opacity = '1'; }, 10);
+                    }
+
+                    function hideLoading() {
+                        const loader = document.getElementById('pageLoader');
+                        loader.style.opacity = '0';
+                        setTimeout(() => { loader.classList.add('hidden'); }, 300);
+                    }
+
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const filterForm = document.getElementById('filterForm');
+                        if(filterForm) {
+                            filterForm.addEventListener('submit', function(e) {
+                                e.preventDefault();
+                                performAjaxSearch();
+                            });
+                        }
+                    });
+
+                    let searchTimeout;
+                    function debounceSearch() {
+                        clearTimeout(searchTimeout);
+                        searchTimeout = setTimeout(() => {
+                            performAjaxSearch();
+                        }, 800);
+                    }
+
+                    function changePage(page) {
+                        performAjaxSearch(page);
+                        const table = document.querySelector('table');
+                        if(table) table.scrollIntoView({behavior: 'smooth'});
+                    }
+
+                    function performAjaxSearch(page = 1) {
+                        showLoading();
+                        
+                        const form = document.getElementById('filterForm');
+                        const formData = new FormData(form);
+                        formData.append('page', page);
+                        
+                        const params = new URLSearchParams(formData);
+                        const url = window.location.pathname + '?' + params.toString();
+                        
+                        window.history.pushState({}, '', url);
+
+                        fetch(url)
+                            .then(response => response.text())
+                            .then(html => {
+                                const parser = new DOMParser();
+                                const doc = parser.parseFromString(html, 'text/html');
+                                
+                                const newBody = doc.getElementById('usersTableBody');
+                                const currentBody = document.getElementById('usersTableBody');
+                                if (newBody && currentBody) {
+                                    currentBody.innerHTML = newBody.innerHTML;
+                                }
+
+                                const newFilters = doc.getElementById('activeFiltersContainer');
+                                const currentFilters = document.getElementById('activeFiltersContainer');
+                                if (newFilters && currentFilters) {
+                                    currentFilters.innerHTML = newFilters.innerHTML;
+                                }
+                                
+                                const newPagination = doc.getElementById('paginationContainer');
+                                const currentPagination = document.getElementById('paginationContainer');
+                                if (newPagination && currentPagination) {
+                                    currentPagination.outerHTML = newPagination.outerHTML;
+                                }
+
+                                hideLoading();
+                            })
+                            .catch(err => {
+                                console.error('Search failed:', err);
+                                hideLoading();
+                            });
+                    }
+
+                    function updateFilter(name, value) {
+                        const form = document.getElementById('filterForm');
+                         if (name === 'search') {
+                            const input = document.getElementById('searchInput');
+                            if (input) input.value = value;
+                        } else {
+                            const select = form.querySelector(`[name="${name}"]`);
+                            if (select) select.value = value;
+                        }
+                        performAjaxSearch();
+                    }
+
+                    function clearAllFilters(e) {
+                        e.preventDefault();
+                        const form = document.getElementById('filterForm');
+                        
+                        const searchInput = document.getElementById('searchInput');
+                        if (searchInput) searchInput.value = '';
+                        
+                        const selects = form.querySelectorAll('select');
+                        selects.forEach(select => {
+                             select.value = '';
+                        });
+                        
+                        performAjaxSearch();
+                    }
+                </script>
 
                 <div class="mt-4">
                     <form method="POST" action="" class="inline">
@@ -746,7 +936,7 @@ try {
                                 <th class="py-3 px-6 text-left text-nsknavy">Actions</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-gray-200">
+                        <tbody class="divide-y divide-gray-200" id="usersTableBody">
                             <?php if (empty($usersData)): ?>
                                 <tr>
                                     <td colspan="5" class="py-8 px-6 text-center text-gray-500">
@@ -806,6 +996,57 @@ try {
                             <?php endif; ?>
                         </tbody>
                     </table>
+
+                    <!-- Pagination Controls -->
+                    <?php if (isset($totalPages) && $totalPages > 1): ?>
+                    <div id="paginationContainer" class="flex flex-col sm:flex-row justify-between items-center py-4 px-6 border-t mt-4 bg-white rounded-lg shadow-sm">
+                        <div class="text-sm text-gray-600 mb-2 sm:mb-0">
+                             Showing <span class="font-medium"><?= $offset + 1 ?></span> to <span class="font-medium"><?= min($offset + $limit, $totalFilteredUsers) ?></span> of <span class="font-medium"><?= $totalFilteredUsers ?></span> users
+                        </div>
+                        <div class="flex space-x-1">
+                             <?php if ($page > 1): ?>
+                                <button onclick="changePage(<?= $page - 1 ?>)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center">
+                                    <i class="fas fa-chevron-left mr-1"></i> Prev
+                                </button>
+                             <?php else: ?>
+                                <button disabled class="px-3 py-1 border rounded text-sm text-gray-300 cursor-not-allowed flex items-center">
+                                    <i class="fas fa-chevron-left mr-1"></i> Prev
+                                </button>
+                             <?php endif; ?>
+                             
+                             <?php
+                             $start = max(1, $page - 2);
+                             $end = min($totalPages, $page + 2);
+                             
+                             if ($start > 1) { 
+                                 echo '<button onclick="changePage(1)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">1</button>';
+                                 if ($start > 2) echo '<span class="px-2 text-gray-400">...</span>';
+                             }
+                             
+                             for ($i = $start; $i <= $end; $i++): ?>
+                                <button onclick="changePage(<?= $i ?>)" class="px-3 py-1 border rounded text-sm <?= $i == $page ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-50' ?>">
+                                    <?= $i ?>
+                                </button>
+                             <?php endfor; 
+                             
+                             if ($end < $totalPages) { 
+                                 if ($end < $totalPages - 1) echo '<span class="px-2 text-gray-400">...</span>';
+                                 echo '<button onclick="changePage(' . $totalPages . ')" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">' . $totalPages . '</button>';
+                             }
+                             ?>
+                             
+                             <?php if ($page < $totalPages): ?>
+                                <button onclick="changePage(<?= $page + 1 ?>)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center">
+                                    Next <i class="fas fa-chevron-right ml-1"></i>
+                                </button>
+                             <?php else: ?>
+                                <button disabled class="px-3 py-1 border rounded text-sm text-gray-300 cursor-not-allowed flex items-center">
+                                    Next <i class="fas fa-chevron-right ml-1"></i>
+                                </button>
+                             <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -845,6 +1086,10 @@ try {
                                 <div class="role-card" data-role="admin">
                                     <i class="fas fa-user-shield text-2xl text-nskblue mb-2"></i>
                                     <p class="text-sm font-medium text-nsknavy">Administrator</p>
+                                </div>
+                                <div class="role-card" data-role="accountant">
+                                    <i class="fas fa-calculator text-2xl text-nskblue mb-2"></i>
+                                    <p class="text-sm font-medium text-nsknavy">Accountant</p>
                                 </div>
                                 <div class="role-card" data-role="staff">
                                     <i class="fas fa-user-tie text-2xl text-nskblue mb-2"></i>
@@ -1020,6 +1265,39 @@ try {
                         type: 'text',
                         id: 'supervisor',
                         label: 'Supervisor Name',
+                        required: false
+                    }
+                    ],
+                    accountant: [{
+                        type: 'text',
+                        id: 'qualification',
+                        label: 'Highest Qualification',
+                        required: false
+                    },
+                    {
+                        type: 'text',
+                        id: 'certification',
+                        label: 'Professional Certification (e.g., ICAN, ACCA)',
+                        required: false
+                    },
+                    {
+                        type: 'select',
+                        id: 'department',
+                        label: 'Department',
+                        options: ['Finance', 'Accounts', 'Bursar Office'],
+                        required: true
+                    },
+                    {
+                        type: 'select',
+                        id: 'employment_type',
+                        label: 'Employment Type',
+                        options: ['Full-time', 'Part-time', 'Contract'],
+                        required: true
+                    },
+                    {
+                        type: 'date',
+                        id: 'employment_date',
+                        label: 'Employment Date',
                         required: false
                     }
                     ],
@@ -1206,9 +1484,14 @@ try {
                 </div>
             `;
                     } else {
+                        // For date fields with id 'employment_date', set default to today
+                        const defaultValue = (type === 'date' && id === 'employment_date') 
+                            ? `value="${new Date().toISOString().split('T')[0]}"` 
+                            : '';
+                        
                         return `
                 <div class="input-field">
-                    <input type="${type}" name="${id}" id="${id}" placeholder=" " ${required ? 'required' : ''}>
+                    <input type="${type}" name="${id}" id="${id}" placeholder=" " ${required ? 'required' : ''} ${defaultValue}>
                     <label for="${id}">${label}</label>
                 </div>
             `;

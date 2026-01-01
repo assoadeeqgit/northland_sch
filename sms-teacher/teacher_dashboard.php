@@ -18,6 +18,24 @@ if (!isset($_SESSION['user_id']) || !isset($_SESSION['user_type']) || $_SESSION[
     exit();
 }
 
+// Check if teacher is a form master (only form masters can access teacher dashboard)
+require_once 'config/database.php';
+$database = new Database();
+$db = $database->getConnection();
+
+$checkFormMasterStmt = $db->prepare("
+    SELECT is_form_master FROM teachers WHERE user_id = ?
+");
+$checkFormMasterStmt->execute([$_SESSION['user_id']]);
+$isFormMaster = $checkFormMasterStmt->fetchColumn();
+
+if (!$isFormMaster) {
+    error_log("Teacher Dashboard - Access denied. Teacher is not a form master.");
+    $_SESSION['error'] = "Access Denied: Only form masters (class teachers) can access the teacher dashboard. Please contact the administrator if you believe this is an error.";
+    header("Location: ../login-form.php?error=not_form_master");
+    exit();
+}
+
 require_once 'config/database.php';
 
 class DashboardData
