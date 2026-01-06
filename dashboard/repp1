@@ -740,7 +740,7 @@ try {
             <div class="bg-white rounded-xl shadow-md p-6 mb-8">
                 <form method="GET" action="">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <h2 class="text-xl font-bold text-nsknavy">All Users (Non-Students)</h2>
+                        <h2 class="text-xl font-bold text-nsknavy">All Users</h2>
 
                         <div class="flex flex-wrap gap-4">
                             <div class="relative">

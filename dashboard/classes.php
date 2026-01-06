@@ -1,7 +1,8 @@
 <?php
 // Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Debugging disabled
+// error_reporting(E_ALL);
+// ini_set('display_errors', 1);
 
 // session_start();
 
@@ -132,13 +133,11 @@ try {
     $totalSubjects = $db->query("SELECT COUNT(*) FROM subjects")->fetchColumn();
     $totalTeachers = $db->query("SELECT COUNT(*) FROM teachers t JOIN users u ON t.user_id = u.id WHERE u.is_active = 1")->fetchColumn();
 
-    // Get classroom statistics
-    $totalClassrooms = $db->query("SELECT COUNT(DISTINCT room) FROM timetable WHERE room IS NOT NULL")->fetchColumn();
-    $classroomsInMaintenance = 0; // You can add a maintenance table or field if needed
-    $availableClassrooms = $totalClassrooms - $classroomsInMaintenance;
 } catch (Exception $e) {
     $error_message = "Error: " . $e->getMessage();
 }
+
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -148,6 +147,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Classes Management - Northland Schools Kano</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="sidebar.css">
     <script>
@@ -319,16 +319,30 @@ try {
             border-left: 4px solid #f59e0b;
         }
 
+        /* Standardized Modal Styling */
         .modal {
-            transition: opacity 0.3s ease, transform 0.3s ease;
-            transform: scale(0.9);
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
             opacity: 0;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(5px);
         }
 
         .modal.active {
-            transform: scale(1);
+            display: flex;
             opacity: 1;
         }
+
+        /* Prevent body scroll when modal is open */
+        body.modal-active { overflow: hidden; }
 
         .tab-button {
             transition: all 0.3s ease;
@@ -357,16 +371,6 @@ try {
             }
         }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
         .class-card {
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
@@ -378,48 +382,16 @@ try {
     </style>
 </head>
 
-<body class="flex">
+<body>
     <div id="sidebar-container"></div>
     <?php require_once 'sidebar.php'; ?>
 
     <main class="main-content">
-        <!-- Header -->
-        <header class="bg-white shadow-md p-4">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-4">
-                    <button id="mobileMenuToggle" class="md:hidden text-nsknavy">
-                        <i class="fas fa-bars text-xl"></i>
-                    </button>
-                    <h1 class="text-2xl font-bold text-nsknavy">Classes Management</h1>
-                </div>
 
-                <div class="flex items-center space-x-4">
-                    <div class="relative">
-                        <div class="flex items-center space-x-2 bg-nsklight rounded-full py-2 px-4">
-                            <i class="fas fa-search text-gray-500"></i>
-                            <input type="text" placeholder="Search classes..."
-                                class="bg-transparent outline-none w-32 md:w-64">
-                        </div>
-                    </div>
-
-                    <div class="relative">
-                        <i class="fas fa-bell text-nsknavy text-xl"></i>
-                        <div class="notification-dot"></div>
-                    </div>
-
-                    <div class="hidden md:flex items-center space-x-2">
-                        <div
-                            class="w-10 h-10 rounded-full bg-nskblue flex items-center justify-center text-white font-bold">
-                            A
-                        </div>
-                        <div>
-                            <p class="text-sm font-semibold text-nsknavy">Admin User</p>
-                            <p class="text-xs text-gray-600">Administrator</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </header>
+        <?php
+        $pageTitle = 'Classes Management';
+        require_once 'header.php';
+        ?>
 
         <!-- Classes Management Content -->
         <div class="p-6">
@@ -438,7 +410,7 @@ try {
             <?php endif; ?>
 
             <!-- Stats Overview -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <div class="timetable-card bg-white rounded-xl shadow-md p-5 flex items-center">
                     <div class="bg-nsklightblue p-4 rounded-full mr-4">
                         <i class="fas fa-chalkboard-teacher text-white text-xl"></i>
@@ -491,18 +463,7 @@ try {
                     </div>
                 </div>
 
-                <div class="timetable-card bg-white rounded-xl shadow-md p-5 flex items-center">
-                    <div class="bg-nskred p-4 rounded-full mr-4">
-                        <i class="fas fa-door-open text-white text-xl"></i>
-                    </div>
-                    <div>
-                        <p class="text-gray-600">Classrooms</p>
-                        <p class="text-2xl font-bold text-nsknavy"><?= $totalClassrooms ?></p>
-                        <p class="text-xs text-<?= $classroomsInMaintenance > 0 ? 'nskred' : 'nskgreen' ?>">
-                            <?= $classroomsInMaintenance > 0 ? $classroomsInMaintenance . ' in maintenance' : 'All available' ?>
-                        </p>
-                    </div>
-                </div>
+
             </div>
 
             <!-- Action Bar -->
@@ -549,7 +510,7 @@ try {
             <div class="bg-white rounded-xl shadow-md p-6 mb-8">
                 <div class="flex flex-wrap gap-2 mb-6">
                     <button
-                        class="tab-button px-4 py-2 rounded-lg border border-nskblue text-nskblue font-semibold active"
+                        class="tab-button px-4 py-2 rounded-lg border border-nskblue bg-nskblue text-white font-semibold active"
                         data-tab="classes">
                         Class Overview
                     </button>
@@ -557,14 +518,7 @@ try {
                         data-tab="timetable">
                         Class Timetables
                     </button>
-                    <button class="tab-button px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold"
-                        data-tab="assignments">
-                        Class Assignments
-                    </button>
-                    <button class="tab-button px-4 py-2 rounded-lg border border-gray-300 text-gray-700 font-semibold"
-                        data-tab="performance">
-                        Performance Analytics
-                    </button>
+
                 </div>
 
                 <!-- Class Overview Tab -->
@@ -699,37 +653,7 @@ try {
                     </div>
                 </div>
 
-                <!-- Class Assignments Tab -->
-                <div id="assignmentsTab" class="tab-content hidden">
-                    <div class="bg-white rounded-xl shadow-md p-12 text-center">
-                        <div class="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <i class="fas fa-clipboard-list text-nskblue text-3xl"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-nsknavy mb-2">No Active Assignments</h3>
-                        <p class="text-gray-500 mb-6">There are no active assignments or quizzes for any class at the
-                            moment.</p>
-                        <button
-                            class="bg-nskblue text-white px-6 py-2 rounded-lg font-semibold hover:bg-nsknavy transition">
-                            <i class="fas fa-plus mr-2"></i> Create Assignment
-                        </button>
-                    </div>
-                </div>
 
-                <!-- Performance Analytics Tab -->
-                <div id="performanceTab" class="tab-content hidden">
-                    <div class="bg-white rounded-xl shadow-md p-12 text-center">
-                        <div class="bg-green-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                            <i class="fas fa-chart-line text-nskgreen text-3xl"></i>
-                        </div>
-                        <h3 class="text-xl font-bold text-nsknavy mb-2">No Performance Data</h3>
-                        <p class="text-gray-500 mb-6">Performance analytics will appear here once exam results are
-                            uploaded.</p>
-                        <button
-                            class="bg-nskgreen text-white px-6 py-2 rounded-lg font-semibold hover:bg-green-600 transition">
-                            <i class="fas fa-upload mr-2"></i> Upload Results
-                        </button>
-                    </div>
-                </div>
             </div>
         </div>
 
@@ -777,7 +701,7 @@ try {
                         <label class="block text-gray-700 mb-2" for="classTeacher">Class Teacher (Optional)</label>
                         <select id="classTeacher" name="class_teacher_id"
                             class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue">
-                            <option value="">Select Teacher</option>
+                            <option value="">None - No Class Teacher</option>
                             <?php foreach ($teachersData as $teacher): ?>
                                 <option value="<?= $teacher['id'] ?>">
                                     <?= htmlspecialchars($teacher['teacher_id'] . ' - ' . $teacher['first_name'] . ' ' . $teacher['last_name']) ?>
@@ -787,6 +711,7 @@ try {
                                 </option>
                             <?php endforeach; ?>
                         </select>
+                        <p class="text-xs text-gray-500 mt-1">You can assign a class teacher now or leave it blank to assign later</p>
                     </div>
 
                     <div>
@@ -916,7 +841,7 @@ try {
                         <select id="teacher" class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue"
                             required>
                             <option value="">Select Teacher</option>
-                            <option value="johnson">Mr. Johnson (Mathematics)</option>
+                            <option value="ibrahim">Malam Ibrahim (Mathematics)</option>
                             <option value="amina">Dr. Amina (Science)</option>
                             <option value="yusuf">Mr. Yusuf (English)</option>
                             <option value="kabir">Mr. Kabir (History)</option>
@@ -956,51 +881,16 @@ try {
             </div>
         </div>
 
-        <!-- Footer -->
-        <footer class="bg-nsknavy text-white py-8 mt-12">
-            <div class="container mx-auto px-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div>
-                        <div class="flex items-center space-x-2 mb-4">
-                            <div
-                                class="logo-container w-10 h-10 rounded-full flex items-center justify-center text-white font-bold">
-                                NSK
-                            </div>
-                            <h3 class="text-xl font-bold">NORTHLAND SCHOOLS KANO</h3>
-                        </div>
-                        <p class="text-blue-100">Dream Big, Study Hard & Make It Happen</p>
-                    </div>
 
-                    <div>
-                        <h4 class="text-lg font-semibold mb-4">Contact Info</h4>
-                        <p class="text-blue-100 mb-2"><i class="fas fa-phone-alt mr-2"></i> +91-9950348952</p>
-                        <p class="text-blue-100 mb-2"><i class="fas fa-envelope mr-2"></i> info@northlandschools.com</p>
-                        <p class="text-blue-100"><i class="fas fa-map-marker-alt mr-2"></i> Kano, Nigeria</p>
-                    </div>
+    
+        <?php require_once 'footer.php'; ?>
 
-                    <div>
-                        <h4 class="text-lg font-semibold mb-4">Quick Links</h4>
-                        <ul class="space-y-2">
-                            <li><a href="#" class="text-blue-100 hover:text-white transition">Dashboard</a></li>
-                            <li><a href="#" class="text-blue-100 hover:text-white transition">Student Portal</a></li>
-                            <li><a href="#" class="text-blue-100 hover:text-white transition">Teacher Resources</a></li>
-                            <li><a href="#" class="text-blue-100 hover:text-white transition">Parent Guide</a></li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div class="border-t border-blue-800 mt-8 pt-8 text-center text-blue-200">
-                    <p>&copy; 2023 Northland Schools Kano. All rights reserved.</p>
-                </div>
-            </div>
-        </footer>
-    </main>
-
-</body>
 <script>
 </script>
 
 <!-- Include classes management JavaScript - handles all buttons and modals -->
 <script src="classes_management.js"></script>
 
+    </main>
+</body>
 </html>

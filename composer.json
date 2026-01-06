@@ -1,0 +1,14 @@
+{
+    "name": "northland/school-management",
+    "description": "School Management System",
+    "type": "project",
+    "authors": [
+        {
+            "name": "Abdurrahman Alhassan",
+            "email": "abdurrahmanalhassan775@gmail.com"
+        }
+    ],
+    "require": {
+        "phpoffice/phpspreadsheet": "^5.3"
+    }
+}

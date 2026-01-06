@@ -5,9 +5,15 @@
 const API_URL = "../api/classes_api.php";
 
 // Initialize when DOM is loaded
-document.addEventListener("DOMContentLoaded", function () {
+// Initialize when DOM is loaded or if script is injected dynamically
+if (document.readyState === 'loading') {
+  document.addEventListener("DOMContentLoaded", function () {
+    initializeEventListeners();
+  });
+} else {
+  // DOM already ready (e.g. SPA navigation)
   initializeEventListeners();
-});
+}
 
 function initializeEventListeners() {
   // Tab functionality
@@ -197,12 +203,11 @@ function showCreateClassModal() {
     modal.classList.add("active");
     modal.style.display = "flex";
 
-    // Initialize Select2
+    // Initialize Select2 (no placeholder - use HTML option instead)
     if ($.fn.select2) {
       $('#classTeacher').select2({
         dropdownParent: $('#createClassModal'),
-        width: '100%',
-        placeholder: "Select Teacher"
+        width: '100%'
       });
     }
   }
@@ -531,8 +536,8 @@ function showAssignTeacherModal(classId, teachers, classData) {
                     
                     <div>
                         <label class="block text-gray-700 mb-2">Select Teacher</label>
-                        <select id="assignTeacherSelect" name="teacher_id" class="w-full px-4 py-2 border rounded-lg focus:border-nskblue" required>
-                            <option value="">Choose a teacher...</option>
+                        <select id="assignTeacherSelect" name="teacher_id" class="w-full px-4 py-2 border rounded-lg focus:border-nskblue">
+                            <option value="">None - Remove Teacher</option>
                             ${teachers
       .map(
         (teacher) => `
@@ -548,7 +553,7 @@ function showAssignTeacherModal(classId, teachers, classData) {
       .join("")}
                         </select>
                         ${currentTeacherId
-      ? '<p class="text-xs text-gray-500 mt-1">Select a new teacher to reassign or keep the current selection</p>'
+      ? '<p class="text-xs text-gray-500 mt-1">Select "None" to remove the current teacher or choose a new teacher to reassign</p>'
       : '<p class="text-xs text-gray-500 mt-1">Select a teacher to assign to this class</p>'
     }
                     </div>
@@ -571,8 +576,7 @@ function showAssignTeacherModal(classId, teachers, classData) {
   if ($.fn.select2) {
     $('#assignTeacherSelect').select2({
       dropdownParent: $('#assignTeacherModal'),
-      width: '100%',
-      placeholder: "Choose a teacher..."
+      width: '100%'
     });
   }
 
@@ -685,13 +689,14 @@ window.editClass = async function editClass(classId) {
                         <label class="block text-gray-700 mb-2" for="editClassTeacher">Class Teacher</label>
                         <select id="editClassTeacher" name="class_teacher_id"
                             class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue">
-                            <option value="">Select Teacher</option>
+                            <option value="">None - Remove Teacher</option>
                             ${teachers.map(teacher => `
                                 <option value="${teacher.id}" ${parseInt(classData.class_teacher_id) === parseInt(teacher.id) ? 'selected' : ''}>
                                     [${teacher.teacher_id}] ${teacher.first_name} ${teacher.last_name} ${teacher.subject_specialization ? `(${teacher.subject_specialization})` : ''}
                                 </option>
                             `).join('')}
                         </select>
+                        <p class="text-xs text-gray-500 mt-1">Select "None" to remove the class teacher assignment</p>
                     </div>
 
                     <div>
@@ -721,8 +726,7 @@ window.editClass = async function editClass(classId) {
     if ($.fn.select2) {
       $('#editClassTeacher').select2({
         dropdownParent: $('#editClassModal'),
-        width: '100%',
-        placeholder: "Select Teacher"
+        width: '100%'
       });
     }
 
@@ -1111,7 +1115,7 @@ window.confirmDeleteClass = function confirmDeleteClass(classId, className) {
       console.error('CRITICAL: Delete modal not found in DOM!');
       console.error('Available elements with "delete" in ID:',
         Array.from(document.querySelectorAll('[id*="delete"]')).map(el => el.id));
-      alert('Error: Delete confirmation modal is missing. Please refresh the page and try again.');
+      Swal.fire('Error', 'Delete confirmation modal is missing. Please refresh the page and try again.', 'error');
       return;
     }
 
@@ -1124,7 +1128,7 @@ window.confirmDeleteClass = function confirmDeleteClass(classId, className) {
 
     if (!deleteClassIdInput) {
       console.error('deleteClassId input not found - form submission will fail!');
-      alert('Error: Form is incomplete. Please refresh the page.');
+      Swal.fire('Error', 'Form is incomplete. Please refresh the page.', 'error');
       return;
     } else {
       deleteClassIdInput.value = classId;
@@ -1148,6 +1152,6 @@ window.confirmDeleteClass = function confirmDeleteClass(classId, className) {
   } catch (error) {
     console.error('ERROR in confirmDeleteClass:', error);
     console.error('Stack trace:', error.stack);
-    alert('An error occurred: ' + error.message);
+    Swal.fire('Error', 'An error occurred: ' + error.message, 'error');
   }
 }

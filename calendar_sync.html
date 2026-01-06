@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Calendar Sync</title>
+    <style>
+        .sync-container { padding: 20px; max-width: 500px; margin: 0 auto; }
+        .sync-btn { background: #007cba; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        .sync-btn:hover { background: #005a87; }
+        .message { margin-top: 15px; padding: 10px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+    </style>
+</head>
+<body>
+    <div class="sync-container">
+        <h2>Academic Term Calendar Sync</h2>
+        <p>Click the button below to sync terms with the current calendar date.</p>
+        <button class="sync-btn" onclick="syncCalendar()">Sync with Calendar</button>
+        <div id="message"></div>
+    </div>
+
+    <script>
+        function syncCalendar() {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = 'Syncing...';
+            
+            fetch('sync_calendar.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'action=sync_calendar'
+            })
+            .then(response => response.json())
+            .then(data => {
+                messageDiv.className = 'message ' + (data.success ? 'success' : 'error');
+                messageDiv.innerHTML = data.message;
+            })
+            .catch(error => {
+                messageDiv.className = 'message error';
+                messageDiv.innerHTML = 'Sync failed: ' + error.message;
+            });
+        }
+    </script>
+</body>
+</html>

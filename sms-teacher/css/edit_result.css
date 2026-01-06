@@ -1,0 +1,11 @@
+.grade-badge {
+    transition: all 0.3s ease;
+}
+
+.input-field {
+    transition: all 0.2s ease;
+}
+
+.input-field:focus {
+    transform: scale(1.05);
+}

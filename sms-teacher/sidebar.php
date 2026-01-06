@@ -9,7 +9,7 @@ $is_logged_in = isset($_SESSION['user_id']);
 $user_type = $_SESSION['user_type'] ?? '';
 $user_id = $_SESSION['user_id'] ?? '';
 
-// Get teacher profile if user is a teacher
+// Get teacher profile - fetch fresh data from database for consistency
 if (!isset($profile)) {
     $profile = [
         'first_name' => 'N/A',
@@ -20,16 +20,50 @@ if (!isset($profile)) {
     ];
 
     if ($is_logged_in && $user_type === 'teacher') {
-        // You'll need to include your database connection and fetch the actual teacher profile
-        // For now, using session data or default values
-        $profile['first_name'] = $_SESSION['first_name'] ?? 'Teacher';
-        $profile['last_name'] = $_SESSION['last_name'] ?? 'User';
-        $profile['initials'] = strtoupper(
-            substr($profile['first_name'], 0, 1) .
-            substr($profile['last_name'], 0, 1)
-        );
-        $profile['specialization'] = $_SESSION['specialization'] ?? 'Teacher';
-        $profile['teacher_id'] = $_SESSION['teacher_id'] ?? 'N/A';
+        try {
+            require_once __DIR__ . '/config/database.php';
+            $sidebar_database = new Database();
+            $sidebar_db = $sidebar_database->getConnection();
+
+            // Fetch fresh user and teacher data from database
+            $sidebar_stmt = $sidebar_db->prepare("
+                SELECT 
+                    u.first_name, 
+                    u.last_name,
+                    t.teacher_id,
+                    t.specialization,
+                    tp.subject_specialization
+                FROM users u
+                LEFT JOIN teachers t ON u.id = t.user_id
+                LEFT JOIN teacher_profiles tp ON u.id = tp.user_id
+                WHERE u.id = ? AND u.is_active = 1
+            ");
+            $sidebar_stmt->execute([$user_id]);
+            $sidebar_data = $sidebar_stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($sidebar_data) {
+                $profile['first_name'] = $sidebar_data['first_name'] ?? 'Teacher';
+                $profile['last_name'] = $sidebar_data['last_name'] ?? 'User';
+                $profile['initials'] = strtoupper(
+                    substr($profile['first_name'], 0, 1) .
+                    substr($profile['last_name'], 0, 1)
+                );
+                // Use subject_specialization from teacher_profiles, fallback to specialization from teachers table
+                $profile['specialization'] = $sidebar_data['subject_specialization'] ?: ($sidebar_data['specialization'] ?: 'Teacher');
+                $profile['teacher_id'] = $sidebar_data['teacher_id'] ?? 'N/A';
+            }
+        } catch (Exception $e) {
+            // Fallback to session data if database fetch fails
+            error_log("Sidebar: Error fetching teacher data: " . $e->getMessage());
+            $profile['first_name'] = $_SESSION['first_name'] ?? 'Teacher';
+            $profile['last_name'] = $_SESSION['last_name'] ?? 'User';
+            $profile['initials'] = strtoupper(
+                substr($profile['first_name'], 0, 1) .
+                substr($profile['last_name'], 0, 1)
+            );
+            $profile['specialization'] = $_SESSION['specialization'] ?? 'Teacher';
+            $profile['teacher_id'] = $_SESSION['teacher_id'] ?? 'N/A';
+        }
     }
 }
 ?>
@@ -38,84 +72,102 @@ if (!isset($profile)) {
 <div class="mobile-overlay" id="mobileOverlay"></div>
 
 <!-- Sidebar Navigation -->
-<aside class="sidebar bg-nsknavy text-white h-screen fixed top-0 left-0 z-10">
-    <div class="p-5">
-        <div class="flex items-center justify-between mb-10">
-            <div class="flex items-center space-x-2 logo-group">
-                <div class="logo-container w-10 h-10 rounded-full flex items-center justify-center bg-white font-bold p-1"
-                    style="background-color: white;">
-                    <img src="school_logo.png" alt="NSK Logo" class="w-full h-full object-cover rounded-full">
+<aside class="sidebar bg-nsknavy text-white h-screen fixed top-0 left-0 flex flex-col w-[250px] overflow-hidden">
+    <div class="p-6 flex-1 flex flex-col overflow-hidden">
+        <!-- Logo Section -->
+        <div class="logo-container rounded-lg p-4 mb-8">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center mr-3 overflow-hidden">
+                    <img src="school_logo.png" alt="NSK Logo" class="object-cover w-full h-full">
                 </div>
-                <h1 class="text-xl font-bold sidebar-text logo-text">NORTHLAND SCHOOLS</h1>
+                <div>
+                    <h2 class="text-lg font-bold leading-tight sidebar-text">Northland<br>Schools</h2>
+                    <p class="text-xs opacity-75 mt-1 sidebar-text">Kano, Nigeria</p>
+                </div>
             </div>
-
-            <!-- Collapsed Hamburger (Visible only when sidebar is collapsed on Desktop) -->
-            <button id="collapsedHamburger" class="text-white hover:text-gray-300 transition hidden">
-                <i class="fas fa-bars"></i>
-            </button>
         </div>
 
-        <nav class="space-y-2">
+        <!-- Navigation -->
+        <nav class="space-y-2 flex-1 overflow-y-auto overflow-x-hidden">
+            <!-- Dashboard -->
             <a href="teacher_dashboard.php"
-                class="nav-link sidebar-link block py-3 px-4 rounded-lg hover:bg-nskblue transition <?= basename($_SERVER['PHP_SELF']) == 'teacher_dashboard.php' ? 'bg-nskblue active' : '' ?>">
-                <i class="fas fa-tachometer-alt mr-3"></i> <span class="sidebar-text">Dashboard</span>
+                class="nav-link sidebar-link flex items-center p-3 rounded-lg transition <?= basename($_SERVER['PHP_SELF']) == 'teacher_dashboard.php' ? 'bg-nskblue text-white shadow-md' : 'hover:bg-nskblue hover:text-white' ?>">
+                <i class="fas fa-tachometer-alt mr-3 w-5 text-center"></i>
+                <span class="font-medium sidebar-text">Dashboard</span>
             </a>
-            <!-- <a href="my_classes.php" class="nav-link sidebar-link block py-3 px-4 rounded-lg hover:bg-nskblue transition <?= basename($_SERVER['PHP_SELF']) == 'my_classes.php' ? 'bg-nskblue active' : '' ?>">
-                <i class="fas fa-chalkboard mr-3"></i> <span class="sidebar-text">My Classes</span>
-            </a> -->
+
+            <!-- Students -->
             <a href="my_students.php"
-                class="nav-link sidebar-link block py-3 px-4 rounded-lg hover:bg-nskblue transition <?= basename($_SERVER['PHP_SELF']) == 'my_students.php' ? 'bg-nskblue active' : '' ?>">
-                <i class="fas fa-user-graduate mr-3"></i> <span class="sidebar-text">Students</span>
+                class="nav-link sidebar-link flex items-center p-3 rounded-lg transition <?= basename($_SERVER['PHP_SELF']) == 'my_students.php' ? 'bg-nskblue text-white shadow-md' : 'hover:bg-nskblue hover:text-white' ?>">
+                <i class="fas fa-user-graduate mr-3 w-5 text-center"></i>
+                <span class="font-medium sidebar-text">Students</span>
             </a>
-            <!-- <a href="assignments.php" class="nav-link sidebar-link block py-3 px-4 rounded-lg hover:bg-nskblue transition <?= basename($_SERVER['PHP_SELF']) == 'assignments.php' ? 'bg-nskblue active' : '' ?>">
-                <i class="fas fa-tasks mr-3"></i> <span class="sidebar-text">Assignments</span>
-            </a> -->
+
+            <!-- Attendance -->
             <a href="attendance.php"
-                class="nav-link sidebar-link block py-3 px-4 rounded-lg hover:bg-nskblue transition <?= basename($_SERVER['PHP_SELF']) == 'attendance.php' ? 'bg-nskblue active' : '' ?>">
-                <i class="fas fa-clipboard-check mr-3"></i> <span class="sidebar-text">Attendance</span>
+                class="nav-link sidebar-link flex items-center p-3 rounded-lg transition <?= basename($_SERVER['PHP_SELF']) == 'attendance.php' ? 'bg-nskblue text-white shadow-md' : 'hover:bg-nskblue hover:text-white' ?>">
+                <i class="fas fa-clipboard-check mr-3 w-5 text-center"></i>
+                <span class="font-medium sidebar-text">Attendance</span>
             </a>
-            <a href="results.php"
-                class="nav-link sidebar-link block py-3 px-4 rounded-lg hover:bg-nskblue transition <?= basename($_SERVER['PHP_SELF']) == 'results.php' ? 'bg-nskblue active' : '' ?>">
-                <i class="fas fa-upload mr-3"></i> <span class="sidebar-text">Upload Results</span>
-            </a>
+
+            <!-- View Results -->
             <a href="view_results.php"
-                class="nav-link sidebar-link block py-3 px-4 rounded-lg hover:bg-nskblue transition <?= basename($_SERVER['PHP_SELF']) == 'view_results.php' ? 'bg-nskblue active' : '' ?>">
-                <i class="fas fa-chart-bar mr-3"></i> <span class="sidebar-text">View Results</span>
+                class="nav-link sidebar-link flex items-center p-3 rounded-lg transition <?= basename($_SERVER['PHP_SELF']) == 'view_results.php' ? 'bg-nskblue text-white shadow-md' : 'hover:bg-nskblue hover:text-white' ?>">
+                <i class="fas fa-chart-bar mr-3 w-5 text-center"></i>
+                <span class="font-medium sidebar-text">View Results</span>
             </a>
+
+            <!-- Settings -->
             <a href="settings.php"
-                class="nav-link sidebar-link block py-3 px-4 rounded-lg hover:bg-nskblue transition <?= basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'bg-nskblue active' : '' ?>">
-                <i class="fas fa-cog mr-3"></i>
-                <span class="sidebar-text">Settings</span>
+                class="nav-link sidebar-link flex items-center p-3 rounded-lg transition <?= basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'bg-nskblue text-white shadow-md' : 'hover:bg-nskblue hover:text-white' ?>">
+                <i class="fas fa-cog mr-3 w-5 text-center"></i>
+                <span class="font-medium sidebar-text">Settings</span>
             </a>
         </nav>
     </div>
 
-    <div class="absolute bottom-0 w-full p-5">
-        <div class="flex items-center space-x-3 bg-nskblue p-3 rounded-lg mb-3 user-profile-card">
-            <div class="w-10 h-10 rounded-full bg-nskgold flex items-center justify-center flex-shrink-0">
-                <span class="font-bold"><?= $profile['initials'] ?></span>
+    <!-- Bottom Profile Section -->
+    <div class="p-4 border-t border-blue-800 bg-nsknavy">
+        <div class="bg-blue-900 rounded-xl p-3 shadow-lg">
+            <div class="flex items-center mb-3">
+                <div class="w-10 h-10 rounded-full bg-white text-nskblue flex items-center justify-center font-bold text-sm shadow-sm">
+                    <?= $profile['initials'] ?>
+                </div>
+                <div class="ml-3 overflow-hidden sidebar-text">
+                    <p class="text-white text-sm font-semibold truncate"><?= htmlspecialchars($profile['first_name'] . ' ' . $profile['last_name']) ?></p>
+                    <p class="text-blue-300 text-xs truncate"><?= htmlspecialchars($profile['specialization']) ?> Teacher</p>
+                </div>
             </div>
-            <div class="sidebar-text overflow-hidden">
-                <p class="text-sm font-semibold truncate"><?= $profile['first_name'] . ' ' . $profile['last_name'] ?>
-                </p>
-                <p class="text-xs opacity-80 truncate"><?= $profile['specialization'] ?> Teacher</p>
-                <p class="text-xs opacity-80">ID: <?= $profile['teacher_id'] ?></p>
-            </div>
+            <button onclick="confirmLogout()"
+                class="flex items-center justify-center w-full py-2 bg-white text-nskblue rounded-lg text-sm font-semibold hover:bg-gray-100 transition shadow-sm">
+                <i class="fas fa-sign-out-alt mr-2"></i> <span class="sidebar-text">Logout</span>
+            </button>
         </div>
-
-        <!-- Logout Button -->
-        <button onclick="confirmLogout()"
-            class="w-full flex items-center justify-center space-x-2 bg-nskred hover:bg-red-700 text-white py-2 px-4 rounded-lg transition duration-200 ease-in-out transform hover:scale-105">
-            <i class="fas fa-sign-out-alt"></i>
-            <span class="sidebar-text">Log Out</span>
-        </button>
     </div>
 </aside>
 
 <script>
     function confirmLogout() {
-        if (confirm('Are you sure you want to log out?')) {
-            window.location.href = '../logout.php';
+        // Check if SweetAlert2 is loaded
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Logout?',
+                text: 'Are you sure you want to log out?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, logout!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = '../logout.php';
+                }
+            });
+        } else {
+            // Fallback to standard confirm if SweetAlert2 is not loaded
+            if (confirm('Are you sure you want to log out?')) {
+                window.location.href = '../logout.php';
+            }
         }
     }
 
@@ -225,3 +277,4 @@ if (!isset($profile)) {
         }
     });
 </script>
+<script src="js/spa-navigation.js"></script>

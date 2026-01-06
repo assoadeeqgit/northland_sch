@@ -1,5 +1,23 @@
 <?php
+// AJAX Handler
+if (isset($_GET["ajax"]) && $_GET["ajax"] == "1") {
+    require_once "../config/database.php";
+    header("Content-Type: application/json");
+    try {
+        $database = new Database();
+        $db = $database->getConnection();
+        $page = isset($_GET["page"]) ? max(1, intval($_GET["page"])) : 1;
+        $search = $_GET["search"] ?? "";
+        $perPage = 15;
+        $offset = ($page - 1) * $perPage;
+        echo json_encode(["success" => false, "message" => "AJAX not implemented for this page yet"]);
+    } catch (Exception $e) {
+        echo json_encode(["success" => false, "message" => $e->getMessage()]);
+    }
+    exit;
+}
 require_once 'auth-check.php';
+require_once __DIR__ . "/../includes/term_helper.php"; // Global term synchronization
 checkAuth();
 
 require_once '../config/database.php';
@@ -240,6 +258,12 @@ function getActionColor($action) {
                 <?php endif; ?>
             </div>
         </div>
+    
+        <?php require_once 'footer.php'; ?>
     </main>
+
+    <!-- Universal AJAX Filter -->
+    <script src="clean_filter.js"></script>
+
 </body>
 </html>

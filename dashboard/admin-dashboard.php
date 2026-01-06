@@ -1,14 +1,16 @@
 <?php
 // Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Debugging disabled
+// error_reporting(E_ALL);
+// ini_set('display_errors', 1);
 
 // session_start();
 
 require_once 'auth-check.php';
 
 // For admin dashboard:
-checkAuth('admin');
+// For admin dashboard:
+checkAuth(['admin', 'administrator', 'super_admin', 'principal']);
 
 // Include the new logger functions
 require_once '../config/logger.php';
@@ -47,6 +49,11 @@ try {
         $activityStmt = $db->prepare("SELECT * FROM activity_log ORDER BY created_at DESC LIMIT 5");
         $activityStmt->execute();
         $recentActivities = $activityStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Today's Activities
+        $todayActivityStmt = $db->prepare("SELECT COUNT(*) FROM activity_log WHERE DATE(created_at) = CURDATE()");
+        $todayActivityStmt->execute();
+        $todayActivities = $todayActivityStmt->fetchColumn();
 
         // Fetch data for charts
         // Students per class (Bar Chart)
@@ -156,11 +163,11 @@ try {
     // Handle error
     $_SESSION['error'] = "Database connection or query failed: " . $e->getMessage();
 }
-?>
 
+
+?>
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -188,82 +195,28 @@ try {
     <link rel="stylesheet" href="sidebar.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
-
-        body {
-            font-family: 'Montserrat', sans-serif;
-            background: #f8fafc;
-        }
-
-        .logo-container {
-            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
-        }
-
-        .dashboard-card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .dashboard-card:hover {
-            transform: translateY(-5px);
-        }
-
-        .nav-item {
-            position: relative;
-        }
-
-        .nav-item::after {
-            content: '';
-            position: absolute;
-            width: 0;
-            height: 2px;
-            bottom: -5px;
-            left: 0;
-            background-color: #f59e0b;
-            transition: width 0.3s ease;
-        }
-
-        .nav-item:hover::after {
-            width: 100%;
-        }
-
-        .notification-dot {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            width: 12px;
-            height: 12px;
-            background-color: #ef4444;
-            border-radius: 50%;
-        }
-
-        .progress-bar {
-            height: 8px;
-            background-color: #e5e7eb;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            border-radius: 4px;
-        }
-
-        .chart-container {
-            position: relative;
-            height: 300px;
-            width: 100%;
-        }
+        body { font-family: 'Montserrat', sans-serif; background: #f8fafc; }
+        .logo-container { background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); }
+        .dashboard-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .dashboard-card:hover { transform: translateY(-5px); }
+        .nav-item { position: relative; }
+        .nav-item::after { content: ''; position: absolute; width: 0; height: 2px; bottom: -5px; left: 0; background-color: #f59e0b; transition: width 0.3s ease; }
+        .nav-item:hover::after { width: 100%; }
+        .notification-dot { position: absolute; top: -5px; right: -5px; width: 12px; height: 12px; background-color: #ef4444; border-radius: 50%; }
+        .progress-bar { height: 8px; background-color: #e5e7eb; border-radius: 4px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 4px; }
+        .chart-container { position: relative; height: 300px; width: 100%; }
     </style>
 </head>
 
-<body class="flex">
+<body class="bg-gray-50">
     <?php require_once 'sidebar.php'; ?>
-
-
     <main class="main-content">
         <?php
         $pageTitle = 'Admin Dashboard';
         require_once 'header.php';
         ?>
+
 
         <div class="p-6">
             <?php if (isset($_SESSION['success'])): ?>
@@ -311,13 +264,13 @@ try {
                 </div>
 
                 <div class="dashboard-card bg-white rounded-xl shadow-md p-5 flex items-center">
-                    <div class="bg-nskred p-4 rounded-full mr-4">
-                        <i class="fas fa-bullhorn text-white text-xl"></i>
+                    <div class="bg-purple-600 p-4 rounded-full mr-4">
+                        <i class="fas fa-clipboard-list text-white text-xl"></i>
                     </div>
                     <div>
-                        <p class="text-gray-600">Notices</p>
-                        <p class="text-2xl font-bold text-nsknavy">3</p>
-                        <p class="text-xs text-nskred"><i class="fas fa-exclamation-circle"></i> New alerts</p>
+                        <p class="text-gray-600">Today's Activities</p>
+                        <p class="text-2xl font-bold text-nsknavy"><?= number_format($todayActivities) ?></p>
+                        <p class="text-xs text-purple-600">Actions recorded today</p>
                     </div>
                 </div>
             </div>
@@ -461,10 +414,16 @@ try {
             </div>
 
             <div class="current-term bg-white shadow-md rounded-lg p-4 mb-6">
-                <h2 class="text-xl font-bold text-nskblue">Current Term</h2>
-                <p class="text-gray-700">Term: <span class="font-semibold"><?= $currentTermName ?></span></p>
-                <p class="text-gray-700">Start Date: <span class="font-semibold"><?= $currentTermStart ?></span></p>
-                <p class="text-gray-700">End Date: <span class="font-semibold"><?= $currentTermEnd ?></span></p>
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="text-xl font-bold text-nskblue">Current Term</h2>
+                    <button onclick="syncCalendar()" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
+                        🗓️ Sync Calendar
+                    </button>
+                </div>
+                <p class="text-gray-700">Term: <span class="font-semibold" id="current-term-name"><?= $currentTermName ?></span></p>
+                <p class="text-gray-700">Start Date: <span class="font-semibold" id="current-term-start"><?= $currentTermStart ?></span></p>
+                <p class="text-gray-700">End Date: <span class="font-semibold" id="current-term-end"><?= $currentTermEnd ?></span></p>
+                <div id="sync-message" style="margin-top: 10px;"></div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -519,13 +478,18 @@ try {
                 </div>
             </div>
         </div>
+    </div>
 
-        <script src="./footer.js"></script>
+        
+
+        <?php require_once 'footer.php'; ?>
     </main>
 
     <script>
         // Wait for everything to load including sidebar
         window.addEventListener('load', function() {
+
+
             // Mobile menu toggle
             const mobileMenuToggle = document.getElementById('mobileMenuToggle');
             if (mobileMenuToggle) {
@@ -544,6 +508,12 @@ try {
         });
 
         function initializeStudentCharts() {
+            // Define Chart Data
+            const classLabels = <?= json_encode($classLabels ?? []) ?>;
+            const classCounts = <?= json_encode($classCounts ?? []) ?>;
+            const classColors = <?= json_encode($classColors ?? []) ?>;
+            const classBorders = <?= json_encode($classBorders ?? []) ?>;
+
             // Section Distribution Chart (Doughnut Chart)
             const sectionCanvas = document.getElementById('sectionDistributionChart');
             if (sectionCanvas) {
@@ -590,17 +560,17 @@ try {
 
             // Class Distribution Chart (Bar Chart)
             const classCanvas = document.getElementById('classDistributionChart');
-            if (classCanvas) {
+            if (classCanvas && classLabels.length > 0) {
                 const classCtx = classCanvas.getContext('2d');
                 new Chart(classCtx, {
                     type: 'bar',
                     data: {
-                        labels: <?= json_encode($classLabels) ?>,
+                        labels: classLabels,
                         datasets: [{
                             label: 'Number of Students',
-                            data: <?= json_encode($classCounts) ?>,
-                            backgroundColor: <?= json_encode($classColors) ?>,
-                            borderColor: <?= json_encode($classBorders) ?>,
+                            data: classCounts,
+                            backgroundColor: classColors,
+                            borderColor: classBorders,
                             borderWidth: 1,
                             borderRadius: 4
                         }]
@@ -656,7 +626,41 @@ try {
                 dot.style.display = Math.random() > 0.3 ? 'block' : 'none';
             });
         }, 3000);
+
+        // Calendar sync function
+        function syncCalendar() {
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            const msgDiv = document.getElementById('sync-message');
+            
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Syncing...';
+            btn.disabled = true;
+            msgDiv.innerHTML = '';
+            
+            fetch('../includes/sync_term_calendar.php')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        msgDiv.innerHTML = '<span class="text-green-600"><i class="fas fa-check"></i> ' + data.message + '</span>';
+                        // Update display if data returned
+                        if (data.term) document.getElementById('current-term-name').textContent = data.term;
+                        if (data.start) document.getElementById('current-term-start').textContent = data.start;
+                        if (data.end) document.getElementById('current-term-end').textContent = data.end;
+                    } else {
+                        msgDiv.innerHTML = '<span class="text-red-600"><i class="fas fa-exclamation-circle"></i> ' + data.message + '</span>';
+                    }
+                })
+                .catch(error => {
+                    msgDiv.innerHTML = '<span class="text-red-600">Network error occurred.</span>';
+                    console.error('Error:', error);
+                })
+                .finally(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                });
+        }
     </script>
+
 </body>
 
 </html>

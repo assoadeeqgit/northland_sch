@@ -1,0 +1,19 @@
+# Dependencies
+/vendor/
+/node_modules/
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Binaries
+tailwindcss-linux-x64
+
+# Backup Files
+*.bak
+*.tmp
+*.log
+
+# Sensitive Data (Commented out in case user wants them pushed, but usually ignored)
+# config/database.php
+# config/DatabaseManager.php

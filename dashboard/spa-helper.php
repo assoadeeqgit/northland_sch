@@ -18,7 +18,8 @@ function isAjaxRequest() {
     return (
         !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && 
         strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest'
-    ) || isset($_GET['ajax']);
+        && isset($_GET['spa_load'])
+    ) || isset($_GET['spa_load']);
 }
 
 /**

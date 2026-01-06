@@ -1,11 +1,6 @@
 <?php
-require_once '../auth-check.php';
-
-// Allow both admin and accountant to access
-if (!isset($_SESSION['user_type']) || !in_array($_SESSION['user_type'], ['admin', 'accountant'])) {
-    header('Location: ../login-form.php');
-    exit();
-}
+require_once 'auth-check.php';
+checkAuth(); // Admin check
 
 require_once '../config/database.php';
 
@@ -21,28 +16,51 @@ $session_filter = $_GET['session'] ?? ($current_session['id'] ?? '');
 $term_filter = $_GET['term'] ?? ($current_term['id'] ?? '');
 $class_filter = $_GET['class'] ?? '';
 
-// Build query to get students with outstanding balances
-$where_conditions = ["s.status = 'active'"];
-$params = [];
+// Build query parameters
+$fee_val_params = [];
+$pay_val_params = [];
+$main_val_params = [];
 
+// 1. Fee Subquery
+$fee_sql = "SELECT COALESCE(SUM(amount), 0) FROM fee_structure fs WHERE fs.class_id = s.class_id AND fs.is_active = 1";
 if (!empty($session_filter)) {
-    $where_conditions[] = "fs.academic_session_id = ?";
-    $params[] = $session_filter;
+    $fee_sql .= " AND fs.academic_session_id = ?";
+    $fee_val_params[] = $session_filter;
 }
-
 if (!empty($term_filter)) {
-    $where_conditions[] = "fs.term_id = ?";
-    $params[] = $term_filter;
+    $fee_sql .= " AND fs.term_id = ?";
+    $fee_val_params[] = $term_filter;
 }
 
+// 2. Payment Subquery
+$pay_sql = "SELECT COALESCE(SUM(amount_paid), 0) FROM payments p WHERE p.student_id = s.id";
+if (!empty($session_filter)) {
+    $pay_sql .= " AND p.academic_session_id = ?";
+    $pay_val_params[] = $session_filter;
+}
+if (!empty($term_filter)) {
+    $pay_sql .= " AND p.term_id = ?";
+    $pay_val_params[] = $term_filter;
+}
+
+// 3. Main Query Where Clause
+$main_where = "s.status = 'active'";
 if (!empty($class_filter)) {
-    $where_conditions[] = "s.class_id = ?";
-    $params[] = $class_filter;
+    $main_where .= " AND s.class_id = ?";
+    $main_val_params[] = $class_filter;
 }
 
-$where_clause = implode(" AND ", $where_conditions);
+// Combine parameters in the exact order they appear in the query:
+// SELECT ..., ($fee_sql), ($pay_sql), ($fee_sql - $pay_sql) ... WHERE
+$val_params = array_merge(
+    $fee_val_params,  // For total_due
+    $pay_val_params,  // For total_paid
+    $fee_val_params,  // For balance (fee part)
+    $pay_val_params,  // For balance (pay part)
+    $main_val_params  // For WHERE clause
+);
 
-// Get defaulters - students who owe fees
+// Execute Final Query
 $defaulters_query = $conn->prepare("
     SELECT 
         s.id,
@@ -52,21 +70,19 @@ $defaulters_query = $conn->prepare("
         u.last_name,
         u.phone,
         c.class_name,
-        SUM(fs.amount) as total_due,
-        COALESCE(SUM(p.amount_paid), 0) as total_paid,
-        (SUM(fs.amount) - COALESCE(SUM(p.amount_paid), 0)) as balance
+        ($fee_sql) as total_due,
+        ($pay_sql) as total_paid,
+        (($fee_sql) - ($pay_sql)) as balance
     FROM students s
     INNER JOIN users u ON s.user_id = u.id
     LEFT JOIN classes c ON s.class_id = c.id
-    LEFT JOIN fee_structure fs ON s.class_id = fs.class_id
-    LEFT JOIN payments p ON s.id = p.student_id AND fs.id = p.fee_structure_id
-    WHERE $where_clause
-    GROUP BY s.id, s.student_id, s.admission_number, u.first_name, u.last_name, u.phone, c.class_name
+    WHERE $main_where
     HAVING balance > 0
     ORDER BY balance DESC
 ");
-$defaulters_query->execute($params);
+$defaulters_query->execute($val_params);
 $defaulters = $defaulters_query->fetchAll(PDO::FETCH_ASSOC);
+
 
 // Calculate statistics
 $total_defaulters = count($defaulters);
@@ -76,7 +92,12 @@ $total_outstanding = array_sum(array_column($defaulters, 'balance'));
 $sessions = $conn->query("SELECT * FROM academic_sessions ORDER BY session_name DESC")->fetchAll(PDO::FETCH_ASSOC);
 
 // Get all terms for filter
-$terms = $conn->query("SELECT * FROM terms ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+$terms_query = $conn->prepare("SELECT t.* FROM terms t 
+    JOIN academic_sessions s ON t.session_id = s.id 
+    WHERE s.is_current = 1 
+    ORDER BY t.id");
+$terms_query->execute();
+$terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
 
 // Get all classes for filter
 $classes = $conn->query("SELECT * FROM classes ORDER BY class_name")->fetchAll(PDO::FETCH_ASSOC);
@@ -260,7 +281,9 @@ $userInitial = strtoupper(substr($userName, 0, 1));
         </div>
 
     </div>
-</main>
+
+        <?php require_once 'footer.php'; ?>
+    </main>
 
 <style>
 @media print {
@@ -277,6 +300,10 @@ $userInitial = strtoupper(substr($userName, 0, 1));
     }
 }
 </style>
+
+
+    <!-- Universal AJAX Filter -->
+    <script src="clean_filter.js"></script>
 
 </body>
 </html>

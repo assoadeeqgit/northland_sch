@@ -727,8 +727,12 @@
                 this.setupFloatingLabels();
                 this.updateStepDisplay();
 
-                // Check if user is already logged in
-                this.checkAuthentication();
+                // DISABLED: checkAuthentication causes redirect loops
+                // The issue is that after successful login, when redirecting to dashboard,
+                // checkAuthentication runs and redirects back to login page
+                // We'll rely on server-side auth checks instead
+                
+                // this.checkAuthentication();
 
                 // Add periodic session checking (every 5 minutes)
                 setInterval(() => {
@@ -1007,8 +1011,12 @@
 
             // Handle sign in with backend
             async handleSignIn() {
+                console.log('=== LOGIN ATTEMPT STARTED ===');
                 const email = document.getElementById('signInEmail').value;
                 const password = document.getElementById('signInPassword').value;
+
+                console.log('Email:', email);
+                console.log('Password length:', password.length);
 
                 if (!email || !password) {
                     this.showNotification('Please fill in all fields', 'warning');
@@ -1016,33 +1024,45 @@
                 }
 
                 this.showLoading(true);
+                console.log('Loading overlay shown');
 
                 try {
+                    console.log('Making API call to:', this.apiBase);
                     const response = await this.apiCall('login', {
                         email: email,
                         password: password
                     });
 
+                    console.log('API Response:', response);
                     this.showLoading(false);
 
                     if (response.success) {
+                        console.log('Login successful!');
+                        console.log('User data:', response.data.user);
+                        console.log('Session token:', response.data.session_token);
+                        
                         this.showNotification('Sign in successful! Redirecting...', 'success');
 
                         // Store user session
                         this.storeUserSession(response.data.user, response.data.session_token);
+                        console.log('Session stored in localStorage');
 
                         // Redirect to dashboard
+                        console.log('Redirecting to dashboard for user type:', response.data.user.user_type);
                         setTimeout(() => {
                             this.redirectToDashboard(response.data.user.user_type);
                         }, 1500);
                     } else {
+                        console.error('Login failed:', response.message);
                         this.showNotification(response.message, 'error');
                     }
                 } catch (error) {
+                    console.error('Login error caught:', error);
                     this.showLoading(false);
                     this.showNotification('Login failed. Please check your connection and try again.', 'error');
                     console.error('Login error:', error);
                 }
+                console.log('=== LOGIN ATTEMPT ENDED ===');
             },
 
             // Handle sign up with backend
@@ -1180,6 +1200,25 @@
                 sessionStorage.setItem('user_authenticated', 'true');
                 sessionStorage.setItem('user_type', userType);
 
+                // Check for return_url
+                const urlParams = new URLSearchParams(window.location.search);
+                let returnUrl = urlParams.get('return_url');
+
+                if (returnUrl) {
+                    // If return_url is relative, make it absolute or use as is
+                    // Ensure we don't redirect to external sites
+                    if (returnUrl.startsWith('/') || returnUrl.startsWith(window.location.origin)) {
+                        console.log('Redirecting to return_url:', returnUrl);
+                        
+                        // If we have a new token, and the return_url doesn't have one, append it?
+                        // Or if it has one, replace it?
+                        // Actually, trusting the PHP Session is better, but passing token helps cross-check.
+                        // Let's just use the return_url as provided by the server.
+                        window.location.href = returnUrl;
+                        return;
+                    }
+                }
+
                 // Define dashboard paths
                 let dashboard;
 
@@ -1189,6 +1228,8 @@
                 } else {
                     const dashboards = {
                         'admin': 'dashboard/admin-dashboard.php',
+                        'administrator': 'dashboard/admin-dashboard.php',
+                        'super_admin': 'dashboard/admin-dashboard.php',
                         'student': 'dashboard/student-dashboard.php',
                         'staff': 'dashboard/staff-dashboard.php',
                         'principal': 'dashboard/admin-dashboard.php',

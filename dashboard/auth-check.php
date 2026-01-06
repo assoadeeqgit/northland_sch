@@ -5,12 +5,55 @@ function checkAuth($requiredRole = null) {
     $isAuthenticated = false;
     
     // Check PHP session first
-    if (isset($_SESSION['user_id']) && 
-        (!$requiredRole || $_SESSION['user_type'] === $requiredRole)) {
-        $isAuthenticated = true;
+    if (isset($_SESSION['user_id'])) {
+        // Validate session against database to ensure account is still active
+        require_once dirname(__FILE__) . '/../config/database.php';
+        $database = new Database();
+        $db = $database->getConnection();
+
+        try {
+            $stmt = $db->prepare("SELECT id, user_type, is_active FROM users WHERE id = ?");
+            $stmt->execute([$_SESSION['user_id']]);
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($user && $user['is_active'] == 1) {
+                // User is active, proceed with role check
+                $userType = $user['user_type'];
+                
+                // Sync session role if changed
+                if (isset($_SESSION['user_type']) && $_SESSION['user_type'] !== $userType) {
+                    $_SESSION['user_type'] = $userType;
+                }
+
+                $roleMatch = false;
+                
+                if (!$requiredRole) {
+                    $roleMatch = true;
+                } elseif (is_array($requiredRole)) {
+                    $roleMatch = in_array($userType, $requiredRole);
+                } elseif ($requiredRole === 'admin') {
+                    $roleMatch = in_array($userType, ['admin', 'administrator', 'super_admin']);
+                } else {
+                    $roleMatch = $userType === $requiredRole;
+                }
+                
+                if ($roleMatch) {
+                    $isAuthenticated = true;
+                }
+            } else {
+                // Account deactivated or deleted - destroy session
+                session_unset();
+                session_destroy();
+                $isAuthenticated = false;
+            }
+        } catch (Exception $e) {
+            // DB Error - fail safe
+             error_log("Auth Check Error: " . $e->getMessage());
+             $isAuthenticated = false;
+        }
     } 
     // Check token from URL or POST
-    else if (isset($_GET['token']) || isset($_POST['token'])) {
+    if (!$isAuthenticated && (isset($_GET['token']) || isset($_POST['token']))) {
         $token = $_GET['token'] ?? $_POST['token'] ?? '';
         
         if (!empty($token)) {
@@ -27,14 +70,29 @@ function checkAuth($requiredRole = null) {
             $stmt->execute([$token]);
             $session = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($session && (!$requiredRole || $session['user_type'] === $requiredRole)) {
-                // Set session from token
-                $_SESSION['user_id'] = $session['user_id'];
-                $_SESSION['user_type'] = $session['user_type'];
-                $_SESSION['user_name'] = $session['first_name'] . ' ' . $session['last_name'];
-                $_SESSION['email'] = $session['email'];
-                $_SESSION['session_token'] = $token;
-                $isAuthenticated = true;
+            if ($session) {
+                $userType = $session['user_type'];
+                $roleMatch = false;
+                
+                if (!$requiredRole) {
+                    $roleMatch = true;
+                } elseif (is_array($requiredRole)) {
+                    $roleMatch = in_array($userType, $requiredRole);
+                } elseif ($requiredRole === 'admin') {
+                    $roleMatch = in_array($userType, ['admin', 'administrator', 'super_admin']);
+                } else {
+                    $roleMatch = $userType === $requiredRole;
+                }
+
+                if ($roleMatch) {
+                    // Set session from token
+                    $_SESSION['user_id'] = $session['user_id'];
+                    $_SESSION['user_type'] = $session['user_type'];
+                    $_SESSION['user_name'] = $session['first_name'] . ' ' . $session['last_name'];
+                    $_SESSION['email'] = $session['email'];
+                    $_SESSION['session_token'] = $token;
+                    $isAuthenticated = true;
+                }
             }
         }
     }
@@ -75,7 +133,7 @@ function hasPermission($requiredPermission) {
     $userType = $_SESSION['user_type'];
     
     // Admin has all permissions
-    if ($userType === 'admin') return true;
+    if (in_array($userType, ['admin', 'administrator', 'super_admin'])) return true;
     
     // Add other role-based permission logic here
     $permissions = [

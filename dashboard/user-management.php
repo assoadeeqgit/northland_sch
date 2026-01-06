@@ -1,9 +1,139 @@
 <?php
 // Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Debugging disabled
+// error_reporting(E_ALL);
+// ini_set('display_errors', 1);
+
+// AJAX Handler for Users Filtering
+if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
+    require_once '../config/database.php';
+    header('Content-Type: application/json');
+
+    try {
+        $database = new Database();
+        $db = $database->getConnection();
+
+        $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+        $roleFilter = $_GET['role_filter'] ?? '';
+        $statusFilter = $_GET['status_filter'] ?? '';
+        $search = $_GET['search'] ?? '';
+        $perPage = 15;
+        $offset = ($page - 1) * $perPage;
+
+        // Exclude students and ALL admin roles from general user management
+        $whereParts = ["user_type NOT IN ('student', 'admin', 'administrator', 'super_admin')"];
+        $params = [];
+
+        if (!empty($roleFilter)) {
+            $whereParts[] = "user_type = ?";
+            $params[] = $roleFilter;
+        }
+
+        if (!empty($statusFilter)) {
+            $whereParts[] = "is_active = ?";
+            $params[] = ($statusFilter === 'active') ? 1 : 0;
+        }
+
+        if (!empty($search)) {
+            $whereParts[] = "(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR username LIKE ?)";
+            $searchTerm = "%$search%";
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+        }
+
+        $whereClause = implode(" AND ", $whereParts);
+
+        // Count total
+        $countSql = "SELECT COUNT(*) FROM users WHERE $whereClause";
+        $countStmt = $db->prepare($countSql);
+        $countStmt->execute($params);
+        $totalItems = $countStmt->fetchColumn();
+
+        // Get data
+        $sql = "SELECT id, first_name, last_name, email, username, user_type, is_active, created_at, last_login
+                FROM users 
+                WHERE $whereClause 
+                ORDER BY created_at DESC 
+                LIMIT $perPage OFFSET $offset";
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $totalPages = ceil($totalItems / $perPage);
+
+        // Generate Pagination HTML
+        $paginationHTML = '';
+        if ($totalPages > 1) {
+            $startItem = $offset + 1;
+            $endItem = min($offset + $perPage, $totalItems);
+            
+            $paginationHTML .= '<div id="paginationContainer" class="flex flex-col sm:flex-row justify-between items-center py-4 px-6 border-t mt-4 bg-white rounded-lg shadow-sm">';
+            $paginationHTML .= '<div class="text-sm text-gray-600 mb-2 sm:mb-0">';
+            $paginationHTML .= 'Showing <span class="font-medium">' . $startItem . '</span> to <span class="font-medium">' . $endItem . '</span> of <span class="font-medium">' . $totalItems . '</span> users';
+            $paginationHTML .= '</div>';
+            
+            $paginationHTML .= '<div class="flex space-x-1">';
+            
+            // Prev Button
+            if ($page > 1) {
+                $paginationHTML .= '<button onclick="changePage(' . ($page - 1) . ')" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center"><i class="fas fa-chevron-left mr-1"></i> Prev</button>';
+            } else {
+                $paginationHTML .= '<button disabled class="px-3 py-1 border rounded text-sm text-gray-300 cursor-not-allowed flex items-center"><i class="fas fa-chevron-left mr-1"></i> Prev</button>';
+            }
+
+            // Page Numbers
+            $start = max(1, $page - 2);
+            $end = min($totalPages, $page + 2);
+
+            if ($start > 1) {
+                $paginationHTML .= '<button onclick="changePage(1)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">1</button>';
+                if ($start > 2) $paginationHTML .= '<span class="px-2 text-gray-400">...</span>';
+            }
+
+            for ($i = $start; $i <= $end; $i++) {
+                $activeClass = ($i == $page) ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-50';
+                $paginationHTML .= '<button onclick="changePage(' . $i . ')" class="px-3 py-1 border rounded text-sm ' . $activeClass . '">' . $i . '</button>';
+            }
+
+            if ($end < $totalPages) {
+                if ($end < $totalPages - 1) $paginationHTML .= '<span class="px-2 text-gray-400">...</span>';
+                $paginationHTML .= '<button onclick="changePage(' . $totalPages . ')" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">' . $totalPages . '</button>';
+            }
+
+            // Next Button
+            if ($page < $totalPages) {
+                $paginationHTML .= '<button onclick="changePage(' . ($page + 1) . ')" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center">Next <i class="fas fa-chevron-right ml-1"></i></button>';
+            } else {
+                $paginationHTML .= '<button disabled class="px-3 py-1 border rounded text-sm text-gray-300 cursor-not-allowed flex items-center">Next <i class="fas fa-chevron-right ml-1"></i></button>';
+            }
+
+            $paginationHTML .= '</div></div>';
+        }
+
+        echo json_encode([
+            'success' => true,
+            'data' => $data,
+            'pagination' => [
+                'current_page' => $page,
+                'total_pages' => $totalPages,
+                'total_items' => $totalItems,
+                'per_page' => $perPage,
+                'has_prev' => $page > 1,
+                'has_next' => $page < $totalPages,
+                'paginationHTML' => $paginationHTML
+            ]
+        ]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
 
 require_once 'auth-check.php';
+require_once __DIR__ . "/../includes/term_helper.php"; // Global term synchronization
 
 // For admin dashboard:
 checkAuth('admin');
@@ -112,13 +242,13 @@ function addUser($db)
             if ($checkStmt->fetchColumn() > 0) {
                 $accountantId = 'ACC' . str_pad(rand(100, 9999), 4, '0', STR_PAD_LEFT);
             }
-            
+
             $profileSql = "INSERT INTO accountant_profiles (user_id, accountant_id, qualification, certification, department, employment_type, employment_date) 
                           VALUES (?, ?, ?, ?, ?, ?, ?)";
             $profileStmt = $db->prepare($profileSql);
             $profileStmt->execute([
-                $userId, 
-                $accountantId, 
+                $userId,
+                $accountantId,
                 $_POST['qualification'] ?? null,
                 $_POST['certification'] ?? null,
                 $_POST['department'] ?? null,
@@ -130,13 +260,38 @@ function addUser($db)
             $profileSql = "INSERT INTO staff_profiles (user_id, staff_id, department, position) VALUES (?, ?, ?, ?)";
             $profileStmt = $db->prepare($profileSql);
             $profileStmt->execute([$userId, $staffId, $_POST['department'] ?? '', $_POST['position'] ?? '']);
-        } else if ($user_type === 'admin') {
+        } else if ($user_type === 'admin' || $user_type === 'administrator' || $user_type === 'principal') {
             $adminId = 'ADM' . str_pad(rand(100, 9999), 4, '0', STR_PAD_LEFT);
-            $profileSql = "INSERT INTO admin_profiles (user_id, admin_id, admin_level, department_access) VALUES (?, ?, ?, ?)";
+            $profileSql = "INSERT INTO admin_profiles (user_id, admin_id, admin_level, department_access, special_permissions) VALUES (?, ?, ?, ?, ?)";
             $profileStmt = $db->prepare($profileSql);
-            $profileStmt->execute([$userId, $adminId, $_POST['admin_level'] ?? '', $_POST['department_access'] ?? '']);
+
+            // Determine Admin Level
+            $adminLevel = $_POST['admin_level'] ?? '';
+            if ($user_type === 'administrator' || $user_type === 'principal') {
+                $adminLevel = 'Super Admin';
+            }
+            if (empty($adminLevel) && $user_type === 'admin') {
+                $adminLevel = 'Admin';
+            }
+
+            // Consolidate extra info for Principal into permissions or ignore
+            $permissions = $_POST['special_permissions'] ?? '';
+            if ($user_type === 'principal') {
+                $extraInfo = [
+                    'qualification' => $_POST['qualification'] ?? '',
+                    'vision' => $_POST['vision_statement'] ?? ''
+                ];
+                $permissions = json_encode($extraInfo);
+            }
+
+            $profileStmt->execute([
+                $userId, 
+                $adminId, 
+                $adminLevel, 
+                $_POST['department_access'] ?? 'All', 
+                $permissions
+            ]);
         }
-        // 'principal' doesn't have a separate table in your schema
 
         $db->commit();
         $_SESSION['success'] = "User added successfully! Username: $username";
@@ -220,7 +375,9 @@ function getRoleBadge($role)
 {
     switch ($role) {
         case 'admin':
-            return '<span class="role-badge bg-blue-100 text-nskblue">Administrator</span>';
+            return '<span class="role-badge bg-blue-100 text-nskblue">Admin</span>';
+        case 'administrator':
+            return '<span class="role-badge bg-blue-100 text-nskblue">Super Admin</span>';
         case 'teacher':
             return '<span class="role-badge bg-green-100 text-nskgreen">Teacher</span>';
         case 'accountant':
@@ -283,8 +440,8 @@ $roleFilter = isset($_GET['role_filter']) ? $_GET['role_filter'] : '';
 $statusFilter = isset($_GET['status_filter']) ? $_GET['status_filter'] : '';
 
 try {
-    // Stats
-    $stats['total_users'] = $db->query("SELECT COUNT(*) FROM users WHERE user_type != 'student'")->fetchColumn();
+    // Stats (Exclude admins and students)
+    $stats['total_users'] = $db->query("SELECT COUNT(*) FROM users WHERE user_type NOT IN ('student', 'admin', 'administrator', 'super_admin')")->fetchColumn();
     $stats['teachers'] = $db->query("SELECT COUNT(*) FROM users WHERE user_type = 'teacher' AND is_active = 1")->fetchColumn();
     $stats['students'] = $db->query("SELECT COUNT(*) FROM users WHERE user_type = 'student' AND is_active = 1")->fetchColumn();
     $stats['parents'] = 0; // Parent table/role not defined in schema
@@ -293,7 +450,7 @@ try {
     // Base Query
     $selectClause = "SELECT id, first_name, last_name, email, user_type, is_active, last_login";
     $fromClause = "FROM users";
-    $whereClause = "WHERE user_type != 'student'";
+    $whereClause = "WHERE user_type NOT IN ('student', 'admin', 'administrator', 'super_admin')";
     $params = [];
 
     // Add search filter
@@ -336,6 +493,9 @@ try {
 }
 
 ?>
+
+?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -344,6 +504,7 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Management - Northland Schools Kano</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="sidebar.css">
     <script>
@@ -371,36 +532,46 @@ try {
             background: #f8fafc;
         }
 
-        /* Modal Styles */
+        /* Standardized Modal Styling */
         .modal {
-            display: none;
             position: fixed;
-            z-index: 1000;
-            left: 0;
             top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(5px);
         }
 
         .modal.active {
-            display: flex !important;
-            align-items: center;
-            justify-content: center;
+            display: flex;
+            opacity: 1;
         }
+        
+        /* Prevent body scroll when modal is open */
+        body.modal-active { overflow: hidden; }
 
         .modal-content {
             background-color: white;
-            margin: 20px;
-            padding: 20px;
-            border-radius: 10px;
-            width: 90%;
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 95%;
             max-width: 500px;
-            /* Adjusted max-width */
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-            animation: fadeIn 0.3s ease;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .modal.active .modal-content {
+            transform: scale(1);
         }
 
         @keyframes fadeIn {
@@ -640,10 +811,14 @@ try {
         .btn-success:hover {
             background: #059669;
         }
+        
+        .hidden {
+            display: none !important;
+        }
     </style>
 </head>
 
-<body class="flex">
+<body>
     <?php require_once 'sidebar.php'; ?>
     <main class="main-content">
         <?php
@@ -715,7 +890,7 @@ try {
             <div class="bg-white rounded-xl shadow-md p-6 mb-8">
                 <form method="GET" action="" class="space-y-4 relative" id="filterForm">
                     <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <h2 class="text-xl font-bold text-nsknavy">All Users (Non-Students)</h2>
+                        <h2 class="text-xl font-bold text-nsknavy">All Users</h2>
 
                         <div class="flex flex-col md:flex-row gap-4 w-full md:w-auto">
                             <!-- Search Input with Clear Button -->
@@ -727,11 +902,11 @@ try {
                                     value="<?= htmlspecialchars($searchQuery) ?>"
                                     oninput="debounceSearch()"
                                     class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-nskblue focus:border-nskblue block w-full pl-10 p-2.5 transition-all shadow-sm group-hover:shadow-md" />
-                                
+
                                 <?php if (!empty($searchQuery)): ?>
-                                    <a href="<?= $_SERVER['PHP_SELF'] ?>?role_filter=<?= $roleFilter ?>&status_filter=<?= $statusFilter ?>" 
-                                       class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
-                                       title="Clear Search">
+                                    <a href="<?= $_SERVER['PHP_SELF'] ?>?role_filter=<?= $roleFilter ?>&status_filter=<?= $statusFilter ?>"
+                                        class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
+                                        title="Clear Search">
                                         <i class="fas fa-times-circle"></i>
                                     </a>
                                 <?php endif; ?>
@@ -741,7 +916,8 @@ try {
                             <select name="role_filter" onchange="showLoading(); this.form.submit()"
                                 class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-nskblue focus:border-nskblue block p-2.5 cursor-pointer hover:bg-white transition-all shadow-sm">
                                 <option value="">All Roles</option>
-                                <option value="admin" <?= $roleFilter == 'admin' ? 'selected' : '' ?>>Administrator</option>
+                                <option value="admin" <?= $roleFilter == 'admin' ? 'selected' : '' ?>>Admin</option>
+                                <option value="administrator" <?= $roleFilter == 'administrator' ? 'selected' : '' ?>>Super Admin</option>
                                 <option value="teacher" <?= $roleFilter == 'teacher' ? 'selected' : '' ?>>Teacher</option>
                                 <option value="accountant" <?= $roleFilter == 'accountant' ? 'selected' : '' ?>>Accountant</option>
                                 <option value="staff" <?= $roleFilter == 'staff' ? 'selected' : '' ?>>Staff</option>
@@ -765,34 +941,34 @@ try {
 
                     <!-- Active Filters Display -->
                     <div id="activeFiltersContainer">
-                    <?php if (!empty($searchQuery) || !empty($roleFilter) || $statusFilter !== ''): ?>
-                        <div class="flex items-center gap-2 text-sm text-gray-600 animate-fade-in-down">
-                            <span class="font-semibold">Active Filters:</span>
-                            
-                            <?php if (!empty($searchQuery)): ?>
-                                <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-400 flex items-center gap-1">
-                                    Search: <?= htmlspecialchars($searchQuery) ?>
-                                    <a href="?search=&role_filter=<?= $roleFilter ?>&status_filter=<?= $statusFilter ?>" class="hover:text-blue-900" onclick="event.preventDefault(); updateFilter('search', '');"><i class="fas fa-times"></i></a>
-                                </span>
-                            <?php endif; ?>
+                        <?php if (!empty($searchQuery) || !empty($roleFilter) || $statusFilter !== ''): ?>
+                            <div class="flex items-center gap-2 text-sm text-gray-600">
+                                <span class="font-semibold">Active Filters:</span>
 
-                            <?php if (!empty($roleFilter)): ?>
-                                <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded border border-green-400 flex items-center gap-1">
-                                    Role: <?= ucfirst($roleFilter) ?>
-                                    <a href="?search=<?= $searchQuery ?>&role_filter=&status_filter=<?= $statusFilter ?>" class="hover:text-green-900" onclick="event.preventDefault(); updateFilter('role_filter', '');"><i class="fas fa-times"></i></a>
-                                </span>
-                            <?php endif; ?>
+                                <?php if (!empty($searchQuery)): ?>
+                                    <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-400 flex items-center gap-1">
+                                        Search: <?= htmlspecialchars($searchQuery) ?>
+                                        <a href="?search=&role_filter=<?= $roleFilter ?>&status_filter=<?= $statusFilter ?>" class="hover:text-blue-900" onclick="event.preventDefault(); updateFilter('search', '');"><i class="fas fa-times"></i></a>
+                                    </span>
+                                <?php endif; ?>
 
-                            <?php if ($statusFilter !== ''): ?>
-                                <span class="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded border border-purple-400 flex items-center gap-1">
-                                    Status: <?= $statusFilter === '1' ? 'Active' : 'Inactive' ?>
-                                    <a href="?search=<?= $searchQuery ?>&role_filter=<?= $roleFilter ?>&status_filter=" class="hover:text-purple-900" onclick="event.preventDefault(); updateFilter('status_filter', '');"><i class="fas fa-times"></i></a>
-                                </span>
-                            <?php endif; ?>
+                                <?php if (!empty($roleFilter)): ?>
+                                    <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded border border-green-400 flex items-center gap-1">
+                                        Role: <?= ucfirst($roleFilter) ?>
+                                        <a href="?search=<?= $searchQuery ?>&role_filter=&status_filter=<?= $statusFilter ?>" class="hover:text-green-900" onclick="event.preventDefault(); updateFilter('role_filter', '');"><i class="fas fa-times"></i></a>
+                                    </span>
+                                <?php endif; ?>
 
-                            <a href="<?= $_SERVER['PHP_SELF'] ?>" class="text-xs text-red-600 hover:underline ml-2" onclick="clearAllFilters(event)">Clear All</a>
-                        </div>
-                    <?php endif; ?>
+                                <?php if ($statusFilter !== ''): ?>
+                                    <span class="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded border border-purple-400 flex items-center gap-1">
+                                        Status: <?= $statusFilter === '1' ? 'Active' : 'Inactive' ?>
+                                        <a href="?search=<?= $searchQuery ?>&role_filter=<?= $roleFilter ?>&status_filter=" class="hover:text-purple-900" onclick="event.preventDefault(); updateFilter('status_filter', '');"><i class="fas fa-times"></i></a>
+                                    </span>
+                                <?php endif; ?>
+
+                                <a href="<?= $_SERVER['PHP_SELF'] ?>" class="text-xs text-red-600 hover:underline ml-2" onclick="clearAllFilters(event)">Clear All</a>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </form>
 
@@ -806,21 +982,24 @@ try {
 
                 <script>
                     function showLoading() {
-                         const loader = document.getElementById('pageLoader');
-                        loader.classList.remove('hidden');
-                        loader.style.opacity = '0';
-                        setTimeout(() => { loader.style.opacity = '1'; }, 10);
+                        // Minimal loading - just dim the table slightly
+                        const table = document.querySelector('table');
+                        if (table) {
+                            table.style.opacity = '0.7';
+                        }
                     }
 
                     function hideLoading() {
-                        const loader = document.getElementById('pageLoader');
-                        loader.style.opacity = '0';
-                        setTimeout(() => { loader.classList.add('hidden'); }, 300);
+                        // Restore table opacity
+                        const table = document.querySelector('table');
+                        if (table) {
+                            table.style.opacity = '1';
+                        }
                     }
 
                     document.addEventListener('DOMContentLoaded', function() {
                         const filterForm = document.getElementById('filterForm');
-                        if(filterForm) {
+                        if (filterForm) {
                             filterForm.addEventListener('submit', function(e) {
                                 e.preventDefault();
                                 performAjaxSearch();
@@ -829,6 +1008,7 @@ try {
                     });
 
                     let searchTimeout;
+
                     function debounceSearch() {
                         clearTimeout(searchTimeout);
                         searchTimeout = setTimeout(() => {
@@ -839,44 +1019,74 @@ try {
                     function changePage(page) {
                         performAjaxSearch(page);
                         const table = document.querySelector('table');
-                        if(table) table.scrollIntoView({behavior: 'smooth'});
+                        if (table) table.scrollIntoView({
+                            behavior: 'smooth'
+                        });
                     }
 
                     function performAjaxSearch(page = 1) {
                         showLoading();
-                        
+
                         const form = document.getElementById('filterForm');
                         const formData = new FormData(form);
                         formData.append('page', page);
-                        
+                        formData.append('ajax', '1'); // Use AJAX endpoint
+
                         const params = new URLSearchParams(formData);
-                        const url = window.location.pathname + '?' + params.toString();
-                        
-                        window.history.pushState({}, '', url);
 
-                        fetch(url)
-                            .then(response => response.text())
-                            .then(html => {
-                                const parser = new DOMParser();
-                                const doc = parser.parseFromString(html, 'text/html');
-                                
-                                const newBody = doc.getElementById('usersTableBody');
-                                const currentBody = document.getElementById('usersTableBody');
-                                if (newBody && currentBody) {
-                                    currentBody.innerHTML = newBody.innerHTML;
+                        fetch(window.location.pathname + '?' + params.toString())
+                            .then(response => {
+                                const contentType = response.headers.get('content-type');
+                                if (contentType && contentType.includes('application/json')) {
+                                    return response.json();
+                                } else {
+                                    // Fallback to HTML parsing if no AJAX endpoint
+                                    return response.text().then(html => {
+                                        const parser = new DOMParser();
+                                        const doc = parser.parseFromString(html, 'text/html');
+
+                                        const newBody = doc.getElementById('usersTableBody');
+                                        const currentBody = document.getElementById('usersTableBody');
+                                        if (newBody && currentBody) {
+                                            currentBody.innerHTML = newBody.innerHTML;
+                                        }
+
+                                        const newFilters = doc.getElementById('activeFiltersContainer');
+                                        const currentFilters = document.getElementById('activeFiltersContainer');
+                                        if (newFilters && currentFilters) {
+                                            currentFilters.innerHTML = newFilters.innerHTML;
+                                        }
+
+                                        const newPagination = doc.getElementById('paginationContainer');
+                                        
+                                        // Return data for the next .then block
+                                        return {
+                                            success: true,
+                                            paginationHTML: newPagination ? newPagination.outerHTML : null
+                                        };
+                                    });
+                                }
+                            })
+                            .then(result => {
+                                if (result && result.success) {
+                                    if (result.data) {
+                                        // Handle JSON response
+                                        renderUsersTable(result.data);
+                                    }
+                                    
+                                    // Handle Pagination update for both JSON and HTML paths
+                                    if (result.pagination) {
+                                        updatePagination(result.pagination);
+                                    } else if (result.paginationHTML) {
+                                        updatePagination(result.paginationHTML);
+                                    }
                                 }
 
-                                const newFilters = doc.getElementById('activeFiltersContainer');
-                                const currentFilters = document.getElementById('activeFiltersContainer');
-                                if (newFilters && currentFilters) {
-                                    currentFilters.innerHTML = newFilters.innerHTML;
-                                }
-                                
-                                const newPagination = doc.getElementById('paginationContainer');
-                                const currentPagination = document.getElementById('paginationContainer');
-                                if (newPagination && currentPagination) {
-                                    currentPagination.outerHTML = newPagination.outerHTML;
-                                }
+                                // Update URL without page reload
+                                const urlParams = new URLSearchParams(formData);
+                                urlParams.delete('ajax');
+                                const newUrl = window.location.pathname + '?' + urlParams.toString();
+                                window.history.replaceState({}, '', newUrl);
 
                                 hideLoading();
                             })
@@ -886,9 +1096,111 @@ try {
                             });
                     }
 
+                    function renderUsersTable(users) {
+                        const tbody = document.getElementById('usersTableBody');
+                        if (!tbody) return;
+
+                        if (users.length === 0) {
+                            tbody.innerHTML = `
+                                <tr>
+                                    <td colspan="5" class="text-center py-8 text-gray-500">
+                                        <i class="fas fa-search text-2xl mb-2 block"></i>
+                                        <p>No users found</p>
+                                    </td>
+                                </tr>
+                            `;
+                            return;
+                        }
+
+                        tbody.innerHTML = users.map(user => `
+                            <tr class="hover:bg-gray-50 transition-colors">
+                                <td class="px-6 py-4 border-b border-gray-200">
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 rounded-full bg-nskblue flex items-center justify-center text-white font-bold mr-3">
+                                            ${(user.first_name[0] + user.last_name[0]).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <p class="font-semibold text-nsknavy">
+                                                ${user.first_name} ${user.last_name}
+                                            </p>
+                                            <p class="text-sm text-gray-600">${user.email}</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 border-b border-gray-200">
+                                    <span class="px-2 py-1 text-xs rounded-full ${user.user_type === 'admin' ? 'bg-red-100 text-red-800' : user.user_type === 'teacher' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}">
+                                        ${user.user_type}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 border-b border-gray-200">
+                                    <span class="px-2 py-1 text-xs rounded-full ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                        ${user.is_active ? 'Active' : 'Inactive'}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 border-b border-gray-200 text-sm text-gray-600">
+                                    ${user.last_login ? new Date(user.last_login).toLocaleDateString('en-US', {month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'}) : 'Never'}
+                                </td>
+                                <td class="px-6 py-4 border-b border-gray-200">
+                                    <div class="flex space-x-2">
+                                        <button onclick="editUser(${user.id})"
+                                            class="text-nskblue hover:text-nsknavy p-2 rounded-full hover:bg-blue-50"
+                                            title="Edit User">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <button onclick="deleteUser(${user.id})"
+                                            class="text-nskred hover:text-red-700 p-2 rounded-full hover:bg-red-50"
+                                            title="Deactivate User">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        <button onclick="resetPassword(${user.id})"
+                                            class="text-nskgreen hover:text-green-700 p-2 rounded-full hover:bg-green-50"
+                                            title="Reset Password">
+                                            <i class="fas fa-key"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('');
+                    }
+
+                    function updatePagination(pagination) {
+                        const paginationContainer = document.getElementById('paginationContainer');
+                        if (!paginationContainer) return;
+
+                        // If pagination HTML is provided, update the container
+                        if (pagination && typeof pagination === 'string') {
+                            paginationContainer.outerHTML = pagination;
+                        } else if (pagination && pagination.paginationHTML) {
+                            paginationContainer.outerHTML = pagination.paginationHTML;
+                        }
+
+                        // Re-select container since it might have been replaced
+                        const updatedContainer = document.getElementById('paginationContainer');
+                        if (!updatedContainer) return;
+
+                        // Re-attach click handlers
+                        const paginationLinks = updatedContainer.querySelectorAll('a[href*="page="], button[onclick*="changePage"]');
+                        paginationLinks.forEach(link => {
+                            // capture the page number from the attribute before we overwrite the handler
+                            const onclickAttr = link.getAttribute('onclick');
+                            const hrefAttr = link.getAttribute('href');
+                            
+                            link.onclick = (e) => {
+                                e.preventDefault();
+                                // Parse from the captured attribute string
+                                const pageMatch = (hrefAttr && hrefAttr.match(/page=(\d+)/)) || 
+                                                  (onclickAttr && onclickAttr.match(/changePage\((\d+)\)/));
+                                
+                                if (pageMatch && pageMatch[1]) {
+                                    performAjaxSearch(parseInt(pageMatch[1]));
+                                }
+                            };
+                        });
+                    }
+
                     function updateFilter(name, value) {
                         const form = document.getElementById('filterForm');
-                         if (name === 'search') {
+                        if (name === 'search') {
                             const input = document.getElementById('searchInput');
                             if (input) input.value = value;
                         } else {
@@ -901,15 +1213,15 @@ try {
                     function clearAllFilters(e) {
                         e.preventDefault();
                         const form = document.getElementById('filterForm');
-                        
+
                         const searchInput = document.getElementById('searchInput');
                         if (searchInput) searchInput.value = '';
-                        
+
                         const selects = form.querySelectorAll('select');
                         selects.forEach(select => {
-                             select.value = '';
+                            select.value = '';
                         });
-                        
+
                         performAjaxSearch();
                     }
                 </script>
@@ -999,53 +1311,53 @@ try {
 
                     <!-- Pagination Controls -->
                     <?php if (isset($totalPages) && $totalPages > 1): ?>
-                    <div id="paginationContainer" class="flex flex-col sm:flex-row justify-between items-center py-4 px-6 border-t mt-4 bg-white rounded-lg shadow-sm">
-                        <div class="text-sm text-gray-600 mb-2 sm:mb-0">
-                             Showing <span class="font-medium"><?= $offset + 1 ?></span> to <span class="font-medium"><?= min($offset + $limit, $totalFilteredUsers) ?></span> of <span class="font-medium"><?= $totalFilteredUsers ?></span> users
+                        <div id="paginationContainer" class="flex flex-col sm:flex-row justify-between items-center py-4 px-6 border-t mt-4 bg-white rounded-lg shadow-sm">
+                            <div class="text-sm text-gray-600 mb-2 sm:mb-0">
+                                Showing <span class="font-medium"><?= $offset + 1 ?></span> to <span class="font-medium"><?= min($offset + $limit, $totalFilteredUsers) ?></span> of <span class="font-medium"><?= $totalFilteredUsers ?></span> users
+                            </div>
+                            <div class="flex space-x-1">
+                                <?php if ($page > 1): ?>
+                                    <button onclick="changePage(<?= $page - 1 ?>)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center">
+                                        <i class="fas fa-chevron-left mr-1"></i> Prev
+                                    </button>
+                                <?php else: ?>
+                                    <button disabled class="px-3 py-1 border rounded text-sm text-gray-300 cursor-not-allowed flex items-center">
+                                        <i class="fas fa-chevron-left mr-1"></i> Prev
+                                    </button>
+                                <?php endif; ?>
+
+                                <?php
+                                $start = max(1, $page - 2);
+                                $end = min($totalPages, $page + 2);
+
+                                if ($start > 1) {
+                                    echo '<button onclick="changePage(1)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">1</button>';
+                                    if ($start > 2) echo '<span class="px-2 text-gray-400">...</span>';
+                                }
+
+                                for ($i = $start; $i <= $end; $i++): ?>
+                                    <button onclick="changePage(<?= $i ?>)" class="px-3 py-1 border rounded text-sm <?= $i == $page ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-50' ?>">
+                                        <?= $i ?>
+                                    </button>
+                                <?php endfor;
+
+                                if ($end < $totalPages) {
+                                    if ($end < $totalPages - 1) echo '<span class="px-2 text-gray-400">...</span>';
+                                    echo '<button onclick="changePage(' . $totalPages . ')" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">' . $totalPages . '</button>';
+                                }
+                                ?>
+
+                                <?php if ($page < $totalPages): ?>
+                                    <button onclick="changePage(<?= $page + 1 ?>)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center">
+                                        Next <i class="fas fa-chevron-right ml-1"></i>
+                                    </button>
+                                <?php else: ?>
+                                    <button disabled class="px-3 py-1 border rounded text-sm text-gray-300 cursor-not-allowed flex items-center">
+                                        Next <i class="fas fa-chevron-right ml-1"></i>
+                                    </button>
+                                <?php endif; ?>
+                            </div>
                         </div>
-                        <div class="flex space-x-1">
-                             <?php if ($page > 1): ?>
-                                <button onclick="changePage(<?= $page - 1 ?>)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center">
-                                    <i class="fas fa-chevron-left mr-1"></i> Prev
-                                </button>
-                             <?php else: ?>
-                                <button disabled class="px-3 py-1 border rounded text-sm text-gray-300 cursor-not-allowed flex items-center">
-                                    <i class="fas fa-chevron-left mr-1"></i> Prev
-                                </button>
-                             <?php endif; ?>
-                             
-                             <?php
-                             $start = max(1, $page - 2);
-                             $end = min($totalPages, $page + 2);
-                             
-                             if ($start > 1) { 
-                                 echo '<button onclick="changePage(1)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">1</button>';
-                                 if ($start > 2) echo '<span class="px-2 text-gray-400">...</span>';
-                             }
-                             
-                             for ($i = $start; $i <= $end; $i++): ?>
-                                <button onclick="changePage(<?= $i ?>)" class="px-3 py-1 border rounded text-sm <?= $i == $page ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-50' ?>">
-                                    <?= $i ?>
-                                </button>
-                             <?php endfor; 
-                             
-                             if ($end < $totalPages) { 
-                                 if ($end < $totalPages - 1) echo '<span class="px-2 text-gray-400">...</span>';
-                                 echo '<button onclick="changePage(' . $totalPages . ')" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">' . $totalPages . '</button>';
-                             }
-                             ?>
-                             
-                             <?php if ($page < $totalPages): ?>
-                                <button onclick="changePage(<?= $page + 1 ?>)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center">
-                                    Next <i class="fas fa-chevron-right ml-1"></i>
-                                </button>
-                             <?php else: ?>
-                                <button disabled class="px-3 py-1 border rounded text-sm text-gray-300 cursor-not-allowed flex items-center">
-                                    Next <i class="fas fa-chevron-right ml-1"></i>
-                                </button>
-                             <?php endif; ?>
-                        </div>
-                    </div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -1082,10 +1394,6 @@ try {
                                 <div class="role-card" data-role="teacher">
                                     <i class="fas fa-chalkboard-teacher text-2xl text-nskblue mb-2"></i>
                                     <p class="text-sm font-medium text-nsknavy">Teacher</p>
-                                </div>
-                                <div class="role-card" data-role="admin">
-                                    <i class="fas fa-user-shield text-2xl text-nskblue mb-2"></i>
-                                    <p class="text-sm font-medium text-nsknavy">Administrator</p>
                                 </div>
                                 <div class="role-card" data-role="accountant">
                                     <i class="fas fa-calculator text-2xl text-nskblue mb-2"></i>
@@ -1222,190 +1530,127 @@ try {
                         }
                     ],
                     admin: [{
-                        type: 'select',
-                        id: 'admin_level',
-                        label: 'Admin Level',
-                        options: ['Super Admin', 'Admin', 'Sub-Admin'],
-                        required: true
-                    },
-                    {
-                        type: 'text',
-                        id: 'department_access',
-                        label: 'Department Access',
-                        required: true
-                    },
-                    {
-                        type: 'textarea',
-                        id: 'special_permissions',
-                        label: 'Special Permissions',
-                        required: false
-                    }
+                            type: 'select',
+                            id: 'admin_level',
+                            label: 'Admin Level',
+                            options: ['Super Admin', 'Admin', 'Sub-Admin'],
+                            required: true
+                        },
+                        {
+                            type: 'text',
+                            id: 'department_access',
+                            label: 'Department Access',
+                            required: true
+                        },
+                        {
+                            type: 'textarea',
+                            id: 'special_permissions',
+                            label: 'Special Permissions',
+                            required: false
+                        }
                     ],
                     staff: [{
-                        type: 'select',
-                        id: 'department',
-                        label: 'Department',
-                        options: ['Administration', 'Maintenance', 'Security', 'Kitchen', 'Library'],
-                        required: true
-                    },
-                    {
-                        type: 'text',
-                        id: 'position',
-                        label: 'Job Title/Position',
-                        required: true
-                    },
-                    {
-                        type: 'select',
-                        id: 'employment_type',
-                        label: 'Employment Type',
-                        options: ['Full-time', 'Part-time', 'Contract'],
-                        required: true
-                    },
-                    {
-                        type: 'text',
-                        id: 'supervisor',
-                        label: 'Supervisor Name',
-                        required: false
-                    }
+                            type: 'select',
+                            id: 'department',
+                            label: 'Department',
+                            options: ['Administration', 'Maintenance', 'Security', 'Kitchen', 'Library'],
+                            required: true
+                        },
+                        {
+                            type: 'text',
+                            id: 'position',
+                            label: 'Job Title/Position',
+                            required: true
+                        },
+                        {
+                            type: 'select',
+                            id: 'employment_type',
+                            label: 'Employment Type',
+                            options: ['Full-time', 'Part-time', 'Contract'],
+                            required: true
+                        },
+                        {
+                            type: 'text',
+                            id: 'supervisor',
+                            label: 'Supervisor Name',
+                            required: false
+                        }
                     ],
                     accountant: [{
-                        type: 'text',
-                        id: 'qualification',
-                        label: 'Highest Qualification',
-                        required: false
-                    },
-                    {
-                        type: 'text',
-                        id: 'certification',
-                        label: 'Professional Certification (e.g., ICAN, ACCA)',
-                        required: false
-                    },
-                    {
-                        type: 'select',
-                        id: 'department',
-                        label: 'Department',
-                        options: ['Finance', 'Accounts', 'Bursar Office'],
-                        required: true
-                    },
-                    {
-                        type: 'select',
-                        id: 'employment_type',
-                        label: 'Employment Type',
-                        options: ['Full-time', 'Part-time', 'Contract'],
-                        required: true
-                    },
-                    {
-                        type: 'date',
-                        id: 'employment_date',
-                        label: 'Employment Date',
-                        required: false
-                    }
+                            type: 'text',
+                            id: 'qualification',
+                            label: 'Highest Qualification',
+                            required: false
+                        },
+                        {
+                            type: 'text',
+                            id: 'certification',
+                            label: 'Professional Certification (e.g., ICAN, ACCA)',
+                            required: false
+                        },
+                        {
+                            type: 'select',
+                            id: 'department',
+                            label: 'Department',
+                            options: ['Finance', 'Accounts', 'Bursar Office'],
+                            required: true
+                        },
+                        {
+                            type: 'select',
+                            id: 'employment_type',
+                            label: 'Employment Type',
+                            options: ['Full-time', 'Part-time', 'Contract'],
+                            required: true
+                        },
+                        {
+                            type: 'date',
+                            id: 'employment_date',
+                            label: 'Employment Date',
+                            required: false
+                        }
+                    ],
+                    administrator: [{
+                            type: 'hidden',
+                            id: 'admin_level',
+                            value: 'Super Admin',
+                            required: false
+                        },
+                        {
+                            type: 'text',
+                            id: 'department_access',
+                            label: 'Department Access',
+                            required: true
+                        },
+                        {
+                            type: 'textarea',
+                            id: 'special_permissions',
+                            label: 'Special Permissions',
+                            required: false
+                        }
                     ],
                     principal: [{
-                        type: 'text',
-                        id: 'qualification',
-                        label: 'Highest Qualification',
-                        required: true
-                    },
-                    // We removed 'experience' and added 'employment_date' for consistency
-                    {
-                        type: 'date',
-                        id: 'employment_date',
-                        label: 'Employment Date',
-                        required: false
-                    },
-                    {
-                        type: 'textarea',
-                        id: 'vision_statement',
-                        label: 'Vision Statement',
-                        required: false
-                    }
+                            type: 'text',
+                            id: 'qualification',
+                            label: 'Highest Qualification',
+                            required: true
+                        },
+                        // We removed 'experience' and added 'employment_date' for consistency
+                        {
+                            type: 'date',
+                            id: 'employment_date',
+                            label: 'Employment Date',
+                            required: false
+                        },
+                        {
+                            type: 'textarea',
+                            id: 'vision_statement',
+                            label: 'Vision Statement',
+                            required: false
+                        }
                     ]
                 };
 
-                // Initialize role selection
-                document.addEventListener('DOMContentLoaded', function () {
-                    const roleCards = document.querySelectorAll('.role-card');
-                    roleCards.forEach(card => {
-                        card.addEventListener('click', () => {
-                            // Remove previous selection
-                            roleCards.forEach(c => c.classList.remove('selected'));
-                            // Add selection to clicked card
-                            card.classList.add('selected');
-                            selectedRole = card.dataset.role;
-                            document.getElementById('selectedRole').value = selectedRole;
-
-                            // Enable next button
-                            document.getElementById('nextBtn').disabled = false;
-                        });
-                    });
-
-                    // Setup floating labels
-                    setupFloatingLabels();
-
-                    // Add form submission handler
-                    document.getElementById('addUserForm').addEventListener('submit', function (e) {
-                        if (currentStep !== 3) {
-                            e.preventDefault();
-                            alert('Please complete all steps before submitting');
-                            return;
-                        }
-
-                        if (!validateBasicInfo() || !validateRoleSpecificInfo()) {
-                            e.preventDefault();
-                            alert('Please fill in all required fields correctly');
-                            return;
-                        }
-                    });
-                });
-
-                function setupFloatingLabels() {
-                    document.querySelectorAll('.input-field input, .input-field textarea').forEach(field => {
-                        if (field.value) {
-                            field.nextElementSibling.classList.add('active');
-                        }
-
-                        field.addEventListener('input', () => {
-                            if (field.value) {
-                                field.nextElementSibling.classList.add('active');
-                            } else {
-                                field.nextElementSibling.classList.remove('active');
-                            }
-                        });
-                    });
-                }
-
-                function nextStep() {
-                    if (currentStep === 1 && !selectedRole) {
-                        alert('Please select a role');
-                        return;
-                    }
-
-                    if (currentStep === 2 && !validateBasicInfo()) {
-                        return;
-                    }
-
-                    if (currentStep === 3 && !validateRoleSpecificInfo()) {
-                        return;
-                    }
-
-                    if (currentStep < 3) {
-                        currentStep++;
-                        updateStepDisplay();
-
-                        if (currentStep === 3) {
-                            generateRoleSpecificFields();
-                        }
-                    }
-                }
-
-                function previousStep() {
-                    if (currentStep > 1) {
-                        currentStep--;
-                        updateStepDisplay();
-                    }
-                }
-
+                // Define functions BEFORE DOMContentLoaded
                 function updateStepDisplay() {
                     // Hide all steps
                     document.querySelectorAll('.step-content').forEach(step => {
@@ -1436,6 +1681,92 @@ try {
                     prevBtn.classList.toggle('hidden', currentStep === 1);
                     nextBtn.classList.toggle('hidden', currentStep === 3);
                     submitBtn.classList.toggle('hidden', currentStep !== 3);
+                }
+
+                function nextStep() {
+                    if (currentStep === 1 && !selectedRole) {
+                        Swal.fire('Warning', 'Please select a role', 'warning');
+                        return;
+                    }
+
+                    if (currentStep === 2 && !validateBasicInfo()) {
+                        return;
+                    }
+
+                    if (currentStep === 3 && !validateRoleSpecificInfo()) {
+                        return;
+                    }
+
+                    if (currentStep < 3) {
+                        currentStep++;
+                        updateStepDisplay();
+
+                        if (currentStep === 3) {
+                            generateRoleSpecificFields();
+                        }
+                    }
+                }
+
+                function previousStep() {
+                    if (currentStep > 1) {
+                        currentStep--;
+                        updateStepDisplay();
+                    }
+                }
+
+                // Initialize role selection
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Initialize step display (hides submit button on step 1)
+                    updateStepDisplay();
+                    
+                    const roleCards = document.querySelectorAll('.role-card');
+                    roleCards.forEach(card => {
+                        card.addEventListener('click', () => {
+                            // Remove previous selection
+                            roleCards.forEach(c => c.classList.remove('selected'));
+                            // Add selection to clicked card
+                            card.classList.add('selected');
+                            selectedRole = card.dataset.role;
+                            document.getElementById('selectedRole').value = selectedRole;
+
+                            // Enable next button
+                            document.getElementById('nextBtn').disabled = false;
+                        });
+                    });
+
+                    // Setup floating labels
+                    setupFloatingLabels();
+
+                    // Add form submission handler
+                    document.getElementById('addUserForm').addEventListener('submit', function(e) {
+                        if (currentStep !== 3) {
+                            e.preventDefault();
+                            Swal.fire('Warning', 'Please complete all steps before submitting', 'warning');
+                            return;
+                        }
+
+                        if (!validateBasicInfo() || !validateRoleSpecificInfo()) {
+                            e.preventDefault();
+                            Swal.fire('Warning', 'Please fill in all required fields correctly', 'warning');
+                            return;
+                        }
+                    });
+                });
+
+                function setupFloatingLabels() {
+                    document.querySelectorAll('.input-field input, .input-field textarea').forEach(field => {
+                        if (field.value) {
+                            field.nextElementSibling.classList.add('active');
+                        }
+
+                        field.addEventListener('input', () => {
+                            if (field.value) {
+                                field.nextElementSibling.classList.add('active');
+                            } else {
+                                field.nextElementSibling.classList.remove('active');
+                            }
+                        });
+                    });
                 }
 
                 function generateRoleSpecificFields() {
@@ -1483,12 +1814,14 @@ try {
                     <label for="${id}">${label}</label>
                 </div>
             `;
+                    } else if (type === 'hidden') {
+                        return `<input type="hidden" name="${id}" id="${id}" value="${field.value || ''}">`;
                     } else {
                         // For date fields with id 'employment_date', set default to today
-                        const defaultValue = (type === 'date' && id === 'employment_date') 
-                            ? `value="${new Date().toISOString().split('T')[0]}"` 
-                            : '';
-                        
+                        const defaultValue = (type === 'date' && id === 'employment_date') ?
+                            `value="${new Date().toISOString().split('T')[0]}"` :
+                            '';
+
                         return `
                 <div class="input-field">
                     <input type="${type}" name="${id}" id="${id}" placeholder=" " ${required ? 'required' : ''} ${defaultValue}>
@@ -1517,12 +1850,16 @@ try {
                     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
                     if (email && !emailRegex.test(email)) {
                         document.getElementById('email').style.borderColor = '#ef4444';
-                        alert('Please enter a valid email address');
+                        Swal.fire('Warning', 'Please enter a valid email address', 'warning');
                         isValid = false;
                     }
 
                     if (!isValid) {
-                        alert('Please fill in all required fields correctly');
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Validation Error',
+                            text: 'Please fill in all required fields correctly'
+                        });
                     }
 
                     return isValid;
@@ -1547,7 +1884,7 @@ try {
                     });
 
                     if (!isValid) {
-                        alert('Please fill in all required role-specific fields');
+                        Swal.fire('Warning', 'Please fill in all required role-specific fields', 'warning');
                     }
 
                     return isValid;
@@ -1602,13 +1939,9 @@ try {
                                 <select name="user_type"
                                     class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue" required>
                                     <option value="">Select Role</option>
-                                    <option value="admin" <?= $editUserData['user_type'] == 'admin' ? 'selected' : '' ?>>
-                                        Administrator</option>
-                                    <option value="teacher" <?= $editUserData['user_type'] == 'teacher' ? 'selected' : '' ?>>
-                                        Teacher</option>
-                                    <option value="staff" <?= $editUserData['user_type'] == 'staff' ? 'selected' : '' ?>>Staff
-                                    </option>
-                                    <option value="principal" <?= $editUserData['user_type'] == 'principal' ? 'selected' : '' ?>>Principal</option>
+                                    <option value="teacher" <?= $editUserData['user_type'] == 'teacher' ? 'selected' : '' ?>>Teacher</option>
+                                    <option value="staff" <?= $editUserData['user_type'] == 'staff' ? 'selected' : '' ?>>Staff</option>
+                                    <option value="accountant" <?= $editUserData['user_type'] == 'accountant' ? 'selected' : '' ?>>Accountant</option>
                                 </select>
                             </div>
 
@@ -1636,12 +1969,13 @@ try {
             </div>
         <?php endif; ?>
 
-        <script src="footer.js"></script>
+
+        <?php require_once 'footer.php'; ?>
     </main>
 
     <script>
         // Sidebar toggle functionality
-        document.getElementById('mobileMenuToggle').addEventListener('click', function () {
+        document.getElementById('mobileMenuToggle').addEventListener('click', function() {
             document.querySelector('.sidebar').classList.toggle('mobile-show');
         });
 
@@ -1652,7 +1986,7 @@ try {
         }
 
         // Close modals with Escape key
-        document.addEventListener('keydown', function (event) {
+        document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
                 closeAllModals();
             }
@@ -1660,7 +1994,7 @@ try {
 
         // Close modal on outside click
         document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', function (e) {
+            modal.addEventListener('click', function(e) {
                 if (e.target === this) {
                     closeAllModals();
                 }
@@ -1674,51 +2008,74 @@ try {
         }
 
         function deleteUser(userId) {
-            if (confirm('Are you sure you want to deactivate this user?')) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = 'user-management.php';
+            Swal.fire({
+                title: 'Deactivate User?',
+                text: 'Are you sure you want to deactivate this user?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, deactivate!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = 'user-management.php';
 
-                const idInput = document.createElement('input');
-                idInput.type = 'hidden';
-                idInput.name = 'user_id';
-                idInput.value = userId;
+                    const idInput = document.createElement('input');
+                    idInput.type = 'hidden';
+                    idInput.name = 'user_id';
+                    idInput.value = userId;
 
-                const deleteInput = document.createElement('input');
-                deleteInput.type = 'hidden';
-                deleteInput.name = 'delete_user';
-                deleteInput.value = '1';
+                    const deleteInput = document.createElement('input');
+                    deleteInput.type = 'hidden';
+                    deleteInput.name = 'delete_user';
+                    deleteInput.value = '1';
 
-                form.appendChild(idInput);
-                form.appendChild(deleteInput);
-                document.body.appendChild(form);
-                form.submit();
-            }
+                    form.appendChild(idInput);
+                    form.appendChild(deleteInput);
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            });
         }
 
         function resetPassword(userId) {
-            if (confirm("Are you sure you want to reset this user's password to 'password123'?")) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = 'user-management.php';
+            Swal.fire({
+                title: 'Reset Password?',
+                text: "Are you sure you want to reset this user's password to 'password123'?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, reset it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = 'user-management.php';
 
-                const idInput = document.createElement('input');
-                idInput.type = 'hidden';
-                idInput.name = 'user_id';
-                idInput.value = userId;
+                    const idInput = document.createElement('input');
+                    idInput.type = 'hidden';
+                    idInput.name = 'user_id';
+                    idInput.value = userId;
 
-                const resetInput = document.createElement('input');
-                resetInput.type = 'hidden';
-                resetInput.name = 'reset_password';
-                resetInput.value = '1';
+                    const resetInput = document.createElement('input');
+                    resetInput.type = 'hidden';
+                    resetInput.name = 'reset_password';
+                    resetInput.value = '1';
 
-                form.appendChild(idInput);
-                form.appendChild(resetInput);
-                document.body.appendChild(form);
-                form.submit();
-            }
+                    form.appendChild(idInput);
+                    form.appendChild(resetInput);
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            });
         }
     </script>
-</body>
 
+    <!-- Clean Filter (disabled - page has custom search) -->
+    <!-- <script src="clean_filter.js"></script> -->
+
+</body>
 </html>

@@ -1,13 +1,100 @@
 <?php
 // Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Debugging disabled
+// error_reporting(E_ALL);
+// ini_set('display_errors', 1);
+
+// AJAX Handler for Students Filtering
+if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
+    require_once '../config/database.php';
+    header('Content-Type: application/json');
+    
+    try {
+        $db = new Database();
+        $conn = $db->getConnection();
+        
+        $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+        $classFilter = isset($_GET['class_filter']) ? intval($_GET['class_filter']) : '';
+        $graduationFilter = $_GET['graduation_filter'] ?? '';
+        $search = $_GET['search'] ?? '';
+        $perPage = 15;
+        $offset = ($page - 1) * $perPage;
+        
+        // Build query
+        $whereParts = ["u.is_active = 1"];
+        $params = [];
+        
+        if (!empty($classFilter)) {
+            $whereParts[] = "s.class_id = ?";
+            $params[] = $classFilter;
+        }
+        
+        if (!empty($graduationFilter)) {
+            $whereParts[] = "s.graduation_year = ?";
+            $params[] = $graduationFilter;
+        }
+        
+        if (!empty($search)) {
+            $whereParts[] = "(u.first_name LIKE ? OR u.last_name LIKE ? OR s.student_id LIKE ? OR u.email LIKE ?)";
+            $searchTerm = "%$search%";
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+        }
+        
+        $whereClause = implode(" AND ", $whereParts);
+        
+        // Count total
+        $countSql = "SELECT COUNT(*) FROM students s 
+                    JOIN users u ON s.user_id = u.id 
+                    LEFT JOIN classes c ON s.class_id = c.id 
+                    WHERE $whereClause";
+        $countStmt = $conn->prepare($countSql);
+        $countStmt->execute($params);
+        $totalItems = $countStmt->fetchColumn();
+        
+        // Get data
+        $sql = "SELECT s.id, s.student_id, u.first_name, u.last_name, u.email, u.phone, 
+                       u.is_active, s.created_at, c.class_name
+                FROM students s 
+                JOIN users u ON s.user_id = u.id 
+                LEFT JOIN classes c ON s.class_id = c.id 
+                WHERE $whereClause 
+                ORDER BY u.first_name, u.last_name 
+                LIMIT $perPage OFFSET $offset";
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->execute($params);
+        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $totalPages = ceil($totalItems / $perPage);
+        
+        echo json_encode([
+            'success' => true,
+            'data' => $data,
+            'pagination' => [
+                'current_page' => $page,
+                'total_pages' => $totalPages,
+                'total_items' => $totalItems,
+                'per_page' => $perPage,
+                'has_prev' => $page > 1,
+                'has_next' => $page < $totalPages
+            ]
+        ]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
 
 // session_start();
 
 require_once '../config/logger.php';
 
 require_once 'auth-check.php';
+require_once __DIR__ . "/../includes/term_helper.php"; // Global term synchronization
 
 // For admin dashboard:
 checkAuth('admin');
@@ -27,6 +114,8 @@ try {
 } catch (Exception $e) {
     die("Database connection failed: " . $e->getMessage());
 }
+
+
 
 // Case conversion functions
 function formatName($name)
@@ -573,6 +662,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         }
                         */
 
+                        // Handle class_id lookup (ID or Name)
+                        $classIdToInsert = 1; // Default
+                        if (!empty($rowData['class_id'])) {
+                             if (is_numeric($rowData['class_id'])) {
+                                 $classIdToInsert = intval($rowData['class_id']);
+                             } else {
+                                 // Lookup by name
+                                 $classNameLookup = trim($rowData['class_id']);
+                                 $classStmt = $db->prepare("SELECT id FROM classes WHERE class_name = ? LIMIT 1");
+                                 $classStmt->execute([$classNameLookup]);
+                                 $foundClassId = $classStmt->fetchColumn();
+                                 if ($foundClassId) {
+                                     $classIdToInsert = $foundClassId;
+                                 }
+                             }
+                        }
+
                         // Generate unique student IDs
                         $studentId = 'STU' . str_pad(rand(1000, 9999), 4, '0', STR_PAD_LEFT);
                         $admissionNumber = 'ADM' . str_pad(rand(1000, 9999), 4, '0', STR_PAD_LEFT);
@@ -630,7 +736,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $userId,
                             $studentId,
                             $admissionNumber,
-                            !empty($rowData['class_id']) ? intval($rowData['class_id']) : 1,
+                            $classIdToInsert,
                             date('Y-m-d'),
                             !empty($rowData['religion']) ? $rowData['religion'] : 'Islam',
                             !empty($rowData['nationality']) ? $rowData['nationality'] : 'Nigerian',
@@ -706,6 +812,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Handle Template Download - FIXED VERSION
     if (isset($_POST['download_template'])) {
+        // Clear any previous output to prevent corruption
+        if (ob_get_length()) ob_end_clean();
+        
         try {
             // Set headers for CSV download
             $filename = "student_import_template_" . date('Y-m-d') . ".csv";
@@ -742,9 +851,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Add sample data rows - Use separate columns
             $sampleData1 = [
-                'John',                 // first_name
-                'Doe',                  // last_name
-                'john.doe@example.com', // email
+                'Ibrahim',                 // first_name
+                'Musa',                  // last_name
+                'ibrahim.musa@example.com', // email
                 '08012345678',          // phone
                 '2010-05-15',          // date_of_birth
                 'Male',                 // gender
@@ -760,9 +869,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             fputcsv($output, $sampleData1);
 
             $sampleData2 = [
-                'Mary',
-                'Smith',
-                'mary.smith@example.com',
+                'Fatima',
+                'Aliyu',
+                'fatima.aliyu@example.com',
                 '08011223344',
                 '2011-08-20',
                 'Female',
@@ -1153,10 +1262,7 @@ try {
             $params[] = $classFilter;
         }
 
-        // Enforce Active Status only (matching Teachers Management)
-        $whereConditions[] = "s.status = 'active'";
-        /* 
-        // Dynamic Status Filter Removed
+        // Dynamic Status Filter
         if (!empty($graduationFilter)) {
             $allowedStatuses = ['active', 'graduated', 'withdrawn', 'transferred'];
             if (in_array($graduationFilter, $allowedStatuses)) {
@@ -1164,9 +1270,9 @@ try {
                 $params[] = $graduationFilter;
             }
         } else {
-             $whereConditions[] = "s.status = 'active'";
+            // Default: Show only active students if no status filter is selected
+            $whereConditions[] = "s.status = 'active'";
         }
-        */
 
         $whereClause = implode(" AND ", $whereConditions);
 
@@ -1252,17 +1358,16 @@ try {
 }
 ?>
 
+
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Student Management - Northland Schools Kano</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Students Management - Northland Schools</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-    <link rel="stylesheet" href="sidebar.css" />
-
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -1274,283 +1379,69 @@ try {
                         nskgold: '#f59e0b',
                         nsklight: '#f0f9ff',
                         nskgreen: '#10b981',
-                        nskred: '#ef4444',
-                    },
-                },
-            },
-        };
+                        nskred: '#ef4444'
+                    }
+                }
+            }
+        }
     </script>
+    <link rel="stylesheet" href="sidebar.css">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
-
-        body {
-            font-family: 'Montserrat', sans-serif;
-            background: #f8fafc;
-        }
-
-        /* Fixed Modal Styles */
+        body { font-family: 'Montserrat', sans-serif; background: #f8fafc; }
+        
+        /* Modal Styling */
         .modal {
-            display: none;
             position: fixed;
-            z-index: 1000;
-            left: 0;
             top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            z-index: 1000; /* High z-index to sit on top */
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(5px);
         }
 
         .modal.active {
-            display: flex !important;
-            align-items: center;
-            justify-content: center;
+            display: flex;
+            opacity: 1;
         }
 
         .modal-content {
             background-color: white;
-            margin: 20px;
-            padding: 20px;
-            border-radius: 10px;
-            width: 90%;
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 95%;
             max-width: 800px;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        /* Rest of your existing styles */
-        .logo-container {
-            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+        .modal.active .modal-content {
+            transform: scale(1);
         }
 
-        .student-card {
-            transition: all 0.3s ease;
-        }
+        /* Prevent body scroll when modal is open */
+        body.modal-active { overflow: hidden; }
 
-        .student-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
-                0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-
-        .nav-item {
-            position: relative;
-        }
-
-        .nav-item::after {
-            content: '';
-            position: absolute;
-            width: 0;
-            height: 2px;
-            bottom: -5px;
-            left: 0;
-            background-color: #f59e0b;
-            transition: width 0.3s ease;
-        }
-
-        .nav-item:hover::after {
-            width: 100%;
-        }
-
-        .notification-dot {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            width: 12px;
-            height: 12px;
-            background-color: #ef4444;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        .student-table {
-            border-collapse: separate;
-            border-spacing: 0;
-        }
-
-        .student-table th {
-            background-color: #f8fafc;
-        }
-
-        .student-table tr:last-child td {
-            border-bottom: 0;
-        }
-
-        .student-table tbody tr {
-            transition: all 0.3s ease;
-        }
-
-        .student-table tbody tr:hover {
-            background-color: #f8fafc;
-            transform: scale(1.01);
-        }
-
-        .grade-badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            animation: fadeInUp 0.5s ease;
-        }
-
-        .status-badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-            animation: fadeIn 0.5s ease;
-        }
-
-        .tab-button {
-            transition: all 0.3s ease;
-        }
-
-        .tab-button.active {
-            background-color: #1e40af;
-            color: white;
-        }
-
-        .form-section {
-            animation: slideInUp 0.5s ease;
-        }
-
-        .progress-bar {
-            transition: width 0.5s ease;
-        }
-
-        .card-animate {
-            animation: slideInUp 0.6s ease;
-        }
-
-        .button-hover {
-            transition: all 0.3s ease;
-        }
-
-        .button-hover:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        }
-
-        .file-drop-zone {
-            border: 2px dashed #d1d5db;
-            transition: all 0.3s ease;
-        }
-
-        .file-drop-zone.dragover {
-            border-color: #1e40af;
-            background-color: #f0f9ff;
-        }
-
-        .loading-spinner {
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
-        @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes slideInUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.5;
-            }
-        }
-
-        @keyframes spin {
-            from {
-                transform: rotate(0deg);
-            }
-
-            to {
-                transform: rotate(360deg);
-            }
-        }
-
-        /* .id-card {
-        background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
-        border-radius: 15px;
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-    } */
-
-        .medical-alert {
-            animation: pulse 2s infinite;
-        }
-
-        .document-item {
-            transition: all 0.3s ease;
-        }
-
-        .document-item:hover {
-            background-color: #f8fafc;
-            transform: translateX(5px);
-        }
-
-        /* Loading spinner for buttons */
-        .btn-spinner {
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            margin-right: 0.5rem;
-        }
-
-        .btn-loading {
-            cursor: not-allowed;
-        }
     </style>
 </head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <?php include 'sidebar.php'; ?>
+    <div id="main-content-area" class="main-content w-full transition-opacity duration-200">
 
-<body class="flex">
-    <?php require_once 'sidebar.php'; ?>
 
-    <main class="main-content">
-        <?php
-        $pageTitle = 'Student Management';
-        require_once 'header.php';
-        ?>
+        <?php require_once 'header.php'; ?>
 
-        <div class="p-6">
+        <div class="px-4 py-3">
             <?php if (isset($_SESSION['success'])): ?>
                 <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
                     <?= $_SESSION['success'];
@@ -1565,7 +1456,7 @@ try {
                 </div>
             <?php endif; ?>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
                 <div class="student-card bg-white rounded-xl shadow-md p-5 flex items-center">
                     <div class="bg-nsklightblue p-4 rounded-full mr-4">
                         <i class="fas fa-user-graduate text-white text-xl"></i>
@@ -1601,16 +1492,7 @@ try {
                     </div>
                 </div>
 
-                <div class="student-card bg-white rounded-xl shadow-md p-5 flex items-center">
-                    <div class="bg-nskred p-4 rounded-full mr-4">
-                        <i class="fas fa-bullhorn text-white text-xl"></i>
-                    </div>
-                    <div>
-                        <p class="text-gray-600">Notices</p>
-                        <p class="text-2xl font-bold text-nsknavy">3</p>
-                        <p class="text-xs text-nskred"><i class="fas fa-exclamation-circle"></i> New alerts</p>
-                    </div>
-                </div>
+
             </div>
 
             <div class="bg-white rounded-xl shadow-md p-6 mb-8">
@@ -1628,9 +1510,9 @@ try {
                                     value="<?= htmlspecialchars($searchQuery) ?>"
                                     oninput="debounceSearch()"
                                     class="bg-white border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-nskblue focus:border-nskblue block w-full pl-10 p-2.5 transition-all shadow-sm group-hover:shadow-md" />
-                                
+
                                 <?php if (!empty($searchQuery)): ?>
-                                    <a href="<?= $_SERVER['PHP_SELF'] ?>?class_filter=<?= $classFilter ?>&graduation_filter=<?= $graduationFilter ?>" 
+                                    <a href="<?= $_SERVER['PHP_SELF'] ?>?class_filter=<?= $classFilter ?>&graduation_filter=<?= $graduationFilter ?>"
                                        class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
                                        title="Clear Search">
                                         <i class="fas fa-times-circle"></i>
@@ -1648,12 +1530,17 @@ try {
                                     </option>
                                 <?php endforeach; ?>
                             </select>
-
-                            <!-- Status Filter Removed to match Teachers Page -->
-                            <!-- <select name="graduation_filter" ...> </select> -->
-
+                            <!-- Status Filter -->
+                            <select name="graduation_filter" id="graduationFilter" onchange="showLoading(); this.form.submit()"
+                                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-nskblue focus:border-nskblue block p-2.5 cursor-pointer hover:bg-white transition-all shadow-sm">
+                                <option value="">All Status</option>
+                                <option value="active" <?= $graduationFilter == 'active' ? 'selected' : '' ?>>Active</option>
+                                <option value="graduated" <?= $graduationFilter == 'graduated' ? 'selected' : '' ?>>Graduated</option>
+                                <option value="withdrawn" <?= $graduationFilter == 'withdrawn' ? 'selected' : '' ?>>Withdrawn</option>
+                                <option value="transferred" <?= $graduationFilter == 'transferred' ? 'selected' : '' ?>>Transferred</option>
+                            </select>
                             <button type="submit" onclick="showLoading()"
-                                class="text-white bg-nskblue hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center inline-flex items-center gap-2 shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                                class="text-white bg-nskblue hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 text-center inline-flex items-center gap-2">
                                 <i class="fas fa-filter"></i> Apply
                             </button>
                         </div>
@@ -1661,25 +1548,32 @@ try {
 
                     <!-- Active Filters Display -->
                     <div id="activeFiltersContainer">
-                    <?php if (!empty($searchQuery) || !empty($classFilter)): ?>
-                        <div class="flex items-center gap-2 text-sm text-gray-600 animate-fade-in-down">
+                    <?php if (!empty($searchQuery) || !empty($classFilter) || !empty($graduationFilter)): ?>
+                        <div class="flex items-center gap-2 text-sm text-gray-600 animate-fade-in-down flex-wrap mt-3">
                             <span class="font-semibold">Active Filters:</span>
-                            
+
                             <?php if (!empty($searchQuery)): ?>
                                 <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded border border-blue-400 flex items-center gap-1">
                                     Search: <?= htmlspecialchars($searchQuery) ?>
-                                    <a href="?search=&class_filter=<?= $classFilter ?>" class="hover:text-blue-900" onclick="event.preventDefault(); updateFilter('search', '');"><i class="fas fa-times"></i></a>
+                                    <a href="?search=&class_filter=<?= $classFilter ?>&graduation_filter=<?= $graduationFilter ?>" class="hover:text-blue-900" onclick="event.preventDefault(); updateFilter('search', '');"><i class="fas fa-times"></i></a>
                                 </span>
                             <?php endif; ?>
 
                             <?php if (!empty($classFilter)): ?>
-                                <?php 
+                                <?php
                                     $filteredClass = array_filter($classes, function($c) use ($classFilter) { return $c['id'] == $classFilter; });
                                     $className = !empty($filteredClass) ? reset($filteredClass)['class_name'] : 'Unknown Class';
                                 ?>
                                 <span class="bg-green-100 text-green-800 text-xs font-medium px-2.5 py-0.5 rounded border border-green-400 flex items-center gap-1">
                                     Class: <?= htmlspecialchars($className) ?>
-                                    <a href="?search=<?= $searchQuery ?>&class_filter=" class="hover:text-green-900" onclick="event.preventDefault(); updateFilter('class_filter', '');"><i class="fas fa-times"></i></a>
+                                    <a href="?search=<?= $searchQuery ?>&class_filter=&graduation_filter=<?= $graduationFilter ?>" class="hover:text-green-900" onclick="event.preventDefault(); updateFilter('class_filter', '');"><i class="fas fa-times"></i></a>
+                                </span>
+                            <?php endif; ?>
+
+                            <?php if (!empty($graduationFilter)): ?>
+                                <span class="bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-0.5 rounded border border-purple-400 flex items-center gap-1">
+                                    Status: <?= ucfirst(htmlspecialchars($graduationFilter)) ?>
+                                    <a href="?search=<?= $searchQuery ?>&class_filter=<?= $classFilter ?>&graduation_filter=" class="hover:text-purple-900" onclick="event.preventDefault(); updateFilter('graduation_filter', '');"><i class="fas fa-times"></i></a>
                                 </span>
                             <?php endif; ?>
 
@@ -1738,14 +1632,14 @@ try {
 
                     function performAjaxSearch(page = 1) {
                         showLoading();
-                        
+
                         const form = document.getElementById('filterForm');
                         const formData = new FormData(form);
                         formData.append('page', page); // Add page number
-                        
+
                         const params = new URLSearchParams(formData);
                         const url = window.location.pathname + '?' + params.toString();
-                        
+
                         window.history.pushState({}, '', url);
 
                         fetch(url)
@@ -1753,7 +1647,7 @@ try {
                             .then(html => {
                                 const parser = new DOMParser();
                                 const doc = parser.parseFromString(html, 'text/html');
-                                
+
                                 const newBody = doc.getElementById('studentsTableBody');
                                 const currentBody = document.getElementById('studentsTableBody');
                                 if (newBody && currentBody) {
@@ -1765,7 +1659,7 @@ try {
                                 if (newFilters && currentFilters) {
                                     currentFilters.innerHTML = newFilters.innerHTML;
                                 }
-                                
+
                                 const newPagination = doc.getElementById('paginationContainer');
                                 const currentPagination = document.getElementById('paginationContainer');
                                 if (newPagination && currentPagination) {
@@ -1795,34 +1689,34 @@ try {
                     function clearAllFilters(e) {
                         e.preventDefault();
                         const form = document.getElementById('filterForm');
-                        
+
                         const searchInput = document.getElementById('searchInput');
                         if (searchInput) searchInput.value = '';
-                        
+
                         const selects = form.querySelectorAll('select');
                         selects.forEach(select => {
                              select.value = '';
                         });
-                        
+
                         performAjaxSearch();
                     }
                 </script>
 
-                <div class="flex flex-wrap gap-4 mt-4">
+                <div class="flex flex-wrap gap-3 mt-4">
                     <!-- Add Student Button (Always Visible) -->
                     <button type="button" onclick="openAddStudentModal()"
-                        class="bg-nskgreen text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition flex items-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+                        class="bg-nskgreen text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-600 transition flex items-center">
                         <i class="fas fa-plus mr-2"></i> Add Student
                     </button>
 
-                    <!-- Add these new buttons -->
+                   <!-- Add these new buttons -->
                     <button type="button" onclick="downloadTemplate(this)"
-                        class="bg-nskblue text-white px-4 py-2 rounded-lg font-semibold hover:bg-nsknavy transition flex items-center">
+                        class="bg-nskblue text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-nsknavy transition flex items-center">
                         <i class="fas fa-download mr-2"></i> Download Template
                     </button>
 
                     <button type="button" onclick="showImportModal()"
-                        class="bg-nskgold text-white px-4 py-2 rounded-lg font-semibold hover:bg-amber-600 transition flex items-center">
+                        class="bg-nskgold text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-amber-600 transition flex items-center">
                         <i class="fas fa-upload mr-2"></i> Import from CSV
                     </button>
 
@@ -1831,7 +1725,7 @@ try {
                         <input type="hidden" name="class_filter" value="<?= htmlspecialchars($classFilter) ?>">
                         <input type="hidden" name="graduation_filter" value="<?= htmlspecialchars($graduationFilter) ?>">
                         <button type="submit" name="export_csv"
-                            class="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition flex items-center">
+                            class="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700 transition flex items-center">
                             <i class="fas fa-file-export mr-2"></i> Export
                         </button>
                     </form>
@@ -1884,7 +1778,7 @@ try {
                                             <p class="text-gray-600">
                                                 <?= $student['admission_session'] ?? date('Y', strtotime($student['admission_date'])) ?>
                                             </p>
-                                            
+
                                             <?php if (!empty($student['expected_graduation_session'])): ?>
                                                 <p class="font-semibold text-gray-700 mt-1">Graduating:</p>
                                                 <p class="text-nskgreen font-medium">
@@ -1938,7 +1832,7 @@ try {
                             <?php endif; ?>
                         </tbody>
                     </table>
-                    
+
                     <!-- Pagination Controls -->
                     <?php if (isset($totalPages) && $totalPages > 1): ?>
                     <div id="paginationContainer" class="flex flex-col sm:flex-row justify-between items-center py-4 px-6 border-t mt-4 bg-white rounded-lg shadow-sm">
@@ -1955,28 +1849,28 @@ try {
                                     <i class="fas fa-chevron-left mr-1"></i> Prev
                                 </button>
                              <?php endif; ?>
-                             
+
                              <?php
                              $start = max(1, $page - 2);
                              $end = min($totalPages, $page + 2);
-                             
-                             if ($start > 1) { 
+
+                             if ($start > 1) {
                                  echo '<button onclick="changePage(1)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">1</button>';
                                  if ($start > 2) echo '<span class="px-2 text-gray-400">...</span>';
                              }
-                             
+
                              for ($i = $start; $i <= $end; $i++): ?>
                                 <button onclick="changePage(<?= $i ?>)" class="px-3 py-1 border rounded text-sm <?= $i == $page ? 'bg-blue-600 text-white border-blue-600' : 'hover:bg-gray-50' ?>">
                                     <?= $i ?>
                                 </button>
-                             <?php endfor; 
-                             
-                             if ($end < $totalPages) { 
+                             <?php endfor;
+
+                             if ($end < $totalPages) {
                                  if ($end < $totalPages - 1) echo '<span class="px-2 text-gray-400">...</span>';
                                  echo '<button onclick="changePage(' . $totalPages . ')" class="px-3 py-1 border rounded text-sm hover:bg-gray-50">' . $totalPages . '</button>';
                              }
                              ?>
-                             
+
                              <?php if ($page < $totalPages): ?>
                                 <button onclick="changePage(<?= $page + 1 ?>)" class="px-3 py-1 border rounded text-sm hover:bg-gray-50 flex items-center">
                                     Next <i class="fas fa-chevron-right ml-1"></i>
@@ -2145,7 +2039,7 @@ try {
                             <input type="file" id="csvFile" name="csv_file" accept=".csv" class="hidden"
                                 onchange="handleFileSelect(this)">
                             <button type="button" onclick="document.getElementById('csvFile').click()"
-                                class="bg-nskblue text-white px-6 py-2 rounded-lg font-semibold hover:bg-nsknavy transition">
+                                class="bg-nskblue text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-nsknavy transition">
                                 <i class="fas fa-folder-open mr-2"></i> Choose File
                             </button>
                             <p class="text-xs text-gray-500 mt-4">Supported format: CSV (Max 5MB)</p>
@@ -2190,11 +2084,11 @@ try {
 
                     <div class="mt-6 flex justify-end space-x-3">
                         <button type="button" onclick="closeImportModal()"
-                            class="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 transition">
+                            class="bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-400 transition">
                             Cancel
                         </button>
                         <button type="submit" name="import_students"
-                            class="bg-nskgreen text-white px-6 py-2 rounded-lg hover:bg-green-600 transition flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="bg-nskgreen text-white px-3 py-2 rounded-lg text-sm hover:bg-green-600 transition flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                             id="importSubmit" disabled>
                             <i class="fas fa-upload mr-2"></i> Upload and Import
                         </button>
@@ -2239,11 +2133,11 @@ try {
 
                 <div class="mt-8 flex justify-end space-x-3 border-t pt-4">
                     <button onclick="closeViewStudentModal()"
-                        class="bg-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-400 transition flex items-center">
+                        class="bg-gray-300 text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-400 transition flex items-center">
                         <i class="fas fa-times mr-2"></i> Close
                     </button>
                     <button onclick="editCurrentStudent()"
-                        class="bg-nskblue text-white px-6 py-2 rounded-lg hover:bg-nsknavy transition flex items-center">
+                        class="bg-nskblue text-white px-3 py-2 rounded-lg text-sm hover:bg-nsknavy transition flex items-center">
                         <i class="fas fa-edit mr-2"></i> Edit Student
                     </button>
                 </div>
@@ -2434,9 +2328,17 @@ try {
                 }
             }
 
-            // Delete Student Function
             function deleteStudent(studentId) {
-                if (confirm('Are you sure you want to delete this student? This action cannot be undone.')) {
+                Swal.fire({
+                    title: 'Delete Student?',
+                    text: 'Are you sure you want to delete this student? This action cannot be undone.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, delete it!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
                     const form = document.createElement('form');
                     form.method = 'POST';
                     form.action = '';
@@ -2456,7 +2358,8 @@ try {
                     document.body.appendChild(form);
                     form.submit();
                 }
-            }
+            });
+        }
 
             // Import Modal Functions
             function showImportModal() {
@@ -2508,12 +2411,12 @@ try {
 
             function handleFile(file) {
                 if (file.type !== 'text/csv' && !file.name.toLowerCase().endsWith('.csv')) {
-                    alert('Please select a CSV file.');
+                    Swal.fire('Warning', 'Please select a CSV file.', 'warning');
                     return;
                 }
 
                 if (file.size > 5 * 1024 * 1024) {
-                    alert('File size must be less than 5MB.');
+                    Swal.fire('Warning', 'File size must be less than 5MB.', 'warning');
                     return;
                 }
 
@@ -2625,9 +2528,9 @@ try {
                     </div>
                 </div>
             </div>
-            
+
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
+
                 <div class="space-y-4 bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <h3 class="text-lg font-semibold text-nsknavy border-b border-gray-200 pb-2">Personal Information</h3>
                     <div class="flow-root">
@@ -2640,7 +2543,7 @@ try {
                         ${infoRow('LGA', student.lga)}
                     </div>
                 </div>
-                
+
                 <div class="space-y-6">
                     <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
                         <h3 class="text-lg font-semibold text-nsknavy border-b border-gray-200 pb-2">Academic & Emergency</h3>
@@ -2652,7 +2555,7 @@ try {
                             ${infoRow('Emergency Phone', student.emergency_contact_phone)}
                         </div>
                     </div>
-                    
+
                     <div class="bg-red-50 p-4 rounded-lg border border-red-200">
                         <h3 class="text-lg font-semibold text-red-700 border-b border-red-200 pb-2 flex items-center">
                             <i class="fas fa-notes-medical mr-2"></i> Medical Conditions
@@ -2662,7 +2565,7 @@ try {
                         </div>
                     </div>
                 </div>
-                
+
             </div>
         </div>
     `;
@@ -2751,7 +2654,7 @@ try {
                     const errors = <?= json_encode($_SESSION['import_errors']) ?>;
                     if (errors.length > 0) {
                         let errorMessage = "Some rows had errors:\n" + errors.join('\n');
-                        alert(errorMessage);
+                        Swal.fire('Error', errorMessage, 'error');
                     }
                 });
                 <?php
@@ -2760,7 +2663,8 @@ try {
             ?>
         </script>
 
-        <script src="./footer.js"></script>
+
+        <?php require_once 'footer.php'; ?>
     </main>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -2851,6 +2755,10 @@ try {
         endif;
         ?>
     </script>
-</body>
 
+    <!-- Professional AJAX Filter System -->
+    <script src="students_ajax_filter.js"></script>
+
+    </div>
+</body>
 </html>

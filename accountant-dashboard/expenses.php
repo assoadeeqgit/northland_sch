@@ -3,10 +3,13 @@ require_once '../auth-check.php';
 checkAuth('accountant'); // Finance management is for accountants only 
 
 include '../includes/header.php';
-require_once '../config/database.php';
+require_once '../config/DatabaseManager.php';
 
-$db = new Database();
-$conn = $db->getConnection();
+$dbManager = DatabaseManager::getInstance();
+$conn = $dbManager->getConnection();
+
+// --- FETCH CATEGORIES FOR DROPDOWNS ---
+$active_categories = $conn->query("SELECT * FROM expense_categories WHERE is_active = 1 ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 
 // --- HANDLE FORM SUBMISSION ---
 $message = '';
@@ -17,7 +20,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_expense'])) {
     $category = $_POST['category'] ?? 'other';
     $amount = $_POST['amount'] ?? 0;
     $expense_date = $_POST['expense_date'] ?? date('Y-m-d');
-    $status = 'pending'; // Default status
+    $expense_date = $_POST['expense_date'] ?? date('Y-m-d');
+    
+    // Auto-approval logic: <= 50,000 is approved, > 50,000 is pending
+    if ($amount <= 50000) {
+        $status = 'approved';
+    } else {
+        $status = 'pending';
+    }
 
     if (!empty($description) && $amount > 0) {
         try {
@@ -56,13 +66,54 @@ $stmt->execute($params);
 $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Calculate Stats for Top Cards (Dynamic)
-$current_month_start = date('Y-m-01');
-$current_month_end = date('Y-m-t');
+// Calculate Stats for Top Cards (Dynamic)
+// --- FETCH ACTIVE TERM DATES ---
+$term_start = date('Y-m-01'); // Default
+$term_end = date('Y-m-t');   // Default
+$term_name = 'This Month';   // Default
 
-// Total Expenses (Month)
+try {
+    $stmt_term = $conn->query("SELECT id, start_date, end_date, term_name FROM terms WHERE is_current = 1 LIMIT 1");
+    $term_data = $stmt_term->fetch(PDO::FETCH_ASSOC);
+    if ($term_data) {
+        $term_id = $term_data['id'];
+        $term_start = $term_data['start_date'];
+        $term_end = $term_data['end_date'];
+        $term_name = $term_data['term_name'];
+    }
+} catch (Exception $e) { /* Ignore */ }
+
+// Fetch Budget for this term
+$term_budget = 0;
+if (isset($term_id)) {
+    $stmt = $conn->prepare("SELECT amount FROM term_budgets WHERE term_id = ?");
+    $stmt->execute([$term_id]);
+    $term_budget = $stmt->fetchColumn() ?: 0;
+}
+
+// Calculate Budget Usage
+$budget_usage_percent = 0;
+$budget_status_text = "No Budget Set";
+$budget_color = "gray";
+
+if ($term_budget > 0) {
+    $budget_usage_percent = ($total_expenses_term / $term_budget) * 100;
+    if ($budget_usage_percent <= 80) {
+        $budget_status_text = "Within Limit";
+        $budget_color = "success";
+    } elseif ($budget_usage_percent <= 100) {
+        $budget_status_text = "Near Limit";
+        $budget_color = "warning";
+    } else {
+        $budget_status_text = "Over Budget";
+        $budget_color = "danger";
+    }
+}
+
+// Total Expenses (Term)
 $stmt = $conn->prepare("SELECT SUM(amount) as total FROM expenses WHERE expense_date BETWEEN ? AND ?");
-$stmt->execute([$current_month_start, $current_month_end]);
-$total_expenses_month = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
+$stmt->execute([$term_start, $term_end]);
+$total_expenses_term = $stmt->fetch(PDO::FETCH_ASSOC)['total'] ?? 0;
 
 // Pending Approvals
 $stmt = $conn->query("SELECT COUNT(*) as count FROM expenses WHERE status = 'pending'");
@@ -93,18 +144,20 @@ $pending_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
         <!-- Expense Stats -->
         <div class="stats-grid" style="padding: 0 0 30px 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
             <div class="stat-card blue" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <span class="label" style="display: block; color: var(--text-light); font-size: 0.9rem;">Total Expenses (Month)</span>
-                <span class="value" style="display: block; font-size: 1.8rem; font-weight: bold; margin: 10px 0;">₦<?php echo number_format($total_expenses_month, 2); ?></span>
+                <span class="label" style="display: block; color: var(--text-light); font-size: 0.9rem;">Total Expenses (This Term)</span>
+                <span class="value" style="display: block; font-size: 1.8rem; font-weight: bold; margin: 10px 0;">₦<?php echo number_format($total_expenses_term, 2); ?></span>
             </div>
             <div class="stat-card orange" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                 <span class="label" style="display: block; color: var(--text-light); font-size: 0.9rem;">Pending Approvals</span>
                 <span class="value" style="display: block; font-size: 1.8rem; font-weight: bold; margin: 10px 0;"><?php echo $pending_count; ?></span>
                 <span class="trend text-warning" style="font-size: 0.85rem;">Requires Attention</span>
             </div>
-             <div class="stat-card green" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-                <span class="label" style="display: block; color: var(--text-light); font-size: 0.9rem;">Budget Status</span>
-                <span class="value" style="display: block; font-size: 1.8rem; font-weight: bold; margin: 10px 0;">85%</span>
-                <span class="trend text-success" style="font-size: 0.85rem;">Within Limit</span>
+             <div class="stat-card <?= $budget_usage_percent > 100 ? 'red' : ($budget_usage_percent > 80 ? 'orange' : 'green') ?>" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <span class="label" style="display: block; color: var(--text-light); font-size: 0.9rem;">Budget Status (<?= htmlspecialchars($term_name) ?>)</span>
+                <span class="value" style="display: block; font-size: 1.8rem; font-weight: bold; margin: 10px 0;">
+                    <?= $term_budget > 0 ? (round($budget_usage_percent, 1) . '%') : 'N/A' ?>
+                </span>
+                <span class="trend text-<?= $budget_color ?>" style="font-size: 0.85rem;"><?= $budget_status_text ?></span>
             </div>
         </div>
 
@@ -118,11 +171,11 @@ $pending_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
                 <div style="flex: 1; min-width: 150px;">
                     <select name="category" style="width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-color);">
                         <option value="">All Categories</option>
-                        <option value="salary" <?php echo (($_GET['category'] ?? '') == 'salary') ? 'selected' : ''; ?>>Staff Salary</option>
-                        <option value="utilities" <?php echo (($_GET['category'] ?? '') == 'utilities') ? 'selected' : ''; ?>>Utilities</option>
-                        <option value="maintenance" <?php echo (($_GET['category'] ?? '') == 'maintenance') ? 'selected' : ''; ?>>Maintenance</option>
-                        <option value="supplies" <?php echo (($_GET['category'] ?? '') == 'supplies') ? 'selected' : ''; ?>>Supplies</option>
-                         <option value="other" <?php echo (($_GET['category'] ?? '') == 'other') ? 'selected' : ''; ?>>Other</option>
+                        <?php foreach ($active_categories as $cat): ?>
+                            <option value="<?php echo htmlspecialchars($cat['name']); ?>" <?php echo (($_GET['category'] ?? '') == $cat['name']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($cat['name']); ?>
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 <button type="submit" class="btn btn-primary">Filter</button>
@@ -142,13 +195,13 @@ $pending_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
                         <th style="padding: 12px;">Category</th>
                         <th style="padding: 12px;">Amount</th>
                         <th style="padding: 12px;">Status</th>
-                        <th style="padding: 12px;">Actions</th>
+
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($expenses)): ?>
                     <tr>
-                        <td colspan="6" style="padding: 20px; text-align: center; color: #666;">No expenses found.</td>
+                        <td colspan="5" style="padding: 20px; text-align: center; color: #666;">No expenses found.</td>
                     </tr>
                     <?php else: ?>
                         <?php foreach ($expenses as $expense): ?>
@@ -167,9 +220,7 @@ $pending_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
                                 ?>
                                 <span class="text-<?php echo $statusColor; ?>" style="background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; text-transform: capitalize;"><?php echo htmlspecialchars($expense['status']); ?></span>
                             </td>
-                            <td style="padding: 12px;">
-                                <button class="btn" style="padding: 6px; color: var(--brand-navy);"><i class="fas fa-eye"></i></button>
-                            </td>
+
                         </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -197,11 +248,12 @@ $pending_count = $stmt->fetch(PDO::FETCH_ASSOC)['count'] ?? 0;
                 <div>
                     <label style="display: block; margin-bottom: 5px; font-weight: 500;">Category</label>
                     <select name="category" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="other">Other</option>
-                        <option value="salary">Staff Salary</option>
-                        <option value="utilities">Utilities</option>
-                        <option value="maintenance">Maintenance</option>
-                        <option value="supplies">Supplies</option>
+                        <?php foreach ($active_categories as $cat): ?>
+                            <option value="<?php echo htmlspecialchars($cat['name']); ?>"><?php echo htmlspecialchars($cat['name']); ?></option>
+                        <?php endforeach; ?>
+                        <?php if (empty($active_categories)): ?>
+                            <option value="Other">Other</option>
+                        <?php endif; ?>
                     </select>
                 </div>
                 <div>

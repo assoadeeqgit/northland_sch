@@ -2,10 +2,111 @@
 require_once 'auth-check.php'; // Allows both admin and accountant for viewing fees 
 
 include '../includes/header.php';
-require_once '../config/database.php';
+require_once '../config/DatabaseManager.php';
 
-$db = new Database();
-$conn = $db->getConnection();
+$dbManager = DatabaseManager::getInstance();
+$conn = $dbManager->getConnection();
+
+// --- EXPORT LOGIC (Must be before any output) ---
+if (isset($_GET['export']) && $_GET['export'] == '1') {
+    // Build Where Clause for Export
+    $whereConditions = ["fs.is_active = 1"];
+    $params = [];
+
+    // Search filter
+    if (!empty($_GET['search'])) {
+        $whereConditions[] = "(fs.fee_type LIKE ? OR c.class_name LIKE ?)";
+        $searchTerm = "%" . $_GET['search'] . "%";
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+    }
+
+    // Term filter
+    if (!empty($_GET['term'])) {
+        $whereConditions[] = "fs.term_id = ?";
+        $params[] = $_GET['term'];
+    }
+
+    $whereClause = implode(" AND ", $whereConditions);
+
+    // Re-run query for export
+    $export_query = $conn->prepare("
+        SELECT 
+            fs.fee_type,
+            c.class_name,
+            t.term_name,
+            fs.amount,
+            (SELECT COUNT(*) FROM students s WHERE s.class_id = fs.class_id) as student_count,
+            fs.due_date,
+            fs.is_optional
+        FROM fee_structure fs
+        LEFT JOIN classes c ON fs.class_id = c.id
+        LEFT JOIN terms t ON fs.term_id = t.id
+        LEFT JOIN academic_sessions acs ON fs.academic_session_id = acs.id
+        WHERE $whereClause
+        ORDER BY fs.created_at DESC
+    ");
+    $export_query->execute($params);
+    $export_data = $export_query->fetchAll(PDO::FETCH_ASSOC);
+
+    // Set headers for Excel download
+    header("Content-Type: application/vnd.ms-excel");
+    header("Content-Disposition: attachment; filename=fee_structures_export_" . date('Y-m-d') . ".xls");
+    
+    // Output HTML Table for Excel
+    echo '<html xmlns:x="urn:schemas-microsoft-com:office:excel">';
+    echo '<head>';
+    echo '<!--[if gte mso 9]>';
+    echo '<xml>';
+    echo '<x:ExcelWorkbook>';
+    echo '<x:ExcelWorksheets>';
+    echo '<x:ExcelWorksheet>';
+    echo '<x:Name>Fee Structures</x:Name>';
+    echo '<x:WorksheetOptions>';
+    echo '<x:Print>';
+    echo '<x:ValidPrinterInfo/>';
+    echo '</x:Print>';
+    echo '</x:WorksheetOptions>';
+    echo '</x:ExcelWorksheet>';
+    echo '</x:ExcelWorksheets>';
+    echo '</x:ExcelWorkbook>';
+    echo '</xml>';
+    echo '<![endif]-->';
+    echo '<style>th { background-color: #f3f4f6; border: 1px solid #d1d5db; font-weight: bold; } td { border: 1px solid #d1d5db; }</style>';
+    echo '</head>';
+    echo '<body>';
+    echo '<table>';
+    echo '<thead>';
+    echo '<tr>';
+    echo '<th>Fee Type</th>';
+    echo '<th>Class</th>';
+    echo '<th>Term</th>';
+    echo '<th>Amount</th>';
+    echo '<th>Students Assigned</th>';
+    echo '<th>Due Date</th>';
+    echo '<th>Is Optional</th>';
+    echo '</tr>';
+    echo '</thead>';
+    echo '<tbody>';
+    
+    foreach ($export_data as $row) {
+        echo '<tr>';
+        echo '<td>' . htmlspecialchars($row['fee_type']) . '</td>';
+        echo '<td>' . htmlspecialchars($row['class_name']) . '</td>';
+        echo '<td>' . htmlspecialchars($row['term_name']) . '</td>';
+        echo '<td>' . htmlspecialchars($row['amount']) . '</td>';
+        echo '<td>' . htmlspecialchars($row['student_count']) . '</td>';
+        echo '<td>' . htmlspecialchars($row['due_date']) . '</td>';
+        echo '<td>' . ($row['is_optional'] ? 'Yes' : 'No') . '</td>';
+        echo '</tr>';
+    }
+    
+    echo '</tbody>';
+    echo '</table>';
+    echo '</body>';
+    echo '</html>';
+    exit();
+}
 
 // --- HANDLE FORM SUBMISSION ---
 $message = '';
@@ -18,12 +119,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_fee_structure']))
     $amount = $_POST['amount'] ?? 0;
     $academic_session_id = $_POST['academic_session_id'] ?? 0;
     $term_id = $_POST['term_id'] ?? 0;
-    $due_date = $_POST['due_date'] ?? null;
+    $due_date = !empty($_POST['due_date']) ? $_POST['due_date'] : null;
+    $is_optional = isset($_POST['is_optional']) ? 1 : 0;
 
     if ($class_id > 0 && !empty($fee_type) && $amount > 0 && $academic_session_id > 0 && $term_id > 0) {
         try {
-            $stmt = $conn->prepare("INSERT INTO fee_structure (class_id, fee_type, amount, academic_session_id, term_id, due_date, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)");
-            $stmt->execute([$class_id, $fee_type, $amount, $academic_session_id, $term_id, $due_date]);
+            $stmt = $conn->prepare("INSERT INTO fee_structure (class_id, fee_type, amount, academic_session_id, term_id, due_date, is_active, is_optional) VALUES (?, ?, ?, ?, ?, ?, 1, ?)");
+            $stmt->execute([$class_id, $fee_type, $amount, $academic_session_id, $term_id, $due_date, $is_optional]);
             $message = "Fee structure created successfully!";
             $messageType = "success";
         } catch (PDOException $e) {
@@ -44,12 +146,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_fee_structure'
     $amount = $_POST['amount'] ?? 0;
     $academic_session_id = $_POST['academic_session_id'] ?? 0;
     $term_id = $_POST['term_id'] ?? 0;
-    $due_date = $_POST['due_date'] ?? null;
+    $due_date = !empty($_POST['due_date']) ? $_POST['due_date'] : null;
+    $is_optional = isset($_POST['is_optional']) ? 1 : 0;
 
     if ($id > 0 && $class_id > 0 && !empty($fee_type) && $amount > 0) {
         try {
-            $stmt = $conn->prepare("UPDATE fee_structure SET class_id = ?, fee_type = ?, amount = ?, academic_session_id = ?, term_id = ?, due_date = ? WHERE id = ?");
-            $stmt->execute([$class_id, $fee_type, $amount, $academic_session_id, $term_id, $due_date, $id]);
+            $stmt = $conn->prepare("UPDATE fee_structure SET class_id = ?, fee_type = ?, amount = ?, academic_session_id = ?, term_id = ?, due_date = ?, is_optional = ? WHERE id = ?");
+            $stmt->execute([$class_id, $fee_type, $amount, $academic_session_id, $term_id, $due_date, $is_optional, $id]);
             $message = "Fee structure updated successfully!";
             $messageType = "success";
         } catch (PDOException $e) {
@@ -106,6 +209,8 @@ if (!empty($_GET['term'])) {
 
 $whereClause = implode(" AND ", $whereConditions);
 
+// Export Logic Removed from here (Moved to top)
+
 $fee_structures_query = $conn->prepare("
     SELECT 
         fs.*,
@@ -153,8 +258,12 @@ $all_classes = $classes_query->fetchAll(PDO::FETCH_ASSOC);
 $sessions_query = $conn->query("SELECT * FROM academic_sessions ORDER BY id DESC");
 $all_sessions = $sessions_query->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch all terms
-$terms_query = $conn->query("SELECT * FROM terms ORDER BY id ASC");
+// Fetch all terms for current academic session only
+$terms_query = $conn->prepare("SELECT t.* FROM terms t 
+    JOIN academic_sessions s ON t.session_id = s.id 
+    WHERE s.is_current = 1 
+    ORDER BY t.id ASC");
+$terms_query->execute();
 $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
@@ -174,8 +283,8 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                 <p style="color: var(--text-light); margin-top: 5px;">Configure fee structures and manage school fees for <strong style="color: var(--brand-navy);">Northland Schools Kano</strong>.</p>
             </div>
             <div style="display: flex; gap: 10px;">
-                <button class="btn" style="background: white; border: 1px solid var(--border-color); color: var(--text-color);"><i class="fas fa-file-export" style="margin-right:8px;"></i> Export</button>
-                <button onclick="document.getElementById('addFeeModal').style.display='block'" class="btn btn-primary"><i class="fas fa-plus" style="margin-right:8px;"></i> Create New Structure</button>
+                <button onclick="window.location.href='fees.php?export=1&' + new URLSearchParams(new FormData(document.querySelector('form'))).toString()" class="btn" style="background: white; border: 1px solid var(--border-color); color: var(--text-color);"><i class="fas fa-file-export" style="margin-right:8px;"></i> Export</button>
+                <button onclick="openModal('addFeeModal')" class="btn btn-primary"><i class="fas fa-plus" style="margin-right:8px;"></i> Create New Structure</button>
             </div>
         </div>
 
@@ -246,7 +355,12 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
                         <?php foreach ($fee_structures as $structure): ?>
                         <tr style="border-bottom: 1px solid #eee;">
                             <td style="padding: 12px;">
-                                <div style="font-weight: 600;"><?php echo htmlspecialchars($structure['fee_type']); ?></div>
+                                <div style="font-weight: 600;">
+                                    <?php echo htmlspecialchars($structure['fee_type']); ?>
+                                    <?php if ($structure['is_optional']): ?>
+                                        <span class="badge badge-info" style="font-size: 0.7em; background-color: #17a2b8; color: white; padding: 2px 5px; border-radius: 4px; margin-left: 5px;">Optional</span>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                             <td style="padding: 12px;"><?php echo htmlspecialchars($structure['class_name'] ?? 'N/A'); ?></td>
                             <td style="padding: 12px;"><?php echo htmlspecialchars($structure['term_name'] ?? 'N/A'); ?></td>
@@ -272,133 +386,155 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
 </div>
 
 <!-- Add Fee Structure Modal -->
-<div id="addFeeModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
-    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 25px; border: 1px solid #888; width: 600px; border-radius: 8px; max-height: 90vh; overflow-y: auto;">
-        <span onclick="document.getElementById('addFeeModal').style.display='none'" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
-        <h2 style="margin-top: 0; color: var(--brand-navy); margin-bottom: 20px;">Create New Fee Structure</h2>
+<div id="addFeeModal" class="custom-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Create New Fee Structure</h2>
+            <button onclick="closeModal('addFeeModal')" class="modal-close">&times;</button>
+        </div>
         
         <form method="POST">
-            <input type="hidden" name="add_fee_structure" value="1">
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Fee Type *</label>
-                <input type="text" name="fee_type" required placeholder="e.g., Tuition, Development Levy, Exam Fee" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Class *</label>
-                    <select name="class_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">Select Class</option>
-                        <?php foreach ($all_classes as $class): ?>
-                            <option value="<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['class_name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
+            <div class="modal-body">
+                <input type="hidden" name="add_fee_structure" value="1">
+                
+                <div class="form-group">
+                    <label class="form-label">Fee Type *</label>
+                    <input type="text" name="fee_type" required placeholder="e.g., Tuition, Development Levy" class="form-control">
                 </div>
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Amount (₦) *</label>
-                    <input type="number" name="amount" step="0.01" required placeholder="0.00" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                
+                <div class="form-grid">
+                    <div>
+                        <label class="form-label">Class *</label>
+                        <select name="class_id" required class="form-control">
+                            <option value="">Select Class</option>
+                            <?php foreach ($all_classes as $class): ?>
+                                <option value="<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['class_name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Amount (₦) *</label>
+                        <input type="number" name="amount" step="0.01" required placeholder="0.00" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div>
+                        <label class="form-label">Academic Session *</label>
+                        <select name="academic_session_id" required class="form-control">
+                            <option value="">Select Session</option>
+                            <?php foreach ($all_sessions as $session): ?>
+                                <option value="<?php echo $session['id']; ?>" <?php echo $session['id'] == $current_session_id ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($session['session_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Term *</label>
+                        <select name="term_id" required class="form-control">
+                            <option value="">Select Term</option>
+                            <?php foreach ($all_terms as $term): ?>
+                                <option value="<?php echo $term['id']; ?>" <?php echo $term['id'] == $current_term_id ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($term['term_name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Due Date (Optional)</label>
+                    <input type="date" name="due_date" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-wrapper">
+                        <input type="checkbox" name="is_optional" value="1">
+                        <span style="font-weight: 500; color: var(--brand-navy);">Optional Fee (Does not add to debt)</span>
+                    </label>
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Academic Session *</label>
-                    <select name="academic_session_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">Select Session</option>
-                        <?php foreach ($all_sessions as $session): ?>
-                            <option value="<?php echo $session['id']; ?>" <?php echo $session['id'] == $current_session_id ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($session['session_name']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Term *</label>
-                    <select name="term_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">Select Term</option>
-                        <?php foreach ($all_terms as $term): ?>
-                            <option value="<?php echo $term['id']; ?>" <?php echo $term['id'] == $current_term_id ? 'selected' : ''; ?>>
-                                <?php echo htmlspecialchars($term['term_name']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-            </div>
-
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Due Date (Optional)</label>
-                <input type="date" name="due_date" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-
-            <div style="text-align: right;">
-                <button type="button" onclick="document.getElementById('addFeeModal').style.display='none'" class="btn" style="margin-right: 10px; border: 1px solid #ddd;">Cancel</button>
-                <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">Create Fee Structure</button>
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('addFeeModal')" class="btn" style="background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb;">Cancel</button>
+                <button type="submit" class="btn btn-primary">Create Fee Structure</button>
             </div>
         </form>
     </div>
 </div>
 
 <!-- Edit Fee Structure Modal -->
-<div id="editFeeModal" class="modal" style="display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4);">
-    <div class="modal-content" style="background-color: #fefefe; margin: 5% auto; padding: 25px; border: 1px solid #888; width: 600px; border-radius: 8px; max-height: 90vh; overflow-y: auto;">
-        <span onclick="document.getElementById('editFeeModal').style.display='none'" style="color: #aaa; float: right; font-size: 28px; font-weight: bold; cursor: pointer;">&times;</span>
-        <h2 style="margin-top: 0; color: var(--brand-navy); margin-bottom: 20px;">Edit Fee Structure</h2>
+<div id="editFeeModal" class="custom-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 class="modal-title">Edit Fee Structure</h2>
+            <button onclick="closeModal('editFeeModal')" class="modal-close">&times;</button>
+        </div>
         
         <form method="POST" id="editFeeForm">
-            <input type="hidden" name="update_fee_structure" value="1">
-            <input type="hidden" name="fee_id" id="edit_fee_id">
-            
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Fee Type *</label>
-                <input type="text" name="fee_type" id="edit_fee_type" required placeholder="e.g., Tuition" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-            
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Class *</label>
-                    <select name="class_id" id="edit_class_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">Select Class</option>
-                        <?php foreach ($all_classes as $class): ?>
-                            <option value="<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['class_name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
+            <div class="modal-body">
+                <input type="hidden" name="update_fee_structure" value="1">
+                <input type="hidden" name="fee_id" id="edit_fee_id">
+                
+                <div class="form-group">
+                    <label class="form-label">Fee Type *</label>
+                    <input type="text" name="fee_type" id="edit_fee_type" required placeholder="e.g., Tuition" class="form-control">
                 </div>
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Amount (₦) *</label>
-                    <input type="number" name="amount" id="edit_amount" step="0.01" required placeholder="0.00" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                
+                <div class="form-grid">
+                    <div>
+                        <label class="form-label">Class *</label>
+                        <select name="class_id" id="edit_class_id" required class="form-control">
+                            <option value="">Select Class</option>
+                            <?php foreach ($all_classes as $class): ?>
+                                <option value="<?php echo $class['id']; ?>"><?php echo htmlspecialchars($class['class_name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Amount (₦) *</label>
+                        <input type="number" name="amount" id="edit_amount" step="0.01" required placeholder="0.00" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-grid">
+                    <div>
+                        <label class="form-label">Academic Session *</label>
+                        <select name="academic_session_id" id="edit_session_id" required class="form-control">
+                            <option value="">Select Session</option>
+                            <?php foreach ($all_sessions as $session): ?>
+                                <option value="<?php echo $session['id']; ?>"><?php echo htmlspecialchars($session['session_name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label">Term *</label>
+                        <select name="term_id" id="edit_term_id" required class="form-control">
+                            <option value="">Select Term</option>
+                            <?php foreach ($all_terms as $term): ?>
+                                <option value="<?php echo $term['id']; ?>"><?php echo htmlspecialchars($term['term_name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Due Date (Optional)</label>
+                    <input type="date" name="due_date" id="edit_due_date" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-wrapper">
+                        <input type="checkbox" name="is_optional" id="edit_is_optional" value="1">
+                        <span style="font-weight: 500; color: var(--brand-navy);">Optional Fee (Does not add to debt)</span>
+                    </label>
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Academic Session *</label>
-                    <select name="academic_session_id" id="edit_session_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">Select Session</option>
-                        <?php foreach ($all_sessions as $session): ?>
-                            <option value="<?php echo $session['id']; ?>"><?php echo htmlspecialchars($session['session_name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div>
-                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Term *</label>
-                    <select name="term_id" id="edit_term_id" required style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-                        <option value="">Select Term</option>
-                        <?php foreach ($all_terms as $term): ?>
-                            <option value="<?php echo $term['id']; ?>"><?php echo htmlspecialchars($term['term_name']); ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-            </div>
-
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 500;">Due Date (Optional)</label>
-                <input type="date" name="due_date" id="edit_due_date" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-            </div>
-
-            <div style="text-align: right;">
-                <button type="button" onclick="document.getElementById('editFeeModal').style.display='none'" class="btn" style="margin-right: 10px; border: 1px solid #ddd;">Cancel</button>
-                <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">Update Fee Structure</button>
+            <div class="modal-footer">
+                <button type="button" onclick="closeModal('editFeeModal')" class="btn" style="background: #f3f4f6; color: #4b5563; border: 1px solid #e5e7eb;">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Fee Structure</button>
             </div>
         </form>
     </div>
@@ -411,6 +547,158 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
 </form>
 
 <style>
+/* Modern Modal Styles */
+.custom-modal {
+    display: none;
+    position: fixed;
+    z-index: 1050;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.custom-modal.show {
+    display: flex; /* Important for centering */
+    opacity: 1;
+}
+
+.modal-content {
+    background-color: #fff;
+    margin: auto;
+    padding: 0;
+    border: none;
+    width: 90%;
+    max-width: 650px;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    transform: scale(0.95);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+}
+
+.custom-modal.show .modal-content {
+    transform: scale(1);
+}
+
+.modal-header {
+    padding: 20px 30px;
+    border-bottom: 1px solid #f3f4f6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    border-radius: 16px 16px 0 0;
+}
+
+.modal-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--brand-navy, #111827);
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.2s;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: #ef4444;
+}
+
+.modal-body {
+    padding: 30px;
+    overflow-y: auto;
+    background: #fff;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #374151;
+    font-size: 0.95rem;
+}
+
+.form-control {
+    width: 100%;
+    padding: 12px 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    color: #1f2937;
+    background-color: #f9fafb;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background-color: #fff;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.modal-footer {
+    padding: 20px 30px;
+    border-top: 1px solid #f3f4f6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    background: #f9fafb;
+    border-radius: 0 0 16px 16px;
+}
+
+/* Checkbox Style */
+.checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+    transition: all 0.2s;
+}
+
+.checkbox-wrapper:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.checkbox-wrapper input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--brand-navy, #2563eb);
+}
+
 /* Custom SweetAlert Button Styles */
 .swal2-styled.btn {
     padding: 10px 24px !important;
@@ -464,6 +752,41 @@ $all_terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
 </style>
 
 <script>
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.add('show');
+    }
+}
+
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.classList.remove('show');
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 300); // Wait for transition
+    }
+    // Also remove from display property immediately for now to prevent issues if transition fails, 
+    // or better yet - we rely on CSS utility.
+    // Actually, simpler approach for now:
+    if (modal) {
+        modal.classList.remove('show');
+        // We need to wait for transition to set display none, but for safety:
+        setTimeout(() => { modal.style.display = 'none'; }, 300);
+    }
+}
+
+// Override close for simplicity and reliability
+window.onclick = function(event) {
+    if (event.target.classList.contains('custom-modal')) {
+        event.target.classList.remove('show');
+        setTimeout(() => {
+            event.target.style.display = 'none';
+        }, 300);
+    }
+}
+
 function editFeeStructure(structure) {
     document.getElementById('edit_fee_id').value = structure.id;
     document.getElementById('edit_fee_type').value = structure.fee_type;
@@ -472,7 +795,9 @@ function editFeeStructure(structure) {
     document.getElementById('edit_session_id').value = structure.academic_session_id;
     document.getElementById('edit_term_id').value = structure.term_id;
     document.getElementById('edit_due_date').value = structure.due_date || '';
-    document.getElementById('editFeeModal').style.display = 'block';
+    document.getElementById('edit_is_optional').checked = structure.is_optional == 1;
+    
+    openModal('editFeeModal');
 }
 
 function deleteFeeStructure(id, feeName) {

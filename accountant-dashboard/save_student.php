@@ -5,6 +5,33 @@ error_reporting(E_ALL);
 
 require_once '../includes/db.php';
 
+// Handle DELETE action
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete') {
+    $student_id = $_POST['student_id'] ?? null;
+    
+    if ($student_id) {
+        try {
+            // Get database connection
+            require_once '../config/DatabaseManager.php';
+            $dbManager = DatabaseManager::getInstance();
+            $db = $dbManager->getConnection();
+            
+            // Soft delete - set status to inactive instead of hard delete to preserve data integrity
+            $stmt = $db->prepare("UPDATE students SET status = 'inactive' WHERE id = ?");
+            $stmt->execute([$student_id]);
+            
+            header("Location: students.php?status=deleted");
+            exit;
+        } catch (PDOException $e) {
+            error_log("Error deleting student: " . $e->getMessage());
+            header("Location: students.php?status=error&msg=" . urlencode($e->getMessage()));
+            exit;
+        }
+    }
+    header("Location: students.php?status=error&msg=Invalid student ID");
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate inputs (Basic validation)
     $first_name = $_POST['first_name'] ?? '';

@@ -27,15 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             if (batchAssignTeacher($pdo, $teacher_db_id, $subject_ids, $class_ids)) {
                 // Update class teacher designations
-                foreach ($class_ids as $class_id) {
-                    $is_class_teacher = in_array($class_id, $class_teacher_ids) ? 1 : 0;
-                    $updateStmt = $pdo->prepare("
-                        UPDATE teacher_class_assignments 
-                        SET is_class_teacher = ? 
-                        WHERE teacher_id = ? AND class_id = ?
-                    ");
-                    $updateStmt->execute([$is_class_teacher, $teacher_db_id, $class_id]);
-                }
+                // NOTE: Class Teacher status is managed EXCLUSIVELY via classes.php
+                // We do not update is_class_teacher here to prevent overwriting.
                 
                 // Update is_form_master flag in teachers table
                 // A teacher is a form master if they are class teacher for at least one class
@@ -82,7 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (isset($_POST['remove_assignment'])) {
             $assignment_id = $_POST['assignment_id'];
-            if (removeTeacherAssignment($pdo, $assignment_id)) {
+            $source = $_POST['source'] ?? 'tsca';
+            if (removeTeacherAssignment($pdo, $assignment_id, $source)) {
                 $_SESSION['success'] = "Assignment removed successfully!";
             } else {
                 $_SESSION['error'] = "Failed to remove assignment.";
@@ -148,8 +142,9 @@ if (isset($_GET['teacher_id'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teacher Assignments - Northland Schools Kano</title>
+    <title>Teacher Details - Northland Schools Kano</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="sidebar.css">
     <script>
@@ -177,34 +172,47 @@ if (isset($_GET['teacher_id'])) {
             background: #f8fafc;
         }
         
+        /* Standardized Modal Styling */
         .modal {
-            display: none;
             position: fixed;
-            z-index: 1000;
-            left: 0;
             top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
-        }
-        
-        .modal.active {
-            display: flex !important;
+            display: none; /* Hidden by default */
             align-items: center;
             justify-content: center;
+            z-index: 1000; /* High z-index to sit on top */
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(5px);
         }
-        
+
+        .modal.active {
+            display: flex;
+            opacity: 1;
+        }
+
         .modal-content {
             background-color: white;
-            margin: 20px;
-            padding: 20px;
-            border-radius: 10px;
-            width: 90%;
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 95%;
             max-width: 600px;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
+
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
+
+        /* Prevent body scroll when modal is open */
+        body.modal-active { overflow: hidden; }
         
         .assignment-card {
             transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -217,12 +225,12 @@ if (isset($_GET['teacher_id'])) {
     </style>
 </head>
 
-<body class="flex">
+<body>
     <?php require_once 'sidebar.php'; ?>
     
     <main class="main-content">
         <?php
-        $pageTitle = 'Teacher Assignments';
+        $pageTitle = 'Teacher Details';
         require_once 'header.php';
         ?>
         
@@ -264,7 +272,6 @@ if (isset($_GET['teacher_id'])) {
             </div>
             
             <?php if ($selected_teacher): ?>
-                <!-- Teacher Info Card -->
                 <div class="bg-gradient-to-r from-nskblue to-nsklightblue rounded-xl shadow-md p-6 mb-6 text-white">
                     <div class="flex items-center justify-between">
                         <div>
@@ -273,6 +280,11 @@ if (isset($_GET['teacher_id'])) {
                             </h2>
                             <p class="text-blue-100">Teacher ID: <?= $selected_teacher['teacher_id'] ?></p>
                             <p class="text-blue-100"><?= $selected_teacher['email'] ?></p>
+                            <?php if (!empty($teacher_stats['class_teacher_for']) && $teacher_stats['class_teacher_for'] !== 'No'): ?>
+                                <p class="mt-2 text-white font-semibold bg-white/20 inline-block px-3 py-1 rounded-full text-sm">
+                                    <i class="fas fa-chalkboard-teacher mr-2"></i>Class Teacher: <?= htmlspecialchars($teacher_stats['class_teacher_for']) ?>
+                                </p>
+                            <?php endif; ?>
                         </div>
                         <div class="text-right">
 
@@ -280,65 +292,13 @@ if (isset($_GET['teacher_id'])) {
                     </div>
                 </div>
                 
-                <!-- Stats Cards -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-                    <div class="bg-white rounded-xl shadow-md p-5">
-                        <div class="flex items-center">
-                            <div class="bg-nskblue p-3 rounded-full mr-3">
-                                <i class="fas fa-book text-white"></i>
-                            </div>
-                            <div>
-                                <p class="text-gray-600 text-sm">Subjects</p>
-                                <p class="text-2xl font-bold text-nsknavy"><?= $teacher_stats['total_subjects'] ?></p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-white rounded-xl shadow-md p-5">
-                        <div class="flex items-center">
-                            <div class="bg-nskgreen p-3 rounded-full mr-3">
-                                <i class="fas fa-users text-white"></i>
-                            </div>
-                            <div>
-                                <p class="text-gray-600 text-sm">Classes</p>
-                                <p class="text-2xl font-bold text-nsknavy"><?= $teacher_stats['total_classes'] ?></p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-white rounded-xl shadow-md p-5">
-                        <div class="flex items-center">
-                            <div class="bg-nskgold p-3 rounded-full mr-3">
-                                <i class="fas fa-clipboard-list text-white"></i>
-                            </div>
-                            <div>
-                                <p class="text-gray-600 text-sm">Total Assignments</p>
-                                <p class="text-2xl font-bold text-nsknavy"><?= $teacher_stats['total_assignments'] ?></p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-white rounded-xl shadow-md p-5">
-                        <div class="flex items-center">
-                            <div class="bg-<?= $teacher_stats['is_class_teacher'] ? 'nskgreen' : 'gray-400' ?> p-3 rounded-full mr-3">
-                                <i class="fas fa-chalkboard-teacher text-white"></i>
-                            </div>
-                            <div class="flex-1">
-                                <p class="text-gray-600 text-sm">Class Teacher</p>
-                                <p class="text-sm font-bold text-nsknavy"><?= htmlspecialchars($teacher_stats['class_teacher_for']) ?></p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+
                 
                 <!-- Assignments Table -->
                 <div class="bg-white rounded-xl shadow-md p-6 mb-6">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-bold text-nsknavy">Subject-Class Assignments</h3>
-                        <button onclick="document.getElementById('addAssignmentModal').classList.add('active')"
-                                class="bg-nskgreen text-white px-4 py-2 rounded-lg hover:bg-green-600">
-                            <i class="fas fa-plus mr-2"></i>New Assignment
-                        </button>
+
                     </div>
                     
                     <?php if (empty($teacher_assignments)): ?>
@@ -351,8 +311,8 @@ if (isset($_GET['teacher_id'])) {
                             <table class="min-w-full">
                                 <thead>
                                     <tr class="bg-gray-50">
-                                        <th class="py-3 px-4 text-left text-nsknavy">Subject</th>
                                         <th class="py-3 px-4 text-left text-nsknavy">Class</th>
+                                        <th class="py-3 px-4 text-left text-nsknavy">Subject</th>
                                         <th class="py-3 px-4 text-left text-nsknavy">Session/Term</th>
                                         <th class="py-3 px-4 text-center text-nsknavy">Actions</th>
                                     </tr>
@@ -360,17 +320,18 @@ if (isset($_GET['teacher_id'])) {
                                 <tbody class="divide-y divide-gray-200">
                                     <?php foreach ($teacher_assignments as $assignment): ?>
                                         <tr>
+                                            <td class="py-3 px-4 font-bold text-gray-700"><?= htmlspecialchars($assignment['class_name']) ?></td>
                                             <td class="py-3 px-4">
-                                                <span class="font-medium"><?= htmlspecialchars($assignment['subject_name']) ?></span>
-                                                <br><span class="text-sm text-gray-500"><?= $assignment['subject_code'] ?></span>
+                                                <span class="font-medium text-nsknavy"><?= htmlspecialchars($assignment['subject_name']) ?></span>
+                                                <br><span class="text-xs text-gray-500"><?= $assignment['subject_code'] ?></span>
                                             </td>
-                                            <td class="py-3 px-4"><?= htmlspecialchars($assignment['class_name']) ?></td>
                                             <td class="py-3 px-4 text-sm">
                                                 <?= $assignment['session_name'] ?? 'N/A' ?> / <?= $assignment['term_name'] ?? 'N/A' ?>
                                             </td>
                                             <td class="py-3 px-4 text-center">
-                                                <form method="POST" action="" class="inline" onsubmit="return confirm('Remove this assignment?')">
+                                                <form method="POST" action="" class="inline" onsubmit="confirmRemoval(event)">
                                                     <input type="hidden" name="assignment_id" value="<?= $assignment['id'] ?>">
+                                                    <input type="hidden" name="source" value="<?= $assignment['source'] ?>">
                                                     <button type="submit" name="remove_assignment" 
                                                             class="text-nskred hover:text-red-700 p-2">
                                                         <i class="fas fa-trash"></i>
@@ -389,16 +350,19 @@ if (isset($_GET['teacher_id'])) {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <!-- Subjects -->
                     <div class="bg-white rounded-xl shadow-md p-6">
-                        <h3 class="text-lg font-bold text-nsknavy mb-4">Assigned Subjects</h3>
+                        <h3 class="text-lg font-bold text-nsknavy mb-4">Subjects Teaching</h3>
                         <?php if (empty($teacher_subjects)): ?>
-                            <p class="text-gray-500">No subjects assigned</p>
+                            <p class="text-gray-500">Not teaching any subjects yet</p>
                         <?php else: ?>
                             <div class="space-y-2">
                                 <?php foreach ($teacher_subjects as $subject): ?>
                                     <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                                         <div>
                                             <span class="font-medium text-nsknavy"><?= htmlspecialchars($subject['subject_name']) ?></span>
-                                            <br><span class="text-xs text-gray-600"><?= $subject['subject_code'] ?></span>
+                                            <br><span class="text-xs text-gray-600">
+                                                <?= $subject['subject_code'] ?> • 
+                                                <?= $subject['class_count'] ?> <?= $subject['class_count'] == 1 ? 'class' : 'classes' ?>
+                                            </span>
                                         </div>
                                         <span class="text-xs bg-nskblue text-white px-2 py-1 rounded"><?= $subject['category'] ?></span>
                                     </div>
@@ -409,14 +373,19 @@ if (isset($_GET['teacher_id'])) {
                     
                     <!-- Classes -->
                     <div class="bg-white rounded-xl shadow-md p-6">
-                        <h3 class="text-lg font-bold text-nsknavy mb-4">Assigned Classes</h3>
+                        <h3 class="text-lg font-bold text-nsknavy mb-4">Classes Teaching</h3>
                         <?php if (empty($teacher_classes)): ?>
-                            <p class="text-gray-500">No classes assigned</p>
+                            <p class="text-gray-500">Not teaching any classes yet</p>
                         <?php else: ?>
                             <div class="space-y-2">
                                 <?php foreach ($teacher_classes as $class): ?>
                                     <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                                        <span class="font-medium text-nsknavy"><?= htmlspecialchars($class['class_name']) ?></span>
+                                        <div>
+                                            <span class="font-medium text-nsknavy"><?= htmlspecialchars($class['class_name']) ?></span>
+                                            <br><span class="text-xs text-gray-600">
+                                                <?= $class['subject_count'] ?> <?= $class['subject_count'] == 1 ? 'subject' : 'subjects' ?>
+                                            </span>
+                                        </div>
                                         <?php if ($class['is_class_teacher']): ?>
                                             <span class="text-xs bg-nskgreen text-white px-2 py-1 rounded">
                                                 <i class="fas fa-star mr-1"></i>Class Teacher
@@ -568,6 +537,23 @@ if (isset($_GET['teacher_id'])) {
                         }
                     }
                 }
+
+                function confirmRemoval(event) {
+                    event.preventDefault();
+                    Swal.fire({
+                        title: 'Remove Assignment?',
+                        text: 'Are you sure you want to remove this assignment?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#3085d6',
+                        confirmButtonText: 'Yes, remove it!'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            event.target.submit();
+                        }
+                    });
+                }
                 </script>
                 
             <?php else: ?>
@@ -578,6 +564,9 @@ if (isset($_GET['teacher_id'])) {
                 </div>
             <?php endif; ?>
         </div>
+    
+        <?php require_once 'footer.php'; ?>
     </main>
+
 </body>
 </html>

@@ -1,16 +1,19 @@
 <?php
+ob_start(); // Start output buffering to prevent quirks mode
 require_once 'auth-check.php';
+require_once __DIR__ . "/../includes/term_helper.php"; // Global term synchronization
 require_once __DIR__ . '/../includes/TimetableHelper.php';
 checkAuth(); // Ensure user is authenticated
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Timetable Management - Northland Schools Kano</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="sidebar.css">
     <script>
@@ -32,239 +35,83 @@ checkAuth(); // Ensure user is authenticated
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
-
-        body {
-            font-family: 'Montserrat', sans-serif;
-            background: #f8fafc;
-        }
-
-        .logo-container {
-            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
-        }
-
-        .timetable-card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .timetable-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-        }
-
-        .nav-item {
-            position: relative;
-        }
-
-        .nav-item::after {
-            content: '';
-            position: absolute;
-            width: 0;
-            height: 2px;
-            bottom: -5px;
-            left: 0;
-            background-color: #f59e0b;
-            transition: width 0.3s ease;
-        }
-
-        .nav-item:hover::after {
-            width: 100%;
-        }
-
-        .notification-dot {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            width: 12px;
-            height: 12px;
-            background-color: #ef4444;
-            border-radius: 50%;
-        }
-
-        .timetable-cell {
-            transition: all 0.2s ease;
-            cursor: pointer;
-        }
-
-        .timetable-cell:hover {
-            transform: scale(1.02);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .subject-music {
-            background-color: #f0abfc;
-            border-left: 4px solid #c026d3;
-        }
-
-        .subject-break {
-            background-color: #fef3c7;
-            border-left: 4px solid #f59e0b;
-        }
-
-        .subject-sensory {
-            background-color: #d1fae5;
-            border-left: 4px solid #10b981;
-        }
-
-        .subject-story {
-            background-color: #e0e7ff;
-            border-left: 4px solid #4f46e5;
-        }
-
-        .subject-math {
-            background-color: #bfdbfe;
-            border-left: 4px solid #3b82f6;
-        }
-
-        .subject-science {
-            background-color: #bbf7d0;
-            border-left: 4px solid #10b981;
-        }
-
-        .subject-english {
-            background-color: #fde68a;
-            border-left: 4px solid #f59e0b;
-        }
-
-        .subject-history {
-            background-color: #e9d5ff;
-            border-left: 4px solid #8b5cf6;
-        }
-
-        .subject-art {
-            background-color: #fecaca;
-            border-left: 4px solid #ef4444;
-        }
-
-        .subject-pe {
-            background-color: #c7d2fe;
-            border-left: 4px solid #6366f1;
-        }
-
-        .subject-religious {
-            background-color: #ddd6fe;
-            border-left: 4px solid #7c3aed;
-        }
-
-        .subject-computer {
-            background-color: #a7f3d0;
-            border-left: 4px solid #059669;
-        }
-
-        .subject-commercial {
-            background-color: #ffedd5;
-            border-left: 4px solid #f97316;
-        }
-
-        .subject-arts-gov {
-            background-color: #fae8ff;
-            border-left: 4px solid #d946ef;
-        }
-
-        .subject-vocational {
-            background-color: #f1f5f9;
-            border-left: 4px solid #64748b;
-        }
-
-        .subject-language {
-            background-color: #ccfbf1;
-            border-left: 4px solid #14b8a6;
-        }
-
-        .subject-general {
-            background-color: #ecfeff;
-            border-left: 4px solid #06b6d4;
-        }
-
-        .subject-early {
-            background-color: #fff1f2;
-            border-left: 4px solid #f43f5e;
-        }
-
+        body { font-family: 'Montserrat', sans-serif; background: #f8fafc; }
+        .timetable-card { transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .timetable-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+        .timetable-cell { transition: all 0.2s ease; cursor: pointer; }
+        .timetable-cell:hover { transform: scale(1.02); box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); }
+        
+        /* Standardized Modal Styling */
         .modal {
-            transition: opacity 0.3s ease, transform 0.3s ease;
-            transform: scale(0.9);
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
             opacity: 0;
-            pointer-events: none;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(5px);
         }
 
         .modal.active {
-            transform: scale(1);
+            display: flex;
             opacity: 1;
-            pointer-events: all;
+            pointer-events: auto;
         }
 
-        .tab-button {
-            transition: all 0.3s ease;
+        .modal-content {
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        .tab-button.active {
-            background-color: #1e40af;
-            color: white;
+        .modal.active .modal-content {
+            transform: scale(1);
         }
+        
+        /* Prevent body scroll when modal is open */
+        body.modal-active { overflow: hidden; }
 
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
-        .fade-in {
-            animation: fadeIn 0.5s ease;
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        .template-card {
-            transition: all 0.3s ease;
-        }
-
-        .template-card:hover {
-            border-color: #1e40af;
-            transform: translateY(-2px);
-        }
-
-        .floating-action-btn {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            z-index: 100;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        }
-
-        .quick-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .filter-section {
-            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-            border-radius: 12px;
-        }
-
-        .export-btn {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-            color: white;
-        }
-
-        .export-btn:hover {
-            background: linear-gradient(135deg, #059669 0%, #047857 100%);
-        }
+        .tab-button { transition: all 0.3s ease; }
+        .tab-button.active { background-color: #1e40af; color: white; }
+        .fade-in { animation: fadeIn 0.5s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        /* Subject Colors */
+        .subject-music { background-color: #f0abfc; border-left: 4px solid #c026d3; }
+        .subject-break { background-color: #fef3c7; border-left: 4px solid #f59e0b; }
+        .subject-sensory { background-color: #d1fae5; border-left: 4px solid #10b981; }
+        .subject-story { background-color: #e0e7ff; border-left: 4px solid #4f46e5; }
+        .subject-math { background-color: #bfdbfe; border-left: 4px solid #3b82f6; }
+        .subject-science { background-color: #bbf7d0; border-left: 4px solid #10b981; }
+        .subject-english { background-color: #fde68a; border-left: 4px solid #f59e0b; }
+        .subject-history { background-color: #e9d5ff; border-left: 4px solid #8b5cf6; }
+        .subject-art { background-color: #fecaca; border-left: 4px solid #ef4444; }
+        .subject-pe { background-color: #c7d2fe; border-left: 4px solid #6366f1; }
+        .subject-religious { background-color: #ddd6fe; border-left: 4px solid #7c3aed; }
+        .subject-computer { background-color: #a7f3d0; border-left: 4px solid #059669; }
+        .subject-commercial { background-color: #ffedd5; border-left: 4px solid #f97316; }
+        .subject-arts-gov { background-color: #fae8ff; border-left: 4px solid #d946ef; }
+        .subject-vocational { background-color: #f1f5f9; border-left: 4px solid #64748b; }
+        .subject-language { background-color: #ccfbf1; border-left: 4px solid #14b8a6; }
+        .subject-general { background-color: #ecfeff; border-left: 4px solid #06b6d4; }
+        .subject-early { background-color: #fff1f2; border-left: 4px solid #f43f5e; }
+        .hidden { display: none; }
+        .floating-action-btn { position: fixed; bottom: 30px; right: 30px; z-index: 100; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
+        .quick-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .filter-section { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px; }
+        .export-btn { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; }
+        .export-btn:hover { background: linear-gradient(135deg, #059669 0%, #047857 100%); }
     </style>
 </head>
-
-<body class="flex">
-    <!-- Sidebar Navigation -->
-    <?php include 'sidebar.php'; ?>
-
-    <!-- Main Content -->
+<body>
+    <?php require_once 'sidebar.php'; ?>
+    
     <main class="main-content">
+
         <?php
         $pageTitle = 'Timetable Management';
         require_once 'header.php';
@@ -509,12 +356,7 @@ checkAuth(); // Ensure user is authenticated
                 <button class="view-btn active px-4 py-2 rounded-lg bg-nskblue text-white" data-view="weekly">
                     Weekly View
                 </button>
-                <button class="view-btn px-4 py-2 rounded-lg border border-nskblue text-nskblue" data-view="daily">
-                    Daily View
-                </button>
-                <button class="view-btn px-4 py-2 rounded-lg border border-nskblue text-nskblue" data-view="teacher">
-                    Teacher View
-                </button>
+
             </div>
 
             <!-- Export Options -->
@@ -587,6 +429,7 @@ checkAuth(); // Ensure user is authenticated
             </div>
         </div>
 
+
         <!-- Action Bar -->
         <div class="bg-white rounded-xl shadow-md p-6 mb-8">
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -642,20 +485,13 @@ checkAuth(); // Ensure user is authenticated
                     <p class="text-sm text-gray-600">25th November 2023</p>
                     <p class="text-xs text-nskgold">Physics & Chemistry</p>
                 </div>
-            </div>
-
-            <div class="mt-6">
-                <button
-                    class="bg-nsklightblue text-white px-4 py-2 rounded-lg font-semibold hover:bg-nskblue transition flex items-center">
-                    <i class="fas fa-plus mr-2"></i> Schedule New Exam
-                </button>
+                </div>
             </div>
         </div>
         </div>
 
         <!-- Add Schedule Modal -->
-        <div id="addScheduleModal"
-            class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div id="addScheduleModal" class="modal">
             <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-xl font-bold text-nsknavy">Add New Schedule</h3>
@@ -665,6 +501,7 @@ checkAuth(); // Ensure user is authenticated
                 </div>
 
                 <form id="scheduleForm" class="space-y-4">
+                    <input type="hidden" id="scheduleId" name="id" value="">
                     <!-- Class Level Selection -->
                     <div class="grid grid-cols-2 gap-4">
                         <div>
@@ -742,6 +579,7 @@ checkAuth(); // Ensure user is authenticated
                             <select id="classroom" name="room"
                                 class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue" required>
                                 <option value="">Select Classroom</option>
+                                <option value="">Select Classroom</option>
                                 <!-- Options will be populated dynamically -->
                             </select>
                         </div>
@@ -757,23 +595,27 @@ checkAuth(); // Ensure user is authenticated
                         </div>
                     </div>
 
-                    <div class="flex justify-end space-x-3 pt-4">
-                        <button type="button" id="cancelBtn"
-                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
-                            Cancel
+                    <div class="flex justify-between items-center pt-4">
+                        <button type="button" id="deleteScheduleBtn" class="hidden px-4 py-2 bg-red-100 text-red-600 border border-red-200 rounded-lg hover:bg-red-200 transition">
+                            <i class="fas fa-trash-alt mr-2"></i>Delete
                         </button>
-                        <button type="submit"
-                            class="px-4 py-2 bg-nskblue text-white rounded-lg font-semibold hover:bg-nsknavy transition">
-                            Add Schedule
-                        </button>
+                        <div class="flex space-x-3 ml-auto">
+                            <button type="button" id="cancelBtn"
+                                class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
+                                Cancel
+                            </button>
+                            <button type="submit" id="submitScheduleBtn"
+                                class="px-4 py-2 bg-nskblue text-white rounded-lg font-semibold hover:bg-nsknavy transition">
+                                Add Schedule
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
         </div>
 
         <!-- Copy Timetable Modal -->
-        <div id="copyTimetableModal"
-            class="modal fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div id="copyTimetableModal" class="modal">
             <div class="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
                 <div class="flex justify-between items-center mb-6">
                     <h3 class="text-xl font-bold text-nsknavy">Copy Timetable</h3>
@@ -824,8 +666,8 @@ checkAuth(); // Ensure user is authenticated
             <i class="fas fa-plus text-xl"></i>
         </button>
 
-        <!-- Include footer -->
-        <script src="footer.js"></script>
+    
+        <?php require_once 'footer.php'; ?>
     </main>
 
     <script>
@@ -1006,58 +848,78 @@ checkAuth(); // Ensure user is authenticated
 
                 this.showLoadingState();
 
-                const url = classId ? `timetable_api.php?class_id=${classId}` : `timetable_api.php?teacher_id=${teacherId}`;
+                const url = classId ? `simple_timetable_api.php?class_id=${classId}` : `timetable_api.php?teacher_id=${teacherId}`;
+                console.log('Fetching timetable from:', url);
+                
                 fetch(url)
-                    .then(response => response.json())
+                    .then(response => {
+                        console.log('Response status:', response.status);
+                        if (!response.ok) {
+                            throw new Error(`HTTP ${response.status}`);
+                        }
+                        return response.json();
+                    })
                     .then(result => {
+                        console.log('API result:', result);
                         if (result.success) {
                             this.rules = result.rules;
                             this.apiPeriods = result.periods;
+                            this.currentApiData = result.data; // Store for reuse
                             this.displayTimetable(classId || teacherId, result.data);
                         } else {
-                            alert('Error: ' + result.message);
+                            console.error('API error:', result.message);
+                            Swal.fire('Error', result.message, 'error');
                             this.showTimetablePlaceholder();
                         }
                     })
                     .catch(error => {
                         console.error('Error fetching timetable:', error);
-                        alert('An error occurred while loading the timetable.');
+                        Swal.fire('Network Error', error.message, 'error');
                         this.showTimetablePlaceholder();
                     });
             }
+                    });
+            }
+                    });
+            }
+
+            setDailyViewDay(day) {
+                const target = this.currentClass || this.teacherId;
+                if (target && this.currentApiData) {
+                    this.currentDay = day;
+                    this.displayTimetable(target, this.currentApiData);
+                }
+            }
 
             subjectToCss(name) {
-                if (!name) return '';
+                if (!name) return 'bg-gray-100 border-gray-300 text-gray-700';
                 const n = name.toLowerCase();
-                if (n.includes('break')) return 'subject-break';
-                if (n.includes('math') || n.includes('mathemat')) return 'subject-math';
-                if (n.includes('science') || n.includes('phy') || n.includes('chem') || n.includes('bio')) return 'subject-science';
-                if (n.includes('english') || n.includes('literature')) return 'subject-english';
-                if (n.includes('history') || n.includes('social')) return 'subject-history';
-                if (n.includes('music')) return 'subject-music';
-                if (n.includes('art')) return 'subject-art';
-                if (n.includes('sport') || n.includes('physical') || n.includes('pe')) return 'subject-pe';
-                if (n.includes('relig') || n.includes('irs') || n.includes('crs') || n.includes('i.r.k')) return 'subject-religious';
-                if (n.includes('comp') || n.includes('ict')) return 'subject-computer';
-                if (n.includes('account') || n.includes('commerce') || n.includes('business') || n.includes('econ')) return 'subject-commercial';
-                if (n.includes('gov') || n.includes('civic')) return 'subject-arts-gov';
-                if (n.includes('husban') || n.includes('cater') || n.includes('craft') || n.includes('vocation')) return 'subject-vocational';
-                if (n.includes('arab') || n.includes('haus') || n.includes('french') || n.includes('phonics')) return 'subject-language';
-                if (n.includes('quant') || n.includes('verb') || n.includes('values') || n.includes('security')) return 'subject-general';
-                if (n.includes('habits') || n.includes('coloring') || n.includes('rhymes')) return 'subject-early';
-                return 'template-card';
+                if (n.includes('break')) return 'bg-amber-100 border-amber-300 text-amber-800';
+                if (n.includes('math')) return 'bg-blue-50 border-blue-200 text-blue-700';
+                if (n.includes('science') || n.includes('phy') || n.includes('chem') || n.includes('bio')) return 'bg-green-50 border-green-200 text-green-700';
+                if (n.includes('english') || n.includes('liter')) return 'bg-yellow-50 border-yellow-200 text-yellow-700';
+                if (n.includes('history') || n.includes('social') || n.includes('civic')) return 'bg-purple-50 border-purple-200 text-purple-700';
+                if (n.includes('music') || n.includes('art')) return 'bg-pink-50 border-pink-200 text-pink-700';
+                if (n.includes('pe') || n.includes('sport')) return 'bg-indigo-50 border-indigo-200 text-indigo-700';
+                if (n.includes('islam') || n.includes('arab') || n.includes('irk')) return 'bg-emerald-50 border-emerald-200 text-emerald-700';
+                if (n.includes('comp') || n.includes('ict')) return 'bg-cyan-50 border-cyan-200 text-cyan-700';
+                return 'bg-slate-50 border-slate-200 text-slate-700';
             }
 
             displayTimetable(className, timetableData) {
                 const displayArea = document.getElementById('timetableDisplay');
+                if (!displayArea) return;
+
+                // Safety check for data
+                const safeData = Array.isArray(timetableData) ? timetableData : [];
 
                 // Generate timetable based on current view
                 if (this.currentView === 'weekly') {
-                    displayArea.innerHTML = this.generateWeeklyTimetable(className, timetableData);
+                    displayArea.innerHTML = this.generateWeeklyTimetable(className, safeData);
                 } else if (this.currentView === 'daily') {
-                    displayArea.innerHTML = this.generateDailyTimetable(className, timetableData);
+                    displayArea.innerHTML = this.generateDailyTimetable(className, safeData);
                 } else {
-                    displayArea.innerHTML = this.generateTeacherTimetable(className, timetableData);
+                    displayArea.innerHTML = this.generateTeacherTimetable(className, safeData);
                 }
 
                 // Add click events to timetable cells
@@ -1112,9 +974,11 @@ checkAuth(); // Ensure user is authenticated
                                                 if (slot) {
                                                     const isDummy = slot.is_dummy == 1;
                                                     const cssClass = isDummy ? 'bg-gray-100 border-l-4 border-gray-300' : this.subjectToCss(slot.subject_name);
+                                                    const slotData = isDummy ? '' : `data-id="${slot.id}" data-subject-id="${slot.subject_id}" data-teacher-id="${slot.teacher_id}" data-room="${slot.room || ''}" data-day="${day}" data-period-start="${period.start}"`;
+                                                    
                                                     return `
                                                         <td class="p-2 border-r border-gray-100">
-                                                            <div class="timetable-cell ${cssClass} p-3 rounded shadow-sm">
+                                                            <div class="timetable-cell ${cssClass} p-3 rounded shadow-sm hover:shadow-md cursor-pointer transition-all" ${slotData}>
                                                                 <p class="font-bold text-nsknavy leading-tight">${slot.subject_name}</p>
                                                                 ${!isDummy ? `
                                                                     <p class="text-xs mt-1 text-gray-600"><i class="fas fa-user-tie mr-1"></i>${slot.teacher_name}</p>
@@ -1128,9 +992,9 @@ checkAuth(); // Ensure user is authenticated
                                                 } else {
                                                     return `
                                                         <td class="p-2 border-r border-gray-100">
-                                                            <div class="bg-gray-50 p-3 rounded border border-dashed border-gray-300 text-center">
-                                                                <p class="text-xs font-bold text-gray-400">FREE PERIOD</p>
-                                                                <p class="text-[10px] text-gray-300">Unassigned</p>
+                                                            <div class="bg-gray-50 p-3 rounded border border-dashed border-gray-300 text-center hover:bg-white hover:border-nskblue cursor-pointer transition group" onclick="timetableManager.openScheduleModal({day: '${day}', start: '${period.start}', end: '${period.end}'})">
+                                                                <p class="text-xs font-bold text-gray-400 group-hover:text-nskblue">FREE</p>
+                                                                <p class="text-[10px] text-gray-300 group-hover:text-nskblue opacity-50"><i class="fas fa-plus"></i> Add</p>
                                                             </div>
                                                         </td>
                                                     `;
@@ -1158,7 +1022,7 @@ checkAuth(); // Ensure user is authenticated
                     <div class="flex justify-between items-center mb-4">
                         <div class="flex items-center space-x-4">
                             <h3 class="text-lg font-semibold text-nsknavy">Daily Schedule: ${selectedDayName}</h3>
-                            <select id="dailyDaySelector" class="px-3 py-1 border rounded-lg text-sm" onchange="timetableManager.displayTimetable('${classId}', ${JSON.stringify(data).replace(/"/g, '&quot;')})">
+                            <select id="dailyDaySelector" class="px-3 py-1 border rounded-lg text-sm" onchange="timetableManager.setDailyViewDay(this.value)">
                                 ${days.map(day => `
                                     <option value="${day.toLowerCase()}" ${day === selectedDayName ? 'selected' : ''}>${day}</option>
                                 `).join('')}
@@ -1230,6 +1094,7 @@ checkAuth(); // Ensure user is authenticated
             }
 
             generateTeacherTimetable(teacherId, data) {
+                const safeData = Array.isArray(data) ? data : [];
                 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
                 const teacherName = document.querySelector(`#teacherSelect option[value="${teacherId}"]`)?.textContent || 'Teacher';
 
@@ -1237,7 +1102,7 @@ checkAuth(); // Ensure user is authenticated
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-nsknavy">Teacher Schedule - ${teacherName}</h3>
                         <div class="text-sm font-medium px-3 py-1 bg-nsklight rounded-full text-nskblue border border-nskblue">
-                            Workload: ${data.filter(d => !d.is_dummy).length} periods/week
+                            Workload: ${safeData.filter(d => !d.is_dummy).length} periods/week
                         </div>
                     </div>
                     <div class="overflow-x-auto rounded-lg border border-gray-200">
@@ -1251,8 +1116,8 @@ checkAuth(); // Ensure user is authenticated
                                 </tr>
                             </thead>
                             <tbody>
-                                ${data.length === 0 ? `<tr><td colspan="4" class="p-8 text-center text-gray-400">No classes assigned yet.</td></tr>` : 
-                                    data.map(slot => `
+                                ${safeData.length === 0 ? `<tr><td colspan="4" class="p-8 text-center text-gray-400">No classes assigned yet.</td></tr>` : 
+                                    safeData.map(slot => `
                                         <tr class="hover:bg-gray-50 border-b border-gray-100">
                                             <td class="p-3 font-semibold text-nsknavy border-r border-gray-100 bg-gray-50">${slot.day_of_week}</td>
                                             <td class="p-3 text-center border-r border-gray-100">${slot.start_time.substring(0,5)} - ${slot.end_time.substring(0,5)}</td>
@@ -1593,16 +1458,105 @@ checkAuth(); // Ensure user is authenticated
                 return this.getPrimaryTimetable();
             }
 
-            addTimetableCellEvents() {
-                document.querySelectorAll('.timetable-cell').forEach(cell => {
-                    cell.addEventListener('click', function () {
-                        const subject = this.querySelector('.font-semibold').textContent;
-                        const teacher = this.querySelectorAll('p')[1]?.textContent || 'N/A';
-                        const room = this.querySelectorAll('p')[2]?.textContent || 'N/A';
+            openScheduleModal(data = null) {
+                const modal = document.getElementById('addScheduleModal');
+                const form = document.getElementById('scheduleForm');
+                const title = modal.querySelector('h3');
+                const submitBtn = document.getElementById('submitScheduleBtn');
+                const deleteBtn = document.getElementById('deleteScheduleBtn');
+                const scheduleIdInput = document.getElementById('scheduleId');
 
-                        alert(`Subject: ${subject}\nTeacher: ${teacher}\nRoom: ${room}`);
+                if (modal) {
+                    // Ensure dropdowns are populated based on current view
+                    const level = this.currentLevel || 'primary';
+                    const levelSelect = document.getElementById('level');
+                    if(levelSelect) levelSelect.value = level;
+                    
+                    this.updateModalClasses(level);
+                    this.updateModalSubjects(level);
+                    this.updateModalPeriods();
+
+                    if (data && data.id) {
+                        // Edit Mode
+                        title.textContent = 'Edit Schedule';
+                        submitBtn.textContent = 'Update Schedule';
+                        submitBtn.classList.add('bg-amber-600', 'hover:bg-amber-700');
+                        submitBtn.classList.remove('bg-nskblue', 'hover:bg-nsknavy');
+                        deleteBtn.classList.remove('hidden');
+                        scheduleIdInput.value = data.id;
+
+                        // Populate fields
+                        if (data.subject_id) document.getElementById('subject').value = data.subject_id;
+                        if (data.teacher_id) document.getElementById('teacher').value = data.teacher_id;
+                        if (data.room) document.getElementById('classroom').value = data.room; 
+                        if (data.day) document.getElementById('day').value = data.day;
+                        
+                        // Set Period and trigger change
+                        const periodSelect = document.getElementById('period');
+                        if (data.start && periodSelect) {
+                            for(let opt of periodSelect.options) {
+                                if (opt.dataset.start == data.start || opt.dataset.start == data.start + ':00') {
+                                    periodSelect.value = opt.value;
+                                    periodSelect.dispatchEvent(new Event('change'));
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        // Add Mode
+                        title.textContent = 'Add New Schedule';
+                        submitBtn.textContent = 'Add Schedule';
+                        submitBtn.classList.add('bg-nskblue', 'hover:bg-nsknavy');
+                        submitBtn.classList.remove('bg-amber-600', 'hover:bg-amber-700');
+                        deleteBtn.classList.add('hidden');
+                        scheduleIdInput.value = '';
+                        form.reset();
+                        
+                        // Restore current class if available
+                        const classSelect = document.getElementById('class');
+                        if (classSelect && this.currentClass) {
+                            classSelect.value = this.currentClass;
+                        }
+
+                        // Presets
+                        if (data) {
+                            if (data.day) document.getElementById('day').value = data.day;
+                            if (data.start) {
+                                const periodSelect = document.getElementById('period');
+                                if (periodSelect) {
+                                    for(let opt of periodSelect.options) {
+                                        if (opt.dataset.start == data.start || opt.dataset.start == data.start + ':00') {
+                                            periodSelect.value = opt.value;
+                                            periodSelect.dispatchEvent(new Event('change'));
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    modal.classList.add('active');
+                }
+            }
+
+            addTimetableCellEvents() {
+                try {
+                    document.querySelectorAll('.timetable-cell[data-id]').forEach(cell => {
+                        cell.addEventListener('click', () => {
+                            const d = cell.dataset;
+                            this.openScheduleModal({
+                                id: d.id,
+                                subject_id: d.subjectId,
+                                teacher_id: d.teacherId,
+                                room: d.room,
+                                day: d.day,
+                                start: d.periodStart
+                            });
+                        });
                     });
-                });
+                } catch (e) {
+                    console.error('Error attaching cell events:', e);
+                }
             }
 
             loadInitialData() {
@@ -1746,8 +1700,18 @@ checkAuth(); // Ensure user is authenticated
             }
         }
 
-        // Initialize timetable manager
-        const timetableManager = new TimetableManager();
+        // Initialize timetable manager with error handling
+        let timetableManager;
+        try {
+            if (typeof ALL_CLASSES === 'undefined') {
+                throw new Error('Database data (ALL_CLASSES) is missing. Please check your database connection.');
+            }
+            timetableManager = new TimetableManager();
+            console.log('TimetableManager initialized successfully');
+        } catch (error) {
+            console.error('Failed to initialize TimetableManager:', error);
+            Swal.fire('System Error', error.message + '\n\nThe timetable features will not work correctly.', 'error');
+        }
 
         // Sidebar toggle functionality (guarded)
         const sidebarToggleEl = document.getElementById('sidebarToggle');
@@ -1781,30 +1745,64 @@ checkAuth(); // Ensure user is authenticated
 
         if (addScheduleBtn) {
             addScheduleBtn.addEventListener('click', function () {
-                if (modal) {
-                    modal.classList.add('active');
-                    const level = timetableManager.currentLevel;
-                    const levelSelect = document.getElementById('level');
-                    levelSelect.value = level;
-                    timetableManager.updateModalClasses(level);
-                    timetableManager.updateModalSubjects(level);
-                    timetableManager.updateModalPeriods();
-                }
+                timetableManager.openScheduleModal(null);
             });
         }
 
         const floatingBtn = document.querySelector('.floating-action-btn');
         if (floatingBtn) {
             floatingBtn.addEventListener('click', function () {
-                if (modal) {
-                    modal.classList.add('active');
-                    const level = timetableManager.currentLevel;
-                    const levelSelect = document.getElementById('level');
-                    levelSelect.value = level;
-                    timetableManager.updateModalClasses(level);
-                    timetableManager.updateModalSubjects(level);
-                    timetableManager.updateModalPeriods();
-                }
+                timetableManager.openScheduleModal(null);
+            });
+        }
+        
+        // Delete button listener
+        const deleteBtn = document.getElementById('deleteScheduleBtn');
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', function() {
+                const id = document.getElementById('scheduleId').value;
+                if(!id) return;
+                
+                Swal.fire({
+                    title: 'Delete Schedule?',
+                    text: 'Are you sure you want to permanently delete this schedule entry?',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#d33',
+                    cancelButtonColor: '#3085d6',
+                    confirmButtonText: 'Yes, delete it!'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        // Show loading
+                        const originalText = deleteBtn.innerHTML;
+                        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Deleting...';
+                        deleteBtn.disabled = true;
+                        
+                        fetch('timetable_delete_entry.php', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({id: id})
+                        })
+                        .then(r => r.json())
+                        .then(res => {
+                            if(res.success) {
+                                Swal.fire('Deleted!', res.message, 'success');
+                                document.getElementById('closeModal').click();
+                                timetableManager.loadTimetable(timetableManager.currentClass);
+                            } else {
+                                Swal.fire('Error', res.message, 'error');
+                            }
+                        })
+                        .catch(err => {
+                            console.error('Delete error', err);
+                            Swal.fire('Error', 'Failed to delete schedule', 'error');
+                        })
+                        .finally(() => {
+                            deleteBtn.innerHTML = originalText;
+                            deleteBtn.disabled = false;
+                        });
+                    }
+                });
             });
         }
 
@@ -1845,7 +1843,7 @@ checkAuth(); // Ensure user is authenticated
             confirmCopyBtn.addEventListener('click', function() {
                 const targetClassId = document.getElementById('targetClass').value;
                 if (!targetClassId) {
-                    alert('Please select a target class');
+                    Swal.fire('Warning', 'Please select a target class', 'warning');
                     return;
                 }
 
@@ -1864,15 +1862,15 @@ checkAuth(); // Ensure user is authenticated
                 .then(response => response.json())
                 .then(result => {
                     if (result.success) {
-                        alert(result.message);
+                        Swal.fire('Success', result.message, 'success');
                         closeCopyModalFunc();
                     } else {
-                        alert('Error: ' + result.message);
+                        Swal.fire('Error', result.message, 'error');
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('An error occurred while copying the timetable.');
+                    Swal.fire('Error', 'An error occurred while copying the timetable.', 'error');
                 })
                 .finally(() => {
                     this.innerHTML = originalText;
@@ -1887,7 +1885,7 @@ checkAuth(); // Ensure user is authenticated
             e.preventDefault();
             
             if (!timetableManager.currentClass) {
-                alert('Please select a class first');
+                Swal.fire('Warning', 'Please select a class first', 'warning');
                 return;
             }
 
@@ -1906,16 +1904,16 @@ checkAuth(); // Ensure user is authenticated
             .then(response => response.json())
             .then(result => {
                 if (result.success) {
-                    alert(result.message);
+                    Swal.fire('Success', result.message, 'success');
                     closeModalFunc();
                     timetableManager.loadTimetable(timetableManager.currentClass);
                 } else {
-                    alert('Error: ' + result.message);
+                    Swal.fire('Error', result.message, 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('An error occurred while saving the schedule.');
+                Swal.fire('Error', 'An error occurred while saving the schedule.', 'error');
             })
             .finally(() => {
                 submitBtn.innerHTML = originalText;
@@ -1926,49 +1924,59 @@ checkAuth(); // Ensure user is authenticated
         // Auto-generate timetable
         document.getElementById('generateTimetableBtn').addEventListener('click', function () {
             if (!timetableManager.currentClass) {
-                alert('Please select a class first');
+                Swal.fire('Warning', 'Please select a class first', 'warning');
                 return;
             }
 
-            if (!confirm('This will automatically fill all empty slots with dummy subjects. Continue?')) {
-                return;
-            }
+            const btn = this;
+            Swal.fire({
+                title: 'Auto Generate?',
+                text: 'This will automatically fill all empty slots with dummy subjects. Continue?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, generate'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Generating...';
+                    btn.disabled = true;
 
-            this.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Generating...';
-            this.disabled = true;
-
-            fetch('timetable_generate.php', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({ class_id: timetableManager.currentClass })
-            })
-            .then(response => response.json())
-            .then(result => {
-                if (result.success) {
-                    alert(result.message);
-                    timetableManager.loadTimetable(timetableManager.currentClass);
-                } else {
-                    alert('Error: ' + result.message);
+                    fetch('timetable_generate.php', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ class_id: timetableManager.currentClass })
+                    })
+                    .then(response => response.json())
+                    .then(result => {
+                        if (result.success) {
+                            Swal.fire('Success', result.message, 'success');
+                            timetableManager.loadTimetable(timetableManager.currentClass);
+                        } else {
+                            Swal.fire('Error', result.message, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire('Error', 'An error occurred while generating the timetable.', 'error');
+                    })
+                    .finally(() => {
+                        btn.innerHTML = '<i class="fas fa-magic mr-2"></i> Auto-Generate';
+                        btn.disabled = false;
+                    });
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while generating the timetable.');
-            })
-            .finally(() => {
-                this.innerHTML = '<i class="fas fa-magic mr-2"></i> Auto-Generate';
-                this.disabled = false;
             });
         });
+
+
+
 
         // Template card click events
         document.querySelectorAll('.template-card').forEach(card => {
             card.addEventListener('click', function () {
                 const templateName = this.querySelector('h4').textContent;
-                alert(`Applying ${templateName} to current class`);
+                Swal.fire('Info', `Applying ${templateName} to current class`, 'info');
             });
         });
 
@@ -1979,39 +1987,47 @@ checkAuth(); // Ensure user is authenticated
                 
                 if (action === 'Clear Schedule') {
                     if (!timetableManager.currentClass) {
-                        alert('Please select a class first');
+                        Swal.fire('Warning', 'Please select a class first', 'warning');
                         return;
                     }
-                    if (!confirm('Are you sure you want to clear the entire timetable for this class and current term?')) {
-                        return;
-                    }
-
-                    fetch('timetable_clear.php', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ class_id: timetableManager.currentClass })
-                    })
-                    .then(response => response.json())
-                    .then(result => {
-                        if (result.success) {
-                            alert(result.message);
-                            timetableManager.loadTimetable(timetableManager.currentClass);
-                        } else {
-                            alert('Error: ' + result.message);
+                    
+                    Swal.fire({
+                         title: 'Clear Schedule?',
+                         text: 'Are you sure you want to clear the entire timetable for this class and current term?',
+                         icon: 'warning',
+                         showCancelButton: true,
+                         confirmButtonColor: '#d33',
+                         confirmButtonText: 'Yes, clear it!'
+                    }).then((result) => {
+                         if(result.isConfirmed) {
+                            fetch('timetable_clear.php', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ class_id: timetableManager.currentClass })
+                            })
+                            .then(response => response.json())
+                            .then(result => {
+                                if (result.success) {
+                                    Swal.fire('Success', result.message, 'success');
+                                    timetableManager.loadTimetable(timetableManager.currentClass);
+                                } else {
+                                    Swal.fire('Error', result.message, 'error');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                Swal.fire('Error', 'An error occurred while clearing the schedule.', 'error');
+                            });
                         }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('An error occurred while clearing the schedule.');
                     });
                 } else if (action === 'Copy to Other Classes') {
                     if (!timetableManager.currentClass) {
-                        alert('Please select a source class first');
+                        Swal.fire('Warning', 'Please select a source class first', 'warning');
                         return;
                     }
                     if (copyModal) copyModal.classList.add('active');
                 } else {
-                    alert(`Bulk action: ${action} - Coming soon!`);
+                    Swal.fire('Info', `Bulk action: ${action} - Coming soon!`, 'info');
                 }
             });
         });
@@ -2082,13 +2098,14 @@ checkAuth(); // Ensure user is authenticated
                 html += '<p>© 2024 Northland Schools Kano. All rights reserved.</p>';
                 html += '</div>';
             }
-            html += '</body></html>';
+            html += '
+</body></html>';
             return html;
         }
 
         document.getElementById('exportPdfBtn')?.addEventListener('click', function () {
             if (!timetableManager.currentClass) {
-                alert('Please select a class first');
+                Swal.fire('Warning', 'Please select a class first', 'warning');
                 return;
             }
 
@@ -2096,7 +2113,7 @@ checkAuth(); // Ensure user is authenticated
             const htmlContent = generateStyledHTML(className, true);
 
             if (!htmlContent) {
-                alert('No timetable data to export');
+                Swal.fire('Info', 'No timetable data to export', 'info');
                 return;
             }
 
@@ -2111,7 +2128,7 @@ checkAuth(); // Ensure user is authenticated
 
         document.getElementById('printBtn')?.addEventListener('click', function () {
             if (!timetableManager.currentClass) {
-                alert('Please select a class first');
+                Swal.fire('Warning', 'Please select a class first', 'warning');
                 return;
             }
 
@@ -2119,7 +2136,7 @@ checkAuth(); // Ensure user is authenticated
             const htmlContent = generateStyledHTML(className, true);
 
             if (!htmlContent) {
-                alert('No timetable data to print');
+                Swal.fire('Info', 'No timetable data to print', 'info');
                 return;
             }
 
@@ -2133,7 +2150,7 @@ checkAuth(); // Ensure user is authenticated
 
         document.getElementById('exportExcelBtn')?.addEventListener('click', function () {
             if (!timetableManager.currentClass) {
-                alert('Please select a class first');
+                Swal.fire('Warning', 'Please select a class first', 'warning');
                 return;
             }
 
@@ -2141,7 +2158,7 @@ checkAuth(); // Ensure user is authenticated
             const table = document.querySelector('#timetableDisplay table');
 
             if (!table) {
-                alert('No timetable data to export');
+                Swal.fire('Info', 'No timetable data to export', 'info');
                 return;
             }
 
@@ -2213,7 +2230,7 @@ checkAuth(); // Ensure user is authenticated
                         if (data.errors && data.errors.length > 0) {
                             msg += '\n\nWarnings:\n' + data.errors.slice(0, 10).join('\n') + (data.errors.length > 10 ? '\n...and more.' : '');
                         }
-                        alert(msg);
+                        Swal.fire(msg);
 
                         // Refresh timetable if class is selected
                         if (timetableManager.currentClass) {
@@ -2222,12 +2239,12 @@ checkAuth(); // Ensure user is authenticated
                             location.reload();
                         }
                     } else {
-                        alert('Import failed: ' + data.message + (data.errors ? '\nErrors:\n' + data.errors.slice(0, 10).join('\n') : ''));
+                        Swal.fire('Import Failed', 'Import failed: ' + data.message + (data.errors ? '\nErrors:\n' + data.errors.slice(0, 10).join('\n') : ''), 'error');
                     }
                 })
                 .catch(error => {
                     console.error('Error:', error);
-                    alert('An error occurred during import.');
+                    Swal.fire('Error', 'An error occurred during import.', 'error');
                 })
                 .finally(() => {
                     btn.innerHTML = originalText;
@@ -2236,6 +2253,8 @@ checkAuth(); // Ensure user is authenticated
                 });
         });
     </script>
-</body>
 
+    <script src="timetable_fix.js"></script>
+    </main>
+</body>
 </html>

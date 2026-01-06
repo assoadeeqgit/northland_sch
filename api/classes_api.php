@@ -9,8 +9,9 @@ session_start();
 require_once '../config/database.php';
 require_once '../config/logger.php';
 
-// Check if user is logged in and is admin
-if (!isset($_SESSION['user_id']) || $_SESSION['user_type'] !== 'admin') {
+// Check if user is logged in and is an admin type
+$allowedRoles = ['admin', 'administrator', 'super_admin'];
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['user_type'], $allowedRoles)) {
     http_response_code(403);
     echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
     exit();
@@ -114,13 +115,29 @@ function addClass($db)
             throw new Exception("Class code already exists.");
         }
 
+        // Check if teacher is already assigned to ANY class
+        // Defensive: treat empty string as null
+        $teacherId = (!empty($_POST['class_teacher_id']) && $_POST['class_teacher_id'] !== '') 
+            ? $_POST['class_teacher_id'] 
+            : null;
+            
+        if ($teacherId) {
+            $checkStmt = $db->prepare("SELECT class_name FROM classes WHERE class_teacher_id = ?");
+            $checkStmt->execute([$teacherId]);
+            $existingClass = $checkStmt->fetchColumn();
+            
+            if ($existingClass) {
+                throw new Exception("This teacher is already the Class Teacher for '$existingClass'. A teacher cannot lead multiple classes.");
+            }
+        }
+
         $sql = "INSERT INTO classes (class_name, class_code, class_teacher_id, capacity, class_level) 
                 VALUES (?, ?, ?, ?, ?)";
         $stmt = $db->prepare($sql);
         $stmt->execute([
             $className,
             $classCode,
-            !empty($_POST['class_teacher_id']) ? $_POST['class_teacher_id'] : null,
+            $teacherId,  // Use the cleaned $teacherId variable
             $_POST['capacity'] ?? 30,
             $classLevel
         ]);
@@ -154,13 +171,29 @@ function updateClass($db)
         // Standardize inputs
         $className = standardizeTitleCase($_POST['class_name']);
         $classLevel = standardizeClassLevel($_POST['class_level'] ?? 'Secondary');
+        
+        // Defensive: treat empty string as null (deassignment)
+        $teacherId = (!empty($_POST['class_teacher_id']) && $_POST['class_teacher_id'] !== '') 
+            ? $_POST['class_teacher_id'] 
+            : null;
+
+        // Check if teacher is already assigned to another class (excluding current class)
+        if ($teacherId) {
+            $checkStmt = $db->prepare("SELECT class_name FROM classes WHERE class_teacher_id = ? AND id != ?");
+            $checkStmt->execute([$teacherId, $_POST['class_id']]);
+            $existingClass = $checkStmt->fetchColumn();
+            
+            if ($existingClass) {
+                throw new Exception("This teacher is already the Class Teacher for '$existingClass'. A teacher cannot lead multiple classes.");
+            }
+        }
 
         $sql = "UPDATE classes SET class_name = ?, class_teacher_id = ?, capacity = ?, class_level = ? 
                 WHERE id = ?";
         $stmt = $db->prepare($sql);
         $stmt->execute([
             $className,
-            !empty($_POST['class_teacher_id']) ? $_POST['class_teacher_id'] : null,
+            $teacherId,
             $_POST['capacity'] ?? 30,
             $classLevel,
             $_POST['class_id']
@@ -186,8 +219,8 @@ function updateClass($db)
 function assignTeacher($db)
 {
     try {
-        if (empty($_POST['class_id']) || empty($_POST['teacher_id'])) {
-            throw new Exception("Class ID and Teacher ID are required.");
+        if (empty($_POST['class_id'])) {
+            throw new Exception("Class ID is required.");
         }
 
         // Get class name for logging
@@ -195,30 +228,51 @@ function assignTeacher($db)
         $classStmt->execute([$_POST['class_id']]);
         $className = $classStmt->fetchColumn();
 
-        // Get teacher name for logging
-        $teacherStmt = $db->prepare("SELECT u.first_name, u.last_name FROM users u 
-                                      JOIN teachers t ON u.id = t.user_id 
-                                      WHERE t.id = ?");
-        $teacherStmt->execute([$_POST['teacher_id']]);
-        $teacher = $teacherStmt->fetch(PDO::FETCH_ASSOC);
-        $teacherName = $teacher ? $teacher['first_name'] . ' ' . $teacher['last_name'] : 'Unknown';
+        // Defensive: treat empty string as null (deassignment)
+        $teacherId = (!empty($_POST['teacher_id']) && $_POST['teacher_id'] !== '') 
+            ? $_POST['teacher_id'] 
+            : null;
+
+        if ($teacherId) {
+            // Get teacher name for logging
+            $teacherStmt = $db->prepare("SELECT u.first_name, u.last_name FROM users u 
+                                          JOIN teachers t ON u.id = t.user_id 
+                                          WHERE t.id = ?");
+            $teacherStmt->execute([$teacherId]);
+            $teacher = $teacherStmt->fetch(PDO::FETCH_ASSOC);
+            $teacherName = $teacher ? $teacher['first_name'] . ' ' . $teacher['last_name'] : 'Unknown';
+
+            // Check if teacher is already assigned to another class (excluding current class)
+            $checkStmt = $db->prepare("SELECT class_name FROM classes WHERE class_teacher_id = ? AND id != ?");
+            $checkStmt->execute([$teacherId, $_POST['class_id']]);
+            $existingClass = $checkStmt->fetchColumn();
+            
+            if ($existingClass) {
+                throw new Exception("This teacher is already the Class Teacher for '$existingClass'. A teacher cannot lead multiple classes.");
+            }
+
+            $actionMessage = "Assigned $teacherName to class: $className";
+        } else {
+            // Deassignment
+            $actionMessage = "Removed class teacher from class: $className";
+        }
 
         $sql = "UPDATE classes SET class_teacher_id = ? WHERE id = ?";
         $stmt = $db->prepare($sql);
-        $stmt->execute([$_POST['teacher_id'], $_POST['class_id']]);
+        $stmt->execute([$teacherId, $_POST['class_id']]);
 
         // Log activity
         $admin_name = $_SESSION['user_name'] ?? 'Admin';
         logActivity(
             $db,
             $admin_name,
-            "Teacher Assigned",
-            "Assigned $teacherName to class: $className",
+            $teacherId ? "Teacher Assigned" : "Teacher Removed",
+            $actionMessage,
             "fas fa-user-tie",
-            "bg-nskblue"
+            $teacherId ? "bg-nskblue" : "bg-gray-500"
         );
 
-        return ['success' => true, 'message' => 'Teacher assigned successfully!'];
+        return ['success' => true, 'message' => $teacherId ? 'Teacher assigned successfully!' : 'Teacher removed successfully!'];
     } catch (Exception $e) {
         return ['success' => false, 'message' => $e->getMessage()];
     }

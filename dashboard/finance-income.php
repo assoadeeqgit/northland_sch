@@ -1,8 +1,12 @@
 <?php
-require_once '../auth-check.php';
+require_once 'auth-check.php';
 
-// Allow both admin and accountant to access
-if (!isset($_SESSION['user_type']) || !in_array($_SESSION['user_type'], ['admin', 'accountant'])) {
+// Ensure user is logged in
+checkAuth();
+
+// Allow both admin (all variants) and accountant to access
+$allowedRoles = ['admin', 'administrator', 'super_admin', 'accountant'];
+if (!isset($_SESSION['user_type']) || !in_array($_SESSION['user_type'], $allowedRoles)) {
     header('Location: ../login-form.php');
     exit();
 }
@@ -230,7 +234,10 @@ $userInitial = strtoupper(substr($userName, 0, 1));
         <?php endif; ?>
 
     </div>
-</main>
+
+        <?php require_once 'footer.php'; ?>
+    </main>
+
 
 </body>
 </html>

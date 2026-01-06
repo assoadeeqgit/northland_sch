@@ -15,18 +15,17 @@ include '../includes/header.php';
         <div style="flex: 1;">
              <label style="display: block; font-weight: 500; margin-bottom: 8px;">Date Range</label>
              <div style="display: flex; gap: 10px;">
-                 <input type="date" value="2024-01-01" style="padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                 <input type="date" id="startDate" value="<?php echo date('Y-01-01'); ?>" style="padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
                  <span style="align-self: center;">to</span>
-                 <input type="date" value="2024-12-31" style="padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                 <input type="date" id="endDate" value="<?php echo date('Y-12-31'); ?>" style="padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
              </div>
         </div>
-        <button class="btn btn-primary"><i class="fas fa-filter"></i> Apply Filters</button>
-        <button class="btn" style="border: 1px solid #e5e7eb;"><i class="fas fa-download"></i> Export All</button>
+        <button class="btn btn-primary" onclick="applyDateFilters()"><i class="fas fa-filter"></i> Apply Filters</button>
     </div>
 
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
         
-        <!-- Report Card -->
+        <!-- Report Card: Fee Collection -->
         <div style="background: white; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb;">
             <div style="padding: 20px; border-bottom: 1px solid #f3f4f6;">
                 <div style="width: 40px; height: 40px; background: #e0e7ff; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--primary-color); margin-bottom: 15px;">
@@ -36,12 +35,12 @@ include '../includes/header.php';
                 <p style="font-size: 14px; color: #6b7280;">Detailed breakdown of fees collected by class, type, and date.</p>
             </div>
             <div style="padding: 15px 20px; background: #f9fafb; display: flex; justify-content: space-between;">
-                <a href="#" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View Report</a>
+                <a href="#" onclick="navigateToReport('finance-fees.php'); return false;" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View Report</a>
                 <span style="font-size: 12px; color: #9ca3af;">Updated Today</span>
             </div>
         </div>
 
-        <!-- Report Card -->
+        <!-- Report Card: Income Statement -->
         <div style="background: white; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb;">
             <div style="padding: 20px; border-bottom: 1px solid #f3f4f6;">
                 <div style="width: 40px; height: 40px; background: #dcfce7; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--success); margin-bottom: 15px;">
@@ -51,12 +50,12 @@ include '../includes/header.php';
                 <p style="font-size: 14px; color: #6b7280;">Profit and loss statement for the selected period.</p>
             </div>
             <div style="padding: 15px 20px; background: #f9fafb; display: flex; justify-content: space-between;">
-                <a href="#" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View Report</a>
+                <a href="#" onclick="navigateToReport('finance-income.php'); return false;" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View Report</a>
                 <span style="font-size: 12px; color: #9ca3af;">Monthly</span>
             </div>
         </div>
 
-        <!-- Report Card -->
+        <!-- Report Card: Defaulters -->
         <div style="background: white; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb;">
             <div style="padding: 20px; border-bottom: 1px solid #f3f4f6;">
                 <div style="width: 40px; height: 40px; background: #fee2e2; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--danger); margin-bottom: 15px;">
@@ -66,7 +65,7 @@ include '../includes/header.php';
                 <p style="font-size: 14px; color: #6b7280;">List of students with outstanding balances.</p>
             </div>
             <div style="padding: 15px 20px; background: #f9fafb; display: flex; justify-content: space-between;">
-                <a href="#" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View Report</a>
+                <a href="finance-defaulters.php" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">View Report</a>
                 <span style="font-size: 12px; color: #9ca3af;">Critical</span>
             </div>
         </div>
@@ -74,5 +73,19 @@ include '../includes/header.php';
     </div>
 
 </div>
+
+<script>
+function navigateToReport(page) {
+    const start = document.getElementById('startDate').value;
+    const end = document.getElementById('endDate').value;
+    window.location.href = `${page}?start_date=${start}&end_date=${end}`;
+}
+
+function applyDateFilters() {
+    // Visual feedback only, as navigation happens on 'View Report' click.
+    // Ideally, we could auto-navigate to the first report or just refresh stats if they were on this page.
+    alert('Date filters applied! Click "View Report" on any card to see details for this range.');
+}
+</script>
 
 <?php include '../includes/footer.php'; ?>

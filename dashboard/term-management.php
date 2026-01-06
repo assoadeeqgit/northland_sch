@@ -1,9 +1,46 @@
 <?php
+// AJAX Handler
+if (isset($_GET["ajax"]) && $_GET["ajax"] == "1") {
+    require_once "../config/database.php";
+    header("Content-Type: application/json");
+    try {
+        $database = new Database();
+        $db = $database->getConnection();
+        $page = isset($_GET["page"]) ? max(1, intval($_GET["page"])) : 1;
+        $search = $_GET["search"] ?? "";
+        $perPage = 15;
+        $offset = ($page - 1) * $perPage;
+        echo json_encode(["success" => false, "message" => "AJAX not implemented for this page yet"]);
+    } catch (Exception $e) {
+        echo json_encode(["success" => false, "message" => $e->getMessage()]);
+    }
+    exit;
+}
 // Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Debugging disabled
+// error_reporting(E_ALL);
+// ini_set('display_errors', 1);
+
+// AJAX Handler for term synchronization
+if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
+    require_once '../config/database.php';
+    require_once '../includes/TermSync.php';
+    header('Content-Type: application/json');
+    
+    try {
+        $database = new Database();
+        $db = $database->getConnection();
+        $termSync = TermSync::getInstance($db);
+        
+        echo json_encode(['success' => false, 'message' => 'AJAX endpoint not fully implemented yet']);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
 
 require_once 'auth-check.php';
+require_once '../includes/TermSync.php';
 checkAuth('admin');
 
 require_once '../config/logger.php';
@@ -11,26 +48,27 @@ require_once '../config/database.php';
 
 $database = new Database();
 $db = $database->getConnection();
+$termSync = TermSync::getInstance($db);
 
 $message = '';
 $error = '';
 
-// Nigerian Academic Calendar for 2024-2025 and 2025-2026
+// Nigerian Academic Calendar for 2025-2026
 $nigerianTerms = [
     [
         'term_name' => 'First Term',
-        'start_date' => '2024-09-09',
-        'end_date' => '2024-12-13',
+        'start_date' => '2025-09-08',
+        'end_date' => '2025-12-19',
     ],
     [
         'term_name' => 'Second Term',
-        'start_date' => '2025-01-06',
-        'end_date' => '2025-04-11',
+        'start_date' => '2026-01-05',
+        'end_date' => '2026-04-10',
     ],
     [
         'term_name' => 'Third Term',
-        'start_date' => '2025-04-28',
-        'end_date' => '2025-07-25',
+        'start_date' => '2026-04-27',
+        'end_date' => '2026-07-24',
     ]
 ];
 
@@ -41,18 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($action === 'set_active') {
         $term_id = intval($_POST['term_id']);
 
-        try {
-            // Deactivate all terms
-            $db->exec("UPDATE terms SET is_current = 0");
-
-            // Activate the selected term
-            $stmt = $db->prepare("UPDATE terms SET is_current = 1 WHERE id = ?");
-            $stmt->execute([$term_id]);
-
-            $message = "Term activated successfully!";
+        if ($termSync->switchTerm($term_id)) {
+            $message = "Term activated successfully and all modules synchronized!";
             logActivity($db, $_SESSION['user_name'] ?? 'Admin', 'Term Changed', "Term ID: $term_id activated", 'fas fa-calendar-check', 'bg-nsklightblue');
-        } catch (Exception $e) {
-            $error = "Failed to activate term: " . $e->getMessage();
+        } else {
+            $error = "Failed to activate term. Please try again.";
         }
     }
 
@@ -82,11 +113,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // Update or insert Nigerian terms
             foreach ($nigerianTerms as $index => $term) {
                 $stmt = $db->prepare("UPDATE terms SET start_date = ?, end_date = ? 
-                                     WHERE academic_session_id = ? AND term_name = ?");
+                                     WHERE session_id = ? AND term_name = ?");
                 $stmt->execute([$term['start_date'], $term['end_date'], $academic_session_id, $term['term_name']]);
             }
 
             $message = "Calendar synced with Nigerian academic calendar successfully!";
+
+            // Smart Auto-Activation: Check if any term should be active today
+            $today = date('Y-m-d');
+            $autoActivateStmt = $db->prepare("SELECT id FROM terms WHERE session_id = ? AND ? BETWEEN start_date AND end_date LIMIT 1");
+            $autoActivateStmt->execute([$academic_session_id, $today]);
+            $termToActivate = $autoActivateStmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($termToActivate) {
+                $termSync->switchTerm($termToActivate['id']);
+                $message .= " System has automatically activated the appropriate term for today.";
+            }
+
             logActivity($db, $_SESSION['user_name'] ?? 'Admin', 'Calendar Synced', "Synced with Nigerian academic calendar", 'fas fa-sync', 'bg-nskgreen');
         } catch (Exception $e) {
             $error = "Failed to sync calendar: " . $e->getMessage();
@@ -99,10 +142,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             // Define class progression order (matching exact database class names)
             $classProgression = [
-                'Garden (Age 2-3)' => 'Pre-Nursery (Age 3-4)',
-                'Pre-Nursery (Age 3-4)' => 'Nursery 1 (Age 4-5)',
-                'Nursery 1 (Age 4-5)' => 'Nursery 2 (Age 5-6)',
-                'Nursery 2 (Age 5-6)' => 'Primary 1',
+                'Garden' => 'Pre-Nursery',
+                'Pre-Nursery' => 'Nursery 1',
+                'Nursery 1' => 'Nursery 2',
+                'Nursery 2' => 'Primary 1',
                 'Primary 1' => 'Primary 2',
                 'Primary 2' => 'Primary 3',
                 'Primary 3' => 'Primary 4',
@@ -184,14 +227,14 @@ if (!$selectedSessionId) {
 // Fetch terms based on filter
 if ($selectedSessionId && $selectedSessionId !== 'all') {
     $termsStmt = $db->prepare("SELECT t.*, a.session_name as academic_year_name FROM terms t 
-                               LEFT JOIN academic_sessions a ON t.academic_session_id = a.id
-                               WHERE t.academic_session_id = ?
+                               LEFT JOIN academic_sessions a ON t.session_id = a.id
+                               WHERE t.session_id = ?
                                ORDER BY t.id ASC");
     $termsStmt->execute([$selectedSessionId]);
 } else {
     // Show all terms if "All Years" is selected
     $termsStmt = $db->query("SELECT t.*, a.session_name as academic_year_name FROM terms t 
-                             LEFT JOIN academic_sessions a ON t.academic_session_id = a.id
+                             LEFT JOIN academic_sessions a ON t.session_id = a.id
                              ORDER BY a.id DESC, t.id DESC");
 }
 $terms = $termsStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -200,8 +243,6 @@ $terms = $termsStmt->fetchAll(PDO::FETCH_ASSOC);
 $sessionsStmt = $db->query("SELECT id, session_name as name, is_current FROM academic_sessions ORDER BY id DESC");
 $academicYears = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
-
-<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -209,6 +250,7 @@ $academicYears = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Term Management - Northland Schools Kano</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
@@ -235,19 +277,58 @@ $academicYears = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
             font-family: 'Montserrat', sans-serif;
             background: #f8fafc;
         }
+        /* Standardized Modal Styling */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+            opacity: 1;
+        }
+        
+        /* Prevent body scroll when modal is open */
+        body.modal-active { overflow: hidden; }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 95%;
+            max-width: 500px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        .modal.active .modal-content {
+            transform: scale(1);
+        }
     </style>
 </head>
 
 <body>
-    <div class="flex">
-        <?php include 'sidebar.php'; ?>
-
-        <div class="main-content w-full">
-            <div class="container mx-auto p-6">
-                <div class="mb-6">
-                    <h1 class="text-3xl font-bold text-nskblue">Term Management</h1>
-                    <p class="text-gray-600">Manage academic terms and handle class promotions</p>
-                </div>
+    <div id="sidebar-container"></div>
+    <?php require_once 'sidebar.php'; ?>
+    <main class="main-content">
+        <?php
+        $pageTitle = 'Term Management';
+        $pageSubtitle = 'Manage academic terms and handle class promotions';
+        require_once 'header.php';
+        ?>
+            <div class="w-full p-6">
 
                 <!-- Messages -->
                 <?php if ($message): ?>
@@ -366,7 +447,7 @@ $academicYears = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
                     <h2 class="text-2xl font-bold text-nskblue mb-4">Class Promotion</h2>
                     <p class="text-gray-600 mb-4">After the third term is completed, use this section to promote all students to the next class.</p>
 
-                    <form method="POST" onsubmit="return confirm('Are you sure you want to promote all students? This action cannot be undone.');">
+                    <form method="POST" id="promoteForm" onsubmit="confirmPromotion(event)">
                         <input type="hidden" name="action" value="promote_students">
 
                         <!-- Session Selector Removed (Logic promotes all active students irrespective of session) -->
@@ -394,8 +475,8 @@ $academicYears = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
 
     <!-- Edit Term Modal -->
-    <div id="editTermModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg shadow-lg p-6 w-96">
+    <div id="editTermModal" class="modal">
+        <div class="modal-content">
             <h2 class="text-2xl font-bold text-nskblue mb-4">Edit Term Dates</h2>
 
             <form id="editTermForm" method="POST">
@@ -434,6 +515,23 @@ $academicYears = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
     </div>
 
     <script>
+        function confirmPromotion(event) {
+            event.preventDefault();
+            Swal.fire({
+                title: 'Promote Students?',
+                text: 'Are you sure you want to promote all students? This action cannot be undone.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, promote them!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    event.target.submit();
+                }
+            });
+        }
+
         // Filter terms by academic session
         function filterBySession() {
             const sessionId = document.getElementById('sessionFilter').value;
@@ -446,11 +544,11 @@ $academicYears = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
             document.getElementById('editStartDate').value = startDate;
             document.getElementById('editEndDate').value = endDate;
             calculateDuration();
-            document.getElementById('editTermModal').classList.remove('hidden');
+            document.getElementById('editTermModal').classList.add('active'); // Changed from removing 'hidden'
         }
 
         function closeEditModal() {
-            document.getElementById('editTermModal').classList.add('hidden');
+            document.getElementById('editTermModal').classList.remove('active'); // Changed from adding 'hidden'
         }
 
         function calculateDuration() {
@@ -471,6 +569,10 @@ $academicYears = $sessionsStmt->fetchAll(PDO::FETCH_ASSOC);
             }
         });
     </script>
-</body>
 
+    <!-- Universal AJAX Filter -->
+    <script src="clean_filter.js"></script>
+
+    </main>
+</body>
 </html>

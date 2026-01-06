@@ -1,10 +1,10 @@
 <?php
 require_once 'auth-check.php'; // Allows both admin and accountant
 include '../includes/header.php';
-require_once '../config/database.php';
+require_once '../config/DatabaseManager.php';
 
-$db = new Database();
-$conn = $db->getConnection();
+$dbManager = DatabaseManager::getInstance();
+$conn = $dbManager->getConnection();
 
 // Get date range from query parameters or default to current year
 $start_date = $_GET['start_date'] ?? date('Y-01-01');

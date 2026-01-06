@@ -21,7 +21,7 @@ class SPALoader {
             fadeSpeed: 200,
             enableCache: true,
             enableHistory: true,
-            contentFolder: 'content/'
+            contentFolder: ''
         };
     }
 
@@ -192,8 +192,8 @@ class SPALoader {
      * @returns {Promise<string>} - HTML content
      */
     async fetchPageContent(page) {
-        // Construct the fetch URL - append ?ajax=1 to get content-only version
-        const url = `${this.config.contentFolder}${page}?ajax=1&t=${Date.now()}`;
+        // Construct the fetch URL - append spa_load=1 to get content-only version
+        const url = `${this.config.contentFolder}${page}${page.includes('?') ? '&' : '?'}spa_load=1&t=${Date.now()}`;
 
         const response = await fetch(url, {
             method: 'GET',

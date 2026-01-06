@@ -5,10 +5,10 @@
  */
 
 /**
- * Get all subjects assigned to a teacher
+ * Get all subjects assigned to a teacher (from all assignment sources)
  * @param PDO $pdo - Database connection
  * @param int $teacher_db_id - Teacher's database ID (teachers.id)
- * @return array - Array of subjects
+ * @return array - Array of subjects with class count
  */
 function  getTeacherSubjects($pdo, $teacher_db_id) {
     try {
@@ -17,13 +17,17 @@ function  getTeacherSubjects($pdo, $teacher_db_id) {
                 s.id,
                 s.subject_code,
                 s.subject_name,
-                s.category
+                s.category,
+                COUNT(DISTINCT COALESCE(tsca.class_id, cs.class_id)) as class_count
             FROM subjects s
-            JOIN teacher_subject_assignments tsa ON s.id = tsa.subject_id
-            WHERE tsa.teacher_id = ?
+            LEFT JOIN teacher_subject_assignments tsa ON s.id = tsa.subject_id AND tsa.teacher_id = ?
+            LEFT JOIN teacher_subject_class_assignments tsca ON s.id = tsca.subject_id AND tsca.teacher_id = ?
+            LEFT JOIN class_subjects cs ON s.id = cs.subject_id AND cs.teacher_id = ?
+            WHERE (tsa.id IS NOT NULL OR tsca.id IS NOT NULL OR cs.id IS NOT NULL)
+            GROUP BY s.id, s.subject_code, s.subject_name, s.category
             ORDER BY s.subject_name
         ");
-        $stmt->execute([$teacher_db_id]);
+        $stmt->execute([$teacher_db_id, $teacher_db_id, $teacher_db_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         error_log("Error fetching teacher subjects: " . $e->getMessage());
@@ -32,25 +36,32 @@ function  getTeacherSubjects($pdo, $teacher_db_id) {
 }
 
 /**
- * Get all classes assigned to a teacher
+ * Get all classes assigned to a teacher (including classes where they teach subjects)
  * @param PDO $pdo - Database connection
  * @param int $teacher_db_id - Teacher's database ID
  * @return array - Array of classes
  */
 function getTeacherClasses($pdo, $teacher_db_id) {
     try {
+        // Get all classes where teacher is teaching (from all assignment sources)
         $stmt = $pdo->prepare("
-            SELECT 
+            SELECT DISTINCT
                 c.id,
                 c.class_name,
-                c.section,
-                tca.is_class_teacher
+                MAX(CASE 
+                    WHEN tca.is_class_teacher = 1 OR c.class_teacher_id = ? THEN 1
+                    ELSE 0
+                END) as is_class_teacher,
+                COUNT(DISTINCT COALESCE(tsca.subject_id, cs.subject_id)) as subject_count
             FROM classes c
-            JOIN teacher_class_assignments tca ON c.id = tca.class_id
-            WHERE tca.teacher_id = ?
+            LEFT JOIN teacher_class_assignments tca ON c.id = tca.class_id AND tca.teacher_id = ?
+            LEFT JOIN teacher_subject_class_assignments tsca ON c.id = tsca.class_id AND tsca.teacher_id = ?
+            LEFT JOIN class_subjects cs ON c.id = cs.class_id AND cs.teacher_id = ?
+            WHERE (tsca.id IS NOT NULL OR cs.id IS NOT NULL OR c.class_teacher_id = ?)
+            GROUP BY c.id, c.class_name, c.class_teacher_id
             ORDER BY c.id
         ");
-        $stmt->execute([$teacher_db_id]);
+        $stmt->execute([$teacher_db_id, $teacher_db_id, $teacher_db_id, $teacher_db_id, $teacher_db_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         error_log("Error fetching teacher classes: " . $e->getMessage());
@@ -75,16 +86,37 @@ function getTeacherAssignments($pdo, $teacher_db_id) {
                 tsca.academic_session_id,
                 tsca.term_id,
                 asess.session_name,
-                t.term_name
+                t.term_name,
+                'tsca' as source
             FROM teacher_subject_class_assignments tsca
             JOIN subjects s ON tsca.subject_id = s.id
             JOIN classes c ON tsca.class_id = c.id
             LEFT JOIN academic_sessions asess ON tsca.academic_session_id = asess.id
             LEFT JOIN terms t ON tsca.term_id = t.id
             WHERE tsca.teacher_id = ?
-            ORDER BY c.id, s.subject_name
+            
+            UNION ALL
+            
+            SELECT 
+                cs.id,
+                s.subject_name,
+                s.subject_code,
+                c.class_name,
+                NULL as academic_session_id,
+                NULL as term_id,
+                current_session.session_name,
+                current_term.term_name,
+                'cs' as source
+            FROM class_subjects cs
+            JOIN subjects s ON cs.subject_id = s.id
+            JOIN classes c ON cs.class_id = c.id
+            CROSS JOIN (SELECT session_name FROM academic_sessions WHERE is_current = 1 LIMIT 1) current_session
+            CROSS JOIN (SELECT term_name FROM terms WHERE is_current = 1 LIMIT 1) current_term
+            WHERE cs.teacher_id = ?
+            
+            ORDER BY class_name, subject_name
         ");
-        $stmt->execute([$teacher_db_id]);
+        $stmt->execute([$teacher_db_id, $teacher_db_id]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (PDOException $e) {
         error_log("Error fetching teacher assignments: " . $e->getMessage());
@@ -239,12 +271,13 @@ function removeClassFromTeacher($pdo, $teacher_db_id, $class_id) {
  * @param int $assignment_id - Assignment ID
  * @return bool - Success status
  */
-function removeTeacherAssignment($pdo, $assignment_id) {
+function removeTeacherAssignment($pdo, $assignment_id, $source = 'tsca') {
     try {
-        $stmt = $pdo->prepare("
-            DELETE FROM teacher_subject_class_assignments
-            WHERE id = ?
-        ");
+        if ($source === 'cs') {
+            $stmt = $pdo->prepare("DELETE FROM class_subjects WHERE id = ?");
+        } else {
+            $stmt = $pdo->prepare("DELETE FROM teacher_subject_class_assignments WHERE id = ?");
+        }
         $stmt->execute([$assignment_id]);
         return true;
     } catch (PDOException $e) {
@@ -375,14 +408,24 @@ function getTeacherStats($pdo, $teacher_db_id) {
         $stats['total_assignments'] = $stmt->fetchColumn();
         
         // Check if class teacher and get class names
+        // Check if class teacher and get class names
+        // We check BOTH the join table AND the classes table for robustness
         $stmt = $pdo->prepare("
-            SELECT c.class_name 
-            FROM teacher_class_assignments tca
-            JOIN classes c ON tca.class_id = c.id
-            WHERE tca.teacher_id = ? AND tca.is_class_teacher = 1
-            ORDER BY c.id
+            SELECT DISTINCT class_name FROM (
+                SELECT c.class_name 
+                FROM teacher_class_assignments tca
+                JOIN classes c ON tca.class_id = c.id
+                WHERE tca.teacher_id = ? AND tca.is_class_teacher = 1
+                
+                UNION
+                
+                SELECT c.class_name
+                FROM classes c
+                WHERE c.class_teacher_id = ?
+            ) as combined_classes
+            ORDER BY class_name
         ");
-        $stmt->execute([$teacher_db_id]);
+        $stmt->execute([$teacher_db_id, $teacher_db_id]);
         $class_names = $stmt->fetchAll(PDO::FETCH_COLUMN);
         
         $stats['is_class_teacher'] = count($class_names) > 0;

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Timetable Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="p-4">
+    <h1 class="text-2xl font-bold mb-4">Timetable Loading Test</h1>
+    
+    <select id="classSelect" class="border p-2 mb-4">
+        <option value="">Select Class</option>
+        <option value="5">Primary 2</option>
+        <option value="6">Primary 3</option>
+        <option value="12">SS 1</option>
+    </select>
+    
+    <div id="result" class="border p-4 bg-gray-50"></div>
+    
+    <script>
+        document.getElementById('classSelect').addEventListener('change', function() {
+            const classId = this.value;
+            const resultDiv = document.getElementById('result');
+            
+            if (!classId) {
+                resultDiv.innerHTML = 'Please select a class';
+                return;
+            }
+            
+            resultDiv.innerHTML = 'Loading...';
+            
+            fetch(`simple_timetable_api.php?class_id=${classId}`)
+                .then(response => {
+                    console.log('Response status:', response.status);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('API Response:', data);
+                    
+                    if (data.success) {
+                        let html = `<h3>Found ${data.data.length} entries</h3>`;
+                        html += '<table class="w-full border-collapse border">';
+                        html += '<tr><th class="border p-2">Day</th><th class="border p-2">Time</th><th class="border p-2">Subject</th><th class="border p-2">Teacher</th></tr>';
+                        
+                        data.data.forEach(entry => {
+                            html += `<tr>
+                                <td class="border p-2">${entry.day_of_week}</td>
+                                <td class="border p-2">${entry.start_time} - ${entry.end_time}</td>
+                                <td class="border p-2">${entry.subject_name}</td>
+                                <td class="border p-2">${entry.teacher_name || 'No Teacher'}</td>
+                            </tr>`;
+                        });
+                        
+                        html += '</table>';
+                        resultDiv.innerHTML = html;
+                    } else {
+                        resultDiv.innerHTML = `<p class="text-red-600">Error: ${data.message}</p>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    resultDiv.innerHTML = `<p class="text-red-600">Network error: ${error.message}</p>`;
+                });
+        });
+    </script>
+</body>
+</html>

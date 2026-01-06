@@ -93,18 +93,30 @@
             font-weight: 600;
         }
         
+        /* Standardized Modal Styling */
         .modal {
-            transition: opacity 0.3s ease, transform 0.3s ease;
-            transform: scale(0.9);
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
             opacity: 0;
-            display: none;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal.active {
+            display: flex;
+            opacity: 1;
         }
         
-        .modal.active {
-            transform: scale(1);
-            opacity: 1;
-            display: flex;
-        }
+        /* Prevent body scroll when modal is open */
+        body.modal-active { overflow: hidden; }
         
         .tab-button {
             transition: all 0.3s ease;
@@ -140,47 +152,15 @@
         }
     </style>
 </head>
-<body class="flex">
-    <!-- Sidebar Navigation -->
+<body>
     <?php require_once 'sidebar.php'; ?>
 
-    <!-- Main Content -->
     <main class="main-content">
-        <!-- Header -->
-        <header class="bg-white shadow-md p-4">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-4">
-                    <button id="mobileMenuToggle" class="md:hidden text-nsknavy">
-                        <i class="fas fa-bars text-xl"></i>
-                    </button>
-                    <h1 class="text-2xl font-bold text-nsknavy">Finance Management</h1>
-                </div>
-                
-                <div class="flex items-center space-x-4">
-                    <div class="relative">
-                        <div class="flex items-center space-x-2 bg-nsklight rounded-full py-2 px-4">
-                            <i class="fas fa-search text-gray-500"></i>
-                            <input type="text" placeholder="Search transactions..." class="bg-transparent outline-none w-32 md:w-64">
-                        </div>
-                    </div>
-                    
-                    <div class="relative">
-                        <i class="fas fa-bell text-nsknavy text-xl"></i>
-                        <div class="notification-dot"></div>
-                    </div>
-                    
-                    <div class="hidden md:flex items-center space-x-2">
-                        <div class="w-10 h-10 rounded-full bg-nskgold flex items-center justify-center text-white font-bold">
-                            A
-                        </div>
-                        <div>
-                            <p class="text-sm font-semibold text-nsknavy">Admin User</p>
-                            <p class="text-xs text-gray-600">Administrator</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </header>
+        <?php
+        $pageTitle = 'Finance Management';
+        require_once 'header.php';
+        ?>
+        <!-- Finance Management Content -->
 
         <!-- Finance Management Content -->
         <div class="p-6">
@@ -635,8 +615,8 @@
             </div>
         </div>
 
-        <!-- Include footer -->
-        <script src="footer.js"></script>
+    
+        <?php require_once 'footer.php'; ?>
     </main>
 <script>
     // Wait for everything to load
@@ -1001,4 +981,6 @@
     `;
     document.head.appendChild(style);
 </script>
+
+</body>
 </html>

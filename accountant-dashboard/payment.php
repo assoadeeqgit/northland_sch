@@ -4,10 +4,10 @@ checkAuth('accountant'); // Finance management is for accountants only
 
 require_once '../config/config.php';
 include '../includes/header.php';
-require_once '../config/database.php';
+require_once '../config/DatabaseManager.php';
 
-$db = new Database();
-$conn = $db->getConnection();
+$dbManager = DatabaseManager::getInstance();
+$conn = $dbManager->getConnection();
 
 // --- HANDLE FORM SUBMISSIONS ---
 $message = '';
@@ -76,7 +76,12 @@ if (isset($_GET['student_id']) && !empty($_GET['student_id'])) {
 $sessions = $conn->query("SELECT * FROM academic_sessions ORDER BY session_name DESC")->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch terms
-$terms = $conn->query("SELECT * FROM terms ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+$terms_query = $conn->prepare("SELECT t.* FROM terms t 
+    JOIN academic_sessions s ON t.session_id = s.id 
+    WHERE s.is_current = 1 
+    ORDER BY t.id");
+$terms_query->execute();
+$terms = $terms_query->fetchAll(PDO::FETCH_ASSOC);
 
 // Get current session and term
 $currentSession = $conn->query("SELECT * FROM academic_sessions WHERE is_current = 1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
@@ -89,24 +94,55 @@ $totalPaid = 0;
 $balance = 0;
 
 if ($selectedStudent) {
+    // Get current session and term for filtering
+    $currentSessionId = $currentSession['id'] ?? null;
+    $currentTermId = $currentTerm['id'] ?? null;
+    
+    // Get fee structures for selected student's class, filtered by current session and term
     $stmt = $conn->prepare("
         SELECT fs.*, t.term_name, asess.session_name
         FROM fee_structure fs
         JOIN terms t ON fs.term_id = t.id
         JOIN academic_sessions asess ON fs.academic_session_id = asess.id
-        WHERE fs.class_id = ?
+        WHERE fs.class_id = ? 
+        AND fs.academic_session_id = ?
+        AND fs.term_id = ?
+        AND fs.is_active = 1
+        ORDER BY fs.fee_type ASC
     ");
-    $stmt->execute([$selectedStudent['class_id']]);
+    $stmt->execute([$selectedStudent['class_id'], $currentSessionId, $currentTermId]);
     $feeStructures = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Calculate totals
+    // Get total paid amounts per fee structure for this student in current session/term
+    $stmt = $conn->prepare("
+        SELECT fee_structure_id, SUM(amount_paid) as total_paid
+        FROM payments 
+        WHERE student_id = ? 
+        AND academic_session_id = ? 
+        AND term_id = ?
+        GROUP BY fee_structure_id
+    ");
+    $stmt->execute([$selectedStudent['id'], $currentSessionId, $currentTermId]);
+    $paidFeesData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $paidAmounts = [];
+    foreach ($paidFeesData as $p) {
+        $paidAmounts[$p['fee_structure_id']] = $p['total_paid'];
+    }
+    
+    // Calculate totals for current session/term only
     foreach ($feeStructures as $fee) {
         $totalDue += $fee['amount'];
     }
     
-    // Get payments already made
-    $stmt = $conn->prepare("SELECT SUM(amount_paid) as paid FROM payments WHERE student_id = ?");
-    $stmt->execute([$selectedStudent['id']]);
+    // Get payments already made for current session/term
+    $stmt = $conn->prepare("
+        SELECT SUM(amount_paid) as paid 
+        FROM payments 
+        WHERE student_id = ? 
+        AND academic_session_id = ? 
+        AND term_id = ?
+    ");
+    $stmt->execute([$selectedStudent['id'], $currentSessionId, $currentTermId]);
     $paidResult = $stmt->fetch(PDO::FETCH_ASSOC);
     $totalPaid = $paidResult['paid'] ?? 0;
     
@@ -207,16 +243,31 @@ if ($selectedStudent) {
                         <option value="">Select Fee...</option>
                         <?php if (!empty($feeStructures)): ?>
                             <?php foreach ($feeStructures as $fee): ?>
-                                <option value="<?php echo htmlspecialchars($fee['id']); ?>">
+                                <?php 
+                                $paidAmount = $paidAmounts[$fee['id']] ?? 0;
+                                $balance = $fee['amount'] - $paidAmount;
+                                $isFullyPaid = $balance <= 0;
+                                ?>
+                                <option value="<?php echo htmlspecialchars($fee['id']); ?>" 
+                                    <?php echo $isFullyPaid ? 'disabled' : ''; ?>
+                                    style="<?php echo $isFullyPaid ? 'color: #9ca3af; background-color: #f3f4f6;' : ''; ?>">
                                     <?php echo htmlspecialchars($fee['fee_type']); ?> - ₦<?php echo number_format($fee['amount'], 2); ?>
-                                    (<?php echo htmlspecialchars($fee['term_name']); ?>, <?php echo htmlspecialchars($fee['session_name']); ?>)
+                                    <?php if ($isFullyPaid): ?>
+                                        (✓ PAID)
+                                    <?php elseif ($paidAmount > 0): ?>
+                                        (Bal: ₦<?php echo number_format($balance, 2); ?>)
+                                    <?php endif; ?>
                                 </option>
                             <?php endforeach; ?>
                         <?php else: ?>
-                            <!-- Fallback or manual entry options if needed, though they won't work with foreign key constraint without ID -->
-                            <option value="" disabled>No fee structures found for this class</option>
+                            <option value="" disabled>No fee structures found for current term</option>
                         <?php endif; ?>
                     </select>
+                    <?php if (!empty($feeStructures) && !empty($paidAmounts)): ?>
+                        <p style="font-size: 12px; color: #6b7280; margin-top: 5px;">
+                            <i class="fas fa-info-circle"></i> Grayed out fees have already been paid
+                        </p>
+                    <?php endif; ?>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">

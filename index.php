@@ -8,6 +8,8 @@ if (isset($_SESSION['user_type'])) {
     switch ($userType) {
         case 'admin':
         case 'principal':
+        case 'administrator':
+        case 'super_admin':
             header('Location: dashboard/admin-dashboard.php');
             break;
         case 'teacher':

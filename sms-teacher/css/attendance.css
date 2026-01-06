@@ -1,0 +1,372 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+
+:root {
+    --sidebar-width: 250px;
+    --sidebar-collapsed-width: 80px;
+    --transition-speed: 0.3s;
+}
+
+body {
+    font-family: 'Montserrat', sans-serif;
+    background: #f8fafc;
+}
+
+.logo-container {
+    background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+}
+
+.dashboard-card {
+    transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar {
+    transition: all var(--transition-speed) ease;
+    width: var(--sidebar-width);
+}
+
+.sidebar.collapsed {
+    width: var(--sidebar-collapsed-width);
+}
+
+.main-content {
+    transition: all var(--transition-speed) ease;
+    margin-left: var(--sidebar-width);
+    width: calc(100% - var(--sidebar-width));
+}
+
+.main-content.expanded {
+    margin-left: var(--sidebar-collapsed-width);
+    width: calc(100% - var(--sidebar-collapsed-width));
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        margin-left: calc(-1 * var(--sidebar-width));
+        z-index: 20;
+    }
+
+    .sidebar.mobile-show {
+        margin-left: 0;
+    }
+
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .mobile-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 15;
+    }
+
+    .mobile-overlay.active {
+        display: block;
+    }
+}
+
+.notification-dot {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 12px;
+    height: 12px;
+    background-color: #ef4444;
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+.floating-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    transition: transform 0.3s ease;
+}
+
+.floating-btn:hover {
+    transform: scale(1.1);
+}
+
+.sidebar-link.active {
+    background-color: #1e40af !important;
+}
+
+.mobile-header {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .mobile-header {
+        display: flex;
+    }
+
+    .desktop-header {
+        display: none;
+    }
+}
+
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+}
+
+.modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 90%;
+    max-height: 90%;
+    overflow-y: auto;
+    transform: scale(0.9);
+    transition: transform 0.3s ease;
+}
+
+.modal.active .modal-content {
+    transform: scale(1);
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.student-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.attendance-btn {
+    transition: all 0.3s ease;
+    border: 2px solid;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.attendance-btn.active {
+    color: white;
+}
+
+.attendance-btn.present {
+    border-color: #10b981;
+    color: #10b981;
+}
+
+.attendance-btn.present.active {
+    background-color: #10b981;
+    border-color: #10b981;
+    color: white;
+}
+
+.attendance-btn.absent {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.attendance-btn.absent.active {
+    background-color: #ef4444;
+    border-color: #ef4444;
+    color: white;
+}
+
+.attendance-btn.late {
+    border-color: #f59e0b;
+    color: #f59e0b;
+}
+
+.attendance-btn.late.active {
+    background-color: #f59e0b;
+    border-color: #f59e0b;
+    color: white;
+}
+
+.attendance-btn.excused {
+    border-color: #6b7280;
+    color: #6b7280;
+}
+
+.attendance-btn.excused.active {
+    background-color: #6b7280;
+    border-color: #6b7280;
+    color: white;
+}
+
+.calendar-day {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    color: #374151;
+    /* Default text color */
+}
+
+.calendar-day:hover:not(.active) {
+    background-color: #f3f4f6;
+}
+
+.calendar-day.active {
+    background-color: #3b82f6;
+    color: white !important;
+}
+
+.calendar-day.has-attendance {
+    position: relative;
+}
+
+.calendar-day.has-attendance::after {
+    content: '';
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: #10b981;
+}
+
+.attendance-summary-card {
+    border-left: 4px solid;
+}
+
+.summary-present {
+    border-left-color: #10b981;
+}
+
+.summary-absent {
+    border-left-color: #ef4444;
+}
+
+.summary-late {
+    border-left-color: #f59e0b;
+}
+
+.summary-excused {
+    border-left-color: #6b7280;
+}
+
+.notification {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 10000;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+    transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+    opacity: 0;
+    transform: translateY(-20px);
+}
+
+.notification.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.notification.success {
+    background-color: #10b981;
+    color: white;
+}
+
+.notification.error {
+    background-color: #ef4444;
+    color: white;
+}
+
+/* Attendance History Modal Styles */
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.history-status {
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.status-Present {
+    background-color: #d1fae5;
+    color: #059669;
+}
+
+.status-Absent {
+    background-color: #fee2e2;
+    color: #ef4444;
+}
+
+.status-Late {
+    background-color: #fffbe6;
+    color: #f59e0b;
+}
+
+.status-Excused {
+    background-color: #e5e7eb;
+    color: #4b5563;
+}

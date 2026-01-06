@@ -227,6 +227,8 @@ class AuthController
                 $this->createStaffProfile($userId, $userData);
                 break;
             case 'admin':
+            case 'administrator':
+            case 'principal':
                 $this->createAdminProfile($userId, $userData);
                 break;
             case 'accountant':
@@ -237,23 +239,19 @@ class AuthController
 
     private function createAccountantProfile($userId, $userData)
     {
-        // Accountant profile is similar to staff or admin
-        // Assuming we use staff_profiles or a new accountant_profiles table?
-        // Let's use staff_profiles for now, or just ensure the role is sufficient.
-        // Actually, based on previous files, there isn't an explicit accountant_profiles table seen in dumps.
-        // Let's use createStaffProfile logic but with 'Accountant' defaults.
-        
-        $staffId = 'ACT' . str_pad($userId, 3, '0', STR_PAD_LEFT);
+        $accountantId = 'ACC' . str_pad($userId, 3, '0', STR_PAD_LEFT);
 
         $stmt = $this->db->prepare("
-            INSERT INTO staff_profiles 
-            (user_id, department, position, employment_type, supervisor, staff_id)
-            VALUES (?, 'Bursary', 'Accountant', 'Full-time', NULL, ?)
+            INSERT INTO accountant_profiles 
+            (user_id, accountant_id, qualification, employment_type, department, employment_date)
+            VALUES (?, ?, ?, ?, 'Bursary', CURDATE())
         ");
 
         $stmt->execute([
             $userId,
-            $staffId
+            $accountantId,
+            $userData['qualification'] ?? null,
+            $userData['employmentType'] ?? null
         ]);
     }
 

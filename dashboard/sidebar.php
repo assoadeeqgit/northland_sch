@@ -23,7 +23,7 @@ $session_token = $_SESSION['session_token'] ?? '';
 ?>
 
 <!-- Sidebar Navigation -->
-<aside class="sidebar bg-nsknavy text-white h-screen fixed top-0 left-0 z-10">
+<aside class="sidebar bg-nsknavy text-white h-screen fixed top-0 left-0 z-50 w-64 transition-transform duration-300 ease-in-out">
     <div class="p-6 h-full flex flex-col">
         <div class="logo-container rounded-lg p-4 mb-8">
             <div class="flex items-center">
@@ -90,6 +90,9 @@ $session_token = $_SESSION['session_token'] ?? '';
     }
 </style>
 
+<!-- SweetAlert2 for Logout Confirmation -->
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
 <!-- This <script> tag contains all the logic from your old sidebar.js file -->
 <script>
     // sidebar.js - Reusable sidebar component
@@ -119,7 +122,7 @@ $session_token = $_SESSION['session_token'] ?? '';
                         {
                             href: 'teacher-assignments.php',
                             icon: 'fas fa-tasks',
-                            text: 'Teacher Assignments'
+                            text: 'Teacher Details'
                         }
                     ]
                 },
@@ -127,6 +130,11 @@ $session_token = $_SESSION['session_token'] ?? '';
                     href: 'classes.php',
                     icon: 'fas fa-school',
                     text: 'Classes'
+                },
+                {
+                    href: 'results-management.php',
+                    icon: 'fas fa-clipboard-check',
+                    text: 'Results'
                 },
                 {
                     href: 'academics-management.php',
@@ -162,6 +170,11 @@ $session_token = $_SESSION['session_token'] ?? '';
                             href: 'finance-defaulters.php',
                             icon: 'fas fa-exclamation-triangle',
                             text: 'Defaulters List'
+                        },
+                        {
+                            href: 'approve_expenses.php',
+                            icon: 'fas fa-check-double',
+                            text: 'Expense Approvals'
                         }
                     ]
                 },
@@ -228,7 +241,7 @@ $session_token = $_SESSION['session_token'] ?? '';
                                 const isActive = currentPage.includes(subitem.href);
                                 const activeClass = isActive ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white text-gray-300';
                                 return `
-                                <a href="${subitem.href}" class="flex items-center p-2 pl-3 rounded-lg ${activeClass} transition nav-item mb-1">
+                                <a href="${subitem.href}" data-ajax-link class="flex items-center p-2 pl-3 rounded-lg ${activeClass} transition nav-item mb-1">
                                     <i class="${subitem.icon} mr-3 text-sm"></i>
                                     <span class="text-sm">${subitem.text}</span>
                                 </a>
@@ -244,7 +257,7 @@ $session_token = $_SESSION['session_token'] ?? '';
                 const activeClass = isActive ? 'bg-nskblue text-white' : 'hover:bg-nskblue hover:text-white';
 
                 return `
-                <a href="${item.href}" class="flex items-center p-3 rounded-lg ${activeClass} transition nav-item">
+                <a href="${item.href}" data-ajax-link class="flex items-center p-3 rounded-lg ${activeClass} transition nav-item">
                     <i class="${item.icon} mr-3"></i>
                     <span>${item.text}</span>
                 </a>
@@ -277,12 +290,14 @@ $session_token = $_SESSION['session_token'] ?? '';
                 });
             });
 
-            const sidebarLinks = document.querySelectorAll('.sidebar a');
+            const sidebarLinks = document.querySelectorAll('.sidebar a:not(.dropdown-toggle)');
             sidebarLinks.forEach(link => {
                 link.addEventListener('click', () => {
+                    // Only close sidebar on mobile
                     if (window.innerWidth < 768) {
                         this.hideSidebar();
                     }
+                    // Do NOT prevent default here, so navigation happens.
                 });
             });
 
@@ -333,11 +348,24 @@ $session_token = $_SESSION['session_token'] ?? '';
         }
 
         // Handle logout with confirmation
-        handleLogout(event) {
-            if (!confirm('Are you sure you want to logout?')) {
-                event.preventDefault();
-            }
-            // If confirmed, the link will proceed naturally
+        async handleLogout(event) {
+            event.preventDefault();
+            
+            const link = event.currentTarget.href;
+            
+            Swal.fire({
+                title: 'Logout?',
+                text: 'Are you sure you want to logout?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, logout'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.location.href = link;
+                }
+            });
         }
     }
 
@@ -345,7 +373,9 @@ $session_token = $_SESSION['session_token'] ?? '';
     window.sidebarManager = new SidebarManager();
 
     // Auto-initialize if script is loaded
-    // We get the current page name from PHP
-    const currentPage = '<?= $current_page ?>';
-    window.sidebarManager.init(currentPage);
+    // Auto-initialize when DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+        const currentPage = '<?= $current_page ?>';
+        window.sidebarManager.init(currentPage);
+    });
 </script>

@@ -25,11 +25,11 @@ class TimetableHelper {
             return [
                 'type' => 'Primary',
                 'start_time' => '08:00',
-                'end_time' => '13:30',
-                'period_duration' => 30,
-                'total_periods' => 10,
-                'break_start' => '10:00',
-                'break_end' => '10:30',
+                'end_time' => '14:00',
+                'period_duration' => 45,
+                'total_periods' => 8,
+                'break_start' => '11:00',
+                'break_end' => '11:30',
                 'break_after_period' => 4
             ];
         } elseif ($class_level === 'Early Childhood') {

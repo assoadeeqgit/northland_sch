@@ -591,944 +591,555 @@ try {
     die($error_message);
 }
 
+// Include AJAX check wrapper
+require_once 'ajax_check.php';
 ?>
+<?php if (!$is_ajax): ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Students - Northland Schools Kano</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Compiled Tailwind CSS -->
+    <link rel="stylesheet" href="../assets/css/tailwind.min.css?v=1.0.1">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        nskblue: '#1e40af',
-                        nsklightblue: '#3b82f6',
-                        nsknavy: '#1e3a8a',
-                        nskgold: '#f59e0b',
-                        nsklight: '#f0f9ff',
-                        nskgreen: '#10b981',
-                        nskred: '#ef4444'
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
-        
-        :root {
-            --sidebar-width: 250px;
-            --sidebar-collapsed-width: 80px;
-            --transition-speed: 0.3s;
-        }
-        
-        body {
-            font-family: 'Montserrat', sans-serif;
-            background: #f8fafc;
-        }
-        
-        .logo-container {
-            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
-        }
-        
-        .dashboard-card {
-            transition: transform var(--transition-speed) ease, box-shadow var(--transition-speed) ease;
-        }
-        
-        .dashboard-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        }
-        
-        .sidebar {
-            transition: all var(--transition-speed) ease;
-            width: var(--sidebar-width);
-        }
-        
-        .sidebar.collapsed {
-            width: var(--sidebar-collapsed-width);
-        }
-        
-        .main-content {
-            transition: all var(--transition-speed) ease;
-            margin-left: var(--sidebar-width);
-            width: calc(100% - var(--sidebar-width));
-        }
-        
-        .main-content.expanded {
-            margin-left: var(--sidebar-collapsed-width);
-            width: calc(100% - var(--sidebar-collapsed-width));
-        }
-        
-        @media (max-width: 768px) {
-            .sidebar {
-                margin-left: calc(-1 * var(--sidebar-width));
-                z-index: 20;
-            }
-            
-            .sidebar.mobile-show {
-                margin-left: 0;
-            }
-            
-            .main-content {
-                margin-left: 0;
-                width: 100%;
-            }
-            
-            .mobile-overlay {
-                display: none;
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.5);
-                z-index: 15;
-            }
-            
-            .mobile-overlay.active {
-                display: block;
-            }
-        }
-        
-        .notification-dot {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            width: 12px;
-            height: 12px;
-            background-color: #ef4444;
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
-        }
-        
-        .floating-btn {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1000;
-            transition: transform 0.3s ease;
-        }
-        
-        .floating-btn:hover {
-            transform: scale(1.1);
-        }
-        
-        .sidebar-link.active {
-            background-color: #1e40af !important;
-        }
-        
-        .mobile-header {
-            display: none;
-        }
-        
-        @media (max-width: 768px) {
-            .mobile-header {
-                display: flex;
-            }
-            
-            .desktop-header {
-                display: none;
-            }
-        }
-        
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-            backdrop-filter: blur(5px);
-        }
-        
-        .modal.active {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: fadeIn 0.3s ease;
-        }
-        
-        .modal-content {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            max-width: 90%;
-            max-height: 90%;
-            overflow-y: auto;
-            transform: scale(0.9);
-            transition: transform 0.3s ease;
-        }
-        
-        .modal.active .modal-content {
-            transform: scale(1);
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        .student-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 14px;
-        }
-
-        .grade-bar-bg {
-            background-color: #e5e7eb;
-            border-radius: 4px;
-            height: 8px;
-            width: 100%;
-        }
-
-        .grade-bar-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.3s ease;
-        }
-        
-        .notification {
-            position: fixed;
-            top: 1rem;
-            right: 1rem;
-            z-index: 10000;
-            padding: 0.75rem 1.5rem;
-            border-radius: 0.5rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
-            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
-            opacity: 0;
-            transform: translateY(-20px);
-        }
-        .notification.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        
-        .notification.success {
-            background-color: #10b981;
-            color: white;
-        }
-        .notification.error {
-            background-color: #ef4444;
-            color: white;
-        }
-        
-        .pagination-btn {
-            transition: all 0.3s ease;
-        }
-        .pagination-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .pagination-btn:not(:disabled):hover {
-            transform: translateY(-1px);
-        }
-    </style>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
-<body class="flex">
-    <?php if ($action_message): ?>
-    <div class="notification show <?= $is_success ? 'success' : 'error' ?>" style="opacity: 1; transform: translateY(0);">
-        <?= htmlspecialchars($action_message) ?>
-    </div>
-    <?php endif; ?>
-
-    <div class="mobile-overlay" id="mobileOverlay"></div>
-
+<body class="bg-gray-50 min-h-screen">
+    <?php include 'sidebar.php'; ?>
     <main class="main-content">
-        <header class="desktop-header bg-white shadow-md p-4">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-4">
-                    <button id="mobileMenuToggle" class="md:hidden text-nsknavy">
-                        <i class="fas fa-bars text-xl"></i>
-                    </button>
-                    <h1 class="text-2xl font-bold text-nsknavy">Students</h1>
-                </div>
-                
-                <div class="flex items-center space-x-4">
-                    <div class="relative">
-                        <div class="flex items-center space-x-2 bg-nsklight rounded-full py-2 px-4">
-                            <i class="fas fa-search text-gray-500"></i>
-                            <input type="text" id="globalSearch" placeholder="Search students..." class="bg-transparent outline-none w-32 md:w-64">
-                        </div>
-                    </div>
-                    
-                    <div class="relative">
-                        <button id="notificationButton" class="relative">
-                            <i class="fas fa-bell text-nsknavy text-xl"></i>
-                            <div class="notification-dot"></div>
-                        </button>
-                    </div>
-                    
-                    <div class="hidden md:flex items-center space-x-2">
-                        <div class="w-10 h-10 rounded-full bg-nskgold flex items-center justify-center text-white font-bold">
-                            <?= $profile['initials'] ?>
-                        </div>
-                        <div>
-                            <p class="text-sm font-semibold text-nsknavy">Mr. <?= $profile['first_name'] . ' ' . $profile['last_name'] ?></p>
-                            <p class="text-xs text-gray-600"><?= $profile['specialization'] ?> Teacher</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </header>
+<?php endif; ?>
+        <?php 
+        $pageTitle = 'Students';
+        include 'header.php'; 
+        ?>
+        <div id="page-content">
 
-        <header class="mobile-header bg-white shadow-md p-4">
-            <div class="flex justify-between items-center">
-                <div class="flex items-center space-x-4">
-                    <button id="mobileMenuToggle" class="text-nsknavy">
-                        <i class="fas fa-bars text-xl"></i>
-                    </button>
-                    <h1 class="text-xl font-bold text-nsknavy">Students</h1>
-                </div>
-                
-                <div class="flex items-center space-x-4">
-                    <div class="relative">
-                        <button id="notificationButton" class="relative">
-                            <i class="fas fa-bell text-nsknavy text-xl"></i>
-                            <div class="notification-dot"></div>
-                        </button>
-                    </div>
-                    
-                    <div class="flex items-center space-x-2">
-                        <div class="w-8 h-8 rounded-full bg-nskgold flex items-center justify-center text-white font-bold text-sm">
-                            <?= $profile['initials'] ?>
+            <span id="page-meta-data" data-title="Students" hidden></span>
+            
+            <!-- Scripts/Styles that must load with content for SPA -->
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+            <link rel="stylesheet" href="css/students.css">
+
+                        <?php if ($action_message): ?>
+            <div class="notification show <?= $is_success ? 'success' : 'error' ?>" style="opacity: 1; transform: translateY(0);">
+                <?= htmlspecialchars($action_message) ?>
+            </div>
+            <?php endif; ?>
+
+
+
+            <!-- Dashboard Content -->
+            <div class="p-4 md:p-6">
+                <!-- Data Filters & Add Button -->
+                <div class="flex flex-col md:flex-row justify-between items-center mb-6 space-y-4 md:space-y-0">
+                    <div class="w-full md:w-auto flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2">
+                        <!-- Class Filter -->
+                        <div class="relative">
+                            <select id="classFilter" class="appearance-none bg-white border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-nskblue shadow-sm">
+                                <option value="all">All Classes</option>
+                                <?php foreach ($teacher_classes as $class): ?>
+                                    <option value="<?= $class['class_id'] ?>" <?= $filter_class_id == $class['class_id'] ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($class['class_name']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                                </svg>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
-        </header>
 
-        <div class="p-4 md:p-6">
-            <div class="bg-white rounded-xl shadow-md p-4 md:p-6">
-                <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-4 md:mb-6 space-y-3 md:space-y-0">
-                    <h2 class="text-lg md:text-xl font-bold text-nsknavy">My Students (<?= $total_students_count ?>)</h2>
-                    <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-                        <select id="classFilter" class="px-3 py-2 border rounded-lg text-sm" onchange="updateClassFilter(this.value)">
-                            <option value="all" <?= $filter_class_id == 'all' ? 'selected' : '' ?>>All Classes (<?= $total_students_count ?>)</option>
-                            <?php foreach ($teacher_classes as $class): ?>
-                                <option value="<?= $class['class_id'] ?>" <?= $filter_class_id == $class['class_id'] ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($class['class_name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                        <button id="exportStudentBtn" class="bg-nskgold text-white px-3 py-2 rounded-lg hover:bg-amber-600 transition text-sm">
-                            <i class="fas fa-download mr-2"></i>Export
+                    <div class="flex space-x-2 w-full md:w-auto">
+                        <button onclick="openAddStudentModal()" class="bg-nskblue text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center justify-center space-x-2 shadow-md w-full md:w-auto">
+                            <i class="fas fa-plus"></i>
+                            <span>Add Student</span>
                         </button>
-                        <button id="addStudentBtn" class="bg-nskgreen text-white px-3 py-2 rounded-lg hover:bg-green-600 transition text-sm">
-                            <i class="fas fa-plus mr-2"></i>Add Student
+                        
+                         <button onclick="exportToExcel()" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition flex items-center justify-center space-x-2 shadow-md w-full md:w-auto">
+                            <i class="fas fa-file-excel"></i>
+                            <span>Export</span>
                         </button>
                     </div>
                 </div>
-                
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
-                    <div class="text-center">
-                        <div class="text-xl md:text-2xl font-bold text-nskblue"><?= $total_students_count ?></div>
-                        <p class="text-xs text-gray-600">Total Students</p>
+
+                <!-- Stats Overview -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white rounded-xl shadow p-4 border-l-4 border-nskblue">
+                        <p class="text-gray-500 text-xs uppercase font-bold">Total Students</p>
+                        <p class="text-2xl font-bold text-gray-800 mt-1"><?= $stats['total_students'] ?></p>
                     </div>
-                    <div class="text-center">
-                        <div class="text-xl md:text-2xl font-bold text-nskgreen"><?= $stats['avg_attendance'] ?>%</div>
-                        <p class="text-xs text-gray-600">Avg. Attendance</p>
+                    <div class="bg-white rounded-xl shadow p-4 border-l-4 border-nskgreen">
+                        <p class="text-gray-500 text-xs uppercase font-bold">Avg Attendance</p>
+                        <p class="text-2xl font-bold text-gray-800 mt-1"><?= $stats['avg_attendance'] ?>%</p>
                     </div>
-                    <div class="text-center">
-                        <div class="text-xl md:text-2xl font-bold text-nskgold"><?= $stats['overall_avg_grade'] ?>%</div>
-                        <p class="text-xs text-gray-600">Overall Average</p>
+                    <div class="bg-white rounded-xl shadow p-4 border-l-4 border-nskgold">
+                        <p class="text-gray-500 text-xs uppercase font-bold">Class Average</p>
+                        <p class="text-2xl font-bold text-gray-800 mt-1"><?= $stats['overall_avg_grade'] ?>%</p>
                     </div>
-                    <div class="text-center">
-                        <div class="text-xl md:text-2xl font-bold text-nskred"><?= $stats['needs_attention'] ?></div>
-                        <p class="text-xs text-gray-600">Need Attention</p>
+                     <div class="bg-white rounded-xl shadow p-4 border-l-4 border-nskred">
+                        <p class="text-gray-500 text-xs uppercase font-bold">Needs Attention</p>
+                        <p class="text-2xl font-bold text-nskred mt-1"><?= $stats['needs_attention'] ?></p>
                     </div>
                 </div>
-                
-                <div class="overflow-x-auto">
-                    <table class="min-w-full text-sm md:text-base" id="studentTable">
-                        <thead>
-                            <tr class="bg-gray-50">
-                                <th class="py-3 px-3 md:px-6 text-left text-nsknavy font-semibold">Student</th>
-                                <th class="py-3 px-3 md:px-6 text-left text-nsknavy font-semibold hidden sm:table-cell">Class</th>
-                                <th class="py-3 px-3 md:px-6 text-left text-nsknavy font-semibold">Grade</th>
-                                <th class="py-3 px-3 md:px-6 text-left text-nsknavy font-semibold hidden md:table-cell">Attendance</th>
-                                <th class="py-3 px-3 md:px-6 text-left text-nsknavy font-semibold">Status</th>
-                                <th class="py-3 px-3 md:px-6 text-left text-nsknavy font-semibold">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            <?php if (count($students) > 0): ?>
-                                <?php foreach ($students as $student): 
-                                    $grade_val = is_numeric($student['avg_grade']) ? $student['avg_grade'] : 0;
-                                    $att_val = is_numeric($student['avg_attendance']) ? $student['avg_attendance'] : 0;
-                                    
-                                    // Check for medical conditions
-                                    $has_medical_issues = !empty(trim($student['medical_conditions'] ?? ''));
-                                    $low_grade = (is_numeric($student['avg_grade']) && $student['avg_grade'] < 60);
-                                    $low_attendance = (is_numeric($student['avg_attendance']) && $student['avg_attendance'] < 70);
-                                    
-                                    // Determine status based on conditions
-                                    if ($has_medical_issues) {
-                                        $status_text = 'At Risk';
-                                        $status_color = 'bg-red-100 text-nskred';
-                                        $grade_color = 'text-nskred';
-                                        $grade_fill_color = 'bg-nskred';
-                                    } elseif ($low_grade) {
-                                        $status_text = 'Low Grade';
-                                        $status_color = 'bg-red-100 text-nskred';
-                                        $grade_color = 'text-nskred';
-                                        $grade_fill_color = 'bg-nskred';
-                                    } elseif ($low_attendance) {
-                                        $status_text = 'Poor Attendance';
-                                        $status_color = 'bg-red-100 text-nskred';
-                                        $grade_color = 'text-nskred';
-                                        $grade_fill_color = 'bg-nskred';
-                                    } elseif ($grade_val >= 85) {
-                                        $grade_color = 'text-nskgreen';
-                                        $grade_fill_color = 'bg-nskgreen';
-                                        $status_text = 'Excellent';
-                                        $status_color = 'bg-green-100 text-nskgreen';
-                                    } elseif ($grade_val >= 70) {
-                                        $grade_color = 'text-nskgold';
-                                        $grade_fill_color = 'bg-nskgold';
-                                        $status_text = 'Good';
-                                        $status_color = 'bg-amber-100 text-nskgold';
-                                    } else {
-                                        // Default status for students with no issues
-                                        $grade_color = 'text-nskblue';
-                                        $grade_fill_color = 'bg-nskblue';
-                                        $status_text = 'Normal';
-                                        $status_color = 'bg-blue-100 text-nskblue';
-                                    }
-                                ?>
-                                    <tr class="hover:bg-gray-50">
-                                        <td class="py-4 px-3 md:px-6">
+
+                <!-- Students Table -->
+                <div class="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+                    <div class="overflow-x-auto">
+                        <table class="w-full whitespace-nowrap">
+                            <thead class="bg-gray-50 text-gray-600 font-semibold text-xs uppercase tracking-wider border-b">
+                                tr>
+                                    <th class="px-6 py-4 text-left">Student Information</th>
+                                    <th class="px-6 py-4 text-center">Class</th>
+                                    <th class="px-6 py-4 text-center">Avg. Grade</th>
+                                    <th class="px-6 py-4 text-center">Attendance</th>
+                                    <th class="px-6 py-4 text-center">Status</th>
+                                    <th class="px-6 py-4 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                <?php if (empty($students)): ?>
+                                    <tr>
+                                        <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                                            <div class="flex flex-col items-center justify-center">
+                                                <i class="fas fa-user-graduate text-4xl mb-3 text-gray-300"></i>
+                                                <p>No students found matching current filters.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php foreach ($students as $student): 
+                                        $grade_color = ($student['avg_grade'] != 'N/A' && $student['avg_grade'] >= 50) ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                                        $att_val = is_numeric($student['avg_attendance']) ? $student['avg_attendance'] : 0;
+                                        $att_color = $att_val >= 90 ? 'bg-green-500' : ($att_val >= 75 ? 'bg-yellow-500' : 'bg-red-500');
+                                    ?>
+                                    <tr class="hover:bg-gray-50 transition">
+                                        <td class="px-6 py-4">
                                             <div class="flex items-center">
-                                                <div class="student-avatar" style="background-color: <?= $student['avatar_color'] ?>"><?= $student['initials'] ?></div>
-                                                <div class="ml-3">
-                                                    <p class="font-semibold text-sm md:text-base"><?= htmlspecialchars($student['first_name'] . ' ' . $student['last_name']) ?></p>
-                                                    <p class="text-xs text-gray-600">ID: <?= htmlspecialchars($student['student_id']) ?></p>
+                                                <div class="student-avatar text-sm mr-3 shadow-sm" style="background-color: <?= $student['avatar_color'] ?>">
+                                                    <?= $student['initials'] ?>
+                                                </div>
+                                                <div>
+                                                    <p class="font-semibold text-gray-800"><?= $student['first_name'] . ' ' . $student['last_name'] ?></p>
+                                                    <p class="text-xs text-gray-500">ID: <?= $student['student_id'] ?></p>
+                                                    <?php if(!empty($student['medical_conditions'])): ?>
+                                                        <span class="text-[10px] bg-red-100 text-red-800 px-1.5 py-0.5 rounded ml-1" title="<?= htmlspecialchars($student['medical_conditions']) ?>">Med</span>
+                                                    <?php endif; ?>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="py-4 px-3 md:px-6 hidden sm:table-cell">
-                                            <span class="bg-blue-100 text-nskblue px-2 py-1 rounded-full text-xs font-semibold"><?= htmlspecialchars($student['class_name']) ?></span>
+                                        <td class="px-6 py-4 text-center">
+                                            <span class="px-2 py-1 bg-blue-50 text-nskblue text-xs font-semibold rounded-full border border-blue-100">
+                                                <?= $student['class_name'] ?>
+                                            </span>
                                         </td>
-                                        <td class="py-4 px-3 md:px-6">
-                                            <span class="<?= $grade_color ?> font-bold"><?= is_numeric($student['avg_grade']) ? $student['avg_grade'] . '%' : 'N/A' ?></span>
-                                            <p class="text-xs text-gray-600 hidden md:block"><?= $grade_val > 0 ? getGradeLetter($grade_val) : '' ?></p>
+                                        <td class="px-6 py-4 text-center">
+                                            <?php if($student['avg_grade'] === 'N/A'): ?>
+                                                <span class="text-gray-400 text-sm">-</span>
+                                            <?php else: ?>
+                                                <span class="font-bold <?= $student['avg_grade'] >= 50 ? 'text-gray-700' : 'text-red-500' ?>"><?= $student['avg_grade'] ?>%</span>
+                                                <span class="text-xs text-gray-400 ml-1">(<?= getGradeLetter($student['avg_grade']) ?>)</span>
+                                            <?php endif; ?>
                                         </td>
-                                        <td class="py-4 px-3 md:px-6 hidden md:table-cell">
-                                            <div class="flex items-center">
-                                                <div class="grade-bar-bg mr-2">
-                                                    <div class="grade-bar-fill <?= $grade_fill_color ?>" style="width: <?= $att_val ?>%"></div>
+                                        <td class="px-6 py-4">
+                                            <div class="flex flex-col items-center justify-center w-24 mx-auto">
+                                                <div class="flex justify-between w-full text-xs mb-1">
+                                                    <span class="font-semibold text-gray-600"><?= $student['avg_attendance'] ?>%</span>
                                                 </div>
-                                                <span class="text-xs font-semibold"><?= is_numeric($student['avg_attendance']) ? $student['avg_attendance'] . '%' : 'N/A' ?></span>
+                                                <div class="grade-bar-bg">
+                                                    <div class="grade-bar-fill <?= $att_color ?>" style="width: <?= $att_val ?>%"></div>
+                                                </div>
                                             </div>
                                         </td>
-                                        <td class="py-4 px-3 md:px-6">
-                                            <span class="<?= $status_color ?> px-2 py-1 rounded-full text-xs font-semibold"><?= $status_text ?></span>
+                                        <td class="px-6 py-4 text-center">
+                                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                                Active
+                                            </span>
                                         </td>
-                                        <td class="py-4 px-3 md:px-6">
-                                            <div class="flex space-x-2">
-                                                <button class="view-student text-nskblue hover:text-nsknavy" data-student='<?= htmlspecialchars(json_encode($student), ENT_QUOTES, 'UTF-8') ?>'>
+                                        <td class="px-6 py-4 text-center">
+                                            <div class="flex items-center justify-center space-x-2">
+                                                <button onclick="openViewModal(<?= htmlspecialchars(json_encode($student)) ?>)" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition" title="View Details">
                                                     <i class="fas fa-eye"></i>
                                                 </button>
-                                                <button class="edit-student text-nskgreen hover:text-green-700" data-student='<?= htmlspecialchars(json_encode($student), ENT_QUOTES, 'UTF-8') ?>'>
+                                                <button onclick="openEditModal(<?= htmlspecialchars(json_encode($student)) ?>)" class="p-1.5 text-amber-500 hover:bg-amber-50 rounded transition" title="Edit Student">
                                                     <i class="fas fa-edit"></i>
-                                                </button>
-                                                <button class="text-nskred hover:text-red-700">
-                                                    <i class="fas fa-comment"></i>
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="6" class="py-10 text-center text-gray-500">
-                                        No students found in your assigned classes<?= $filter_class_id != 'all' ? ' for the selected class.' : '.' ?>
-                                    </td>
-                                </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- Pagination -->
+                    <?php if ($total_pages > 1): ?>
+                    <div class="bg-gray-50 px-6 py-4 border-t flex flex-col sm:flex-row justify-between items-center">
+                        <p class="text-sm text-gray-600 mb-2 sm:mb-0">
+                            Showing <span class="font-semibold"><?= $start_index ?></span> to <span class="font-semibold"><?= $end_index ?></span> of <span class="font-semibold"><?= $total_students_count ?></span> students
+                        </p>
+                        <div class="flex space-x-2">
+                             <?php
+                                $url_params = [];
+                                if ($filter_class_id !== 'all') $url_params['class_id'] = $filter_class_id;
+                                
+                                $prev_params = $url_params;
+                                $prev_params['page'] = $current_page - 1;
+                                $prev_url = '?' . http_build_query($prev_params);
+                                
+                                $next_params = $url_params;
+                                $next_params['page'] = $current_page + 1;
+                                $next_url = '?' . http_build_query($next_params);
+                            ?>
+                            
+                            <a href="<?= $current_page > 1 ? $prev_url : '#' ?>" 
+                               class="pagination-btn px-3 py-1 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 <?= $current_page <= 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50' ?> transition">
+                                <i class="fas fa-chevron-left mr-1"></i> Prev
+                            </a>
+                            
+                            <!-- Page Numbers logic simplifies to Prev/Next for now to save space -->
+                            
+                            <a href="<?= $current_page < $total_pages ? $next_url : '#' ?>" 
+                               class="pagination-btn px-3 py-1 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 <?= $current_page >= $total_pages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50' ?> transition">
+                                Next <i class="fas fa-chevron-right ml-1"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
-                
-                <!-- Pagination -->
-                <div class="flex flex-col sm:flex-row justify-between items-center mt-4 md:mt-6 space-y-3 sm:space-y-0">
-                    <p class="text-sm text-gray-600">
-                        Showing <?= $start_index ?> to <?= $end_index ?> of <?= $total_students_count ?> students
-                    </p>
-                    <div class="flex space-x-2">
-                        <button 
-                            class="pagination-btn px-3 py-1 bg-gray-200 rounded-lg text-sm hover:bg-gray-300 transition <?= $current_page <= 1 ? 'opacity-50 cursor-not-allowed' : '' ?>" 
-                            <?= $current_page <= 1 ? 'disabled' : '' ?>
-                            onclick="changePage(<?= $current_page - 1 ?>)"
-                        >
-                            Previous
+            </div>
+
+            <!-- Student Detail Modal -->
+            <div id="viewModal" class="modal">
+                <div class="modal-content w-full md:w-2/3 lg:w-1/2">
+                    <div class="flex justify-between items-start mb-6 border-b pb-4">
+                        <div class="flex items-center space-x-4">
+                            <div id="viewAvatar" class="w-16 h-16 rounded-full flex items-center justify-center text-white text-2xl font-bold bg-gray-300">
+                                --
+                            </div>
+                            <div>
+                                <h3 id="viewName" class="text-2xl font-bold text-gray-800">Student Name</h3>
+                                <p id="viewID" class="text-gray-500 font-medium">STU-12345</p>
+                            </div>
+                        </div>
+                        <button onclick="closeModal('viewModal')" class="text-gray-400 hover:text-gray-600 transition">
+                            <i class="fas fa-times text-xl"></i>
                         </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-bold text-gray-700 mb-3 border-b pb-2">Academic Info</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-500">Class:</span> <span id="viewClass" class="font-medium text-gray-900">-</span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Admission No:</span> <span id="viewAdmNo" class="font-medium text-gray-900">-</span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Admission Date:</span> <span id="viewAdmDate" class="font-medium text-gray-900">-</span></div>
+                            </div>
+                        </div>
                         
-                        <!-- Page Numbers -->
-                        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
-                            <button 
-                                class="pagination-btn px-3 py-1 rounded-lg text-sm transition <?= $i == $current_page ? 'bg-nskblue text-white' : 'bg-gray-200 hover:bg-gray-300' ?>"
-                                onclick="changePage(<?= $i ?>)"
-                            >
-                                <?= $i ?>
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-bold text-gray-700 mb-3 border-b pb-2">Personal Info</h4>
+                             <div class="space-y-2 text-sm">
+                                <div class="flex justify-between"><span class="text-gray-500">Gender:</span> <span id="viewGender" class="font-medium text-gray-900">-</span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Date of Birth:</span> <span id="viewDOB" class="font-medium text-gray-900">-</span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Nationality:</span> <span id="viewNationality" class="font-medium text-gray-900">-</span></div>
+                                <div class="flex justify-between"><span class="text-gray-500">Religion:</span> <span id="viewReligion" class="font-medium text-gray-900">-</span></div>
+                            </div>
+                        </div>
+                        
+                         <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-bold text-gray-700 mb-3 border-b pb-2">Contact Info</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex flex-col"><span class="text-gray-500">Parent/Email:</span> <span id="viewEmail" class="font-medium text-gray-900">-</span></div>
+                                <div class="flex flex-col mt-2"><span class="text-gray-500">Phone:</span> <span id="viewPhone" class="font-medium text-gray-900">-</span></div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-4 rounded-lg">
+                            <h4 class="font-bold text-gray-700 mb-3 border-b pb-2">Medical & Emergency</h4>
+                            <div class="space-y-2 text-sm">
+                                <div class="flex flex-col"><span class="text-gray-500">Emergency Contact:</span> <span id="viewEmergName" class="font-medium text-gray-900">-</span></div>
+                                <div class="flex flex-col mt-2"><span class="text-gray-500">Emergency Phone:</span> <span id="viewEmergPhone" class="font-medium text-gray-900 text-red-600">-</span></div>
+                                <div class="mt-2 pt-2 border-t text-xs text-red-500 font-semibold">
+                                    <i class="fas fa-heartbeat mr-1"></i> <span id="viewMedical">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add/Edit Student Modal -->
+            <div id="studentFormModal" class="modal">
+                <div class="modal-content w-full md:w-3/4 lg:w-2/3">
+                    <div class="flex justify-between items-center mb-6 border-b pb-4">
+                        <h3 id="formModalTitle" class="text-2xl font-bold text-nsknavy">Add New Student</h3>
+                        <button onclick="closeModal('studentFormModal')" class="text-gray-400 hover:text-gray-600 transition">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <form id="studentForm" method="POST" action="my_students.php">
+                        <input type="hidden" name="form_action" id="formAction" value="add_student">
+                        <input type="hidden" name="user_id" id="formUserId" value="">
+                        
+                        <div class="space-y-6">
+                            <!-- Section 1 -->
+                            <div>
+                                <h4 class="text-sm uppercase tracking-wide text-gray-500 font-bold mb-3">Academic Details</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                     <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Assigned Class <span class="text-red-500">*</span></label>
+                                        <select name="class_id" id="formClass" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue" required>
+                                            <option value="">Select Class</option>
+                                            <?php foreach ($teacher_classes_for_form as $class): ?>
+                                            <option value="<?= $class['class_id'] ?>"><?= $class['class_name'] ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Admission Date <span class="text-red-500">*</span></label>
+                                        <input type="date" name="admission_date" id="formAdmDate" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                        <input type="text" value="Active" disabled class="w-full bg-gray-100 border border-gray-300 text-gray-500 rounded-lg p-2.5 cursor-not-allowed">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Section 2 -->
+                            <div>
+                                <h4 class="text-sm uppercase tracking-wide text-gray-500 font-bold mb-3">Personal Information</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">First Name <span class="text-red-500">*</span></label>
+                                        <input type="text" name="first_name" id="formFirstName" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Last Name <span class="text-red-500">*</span></label>
+                                        <input type="text" name="last_name" id="formLastName" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Date of Birth <span class="text-red-500">*</span></label>
+                                        <input type="date" name="date_of_birth" id="formDOB" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Gender <span class="text-red-500">*</span></label>
+                                        <select name="gender" id="formGender" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue" required>
+                                            <option value="">Select</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                                     <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Nationality</label>
+                                        <input type="text" name="nationality" id="formNationality" value="Nigerian" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">State of Origin</label>
+                                        <input type="text" name="state_of_origin" id="formState" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">LGA</label>
+                                        <input type="text" name="lga" id="formLGA" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Section 3 -->
+                            <div>
+                                <h4 class="text-sm uppercase tracking-wide text-gray-500 font-bold mb-3">Contact & Other</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                     <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Email (Student/Parent) <span class="text-red-500">*</span></label>
+                                        <input type="email" name="email" id="formEmail" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                                        <input type="tel" name="phone" id="formPhone" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Religion</label>
+                                        <select name="religion" id="formReligion" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue">
+                                            <option value="">Select</option>
+                                            <option value="Islam">Islam</option>
+                                            <option value="Christianity">Christianity</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Medical Conditions (if any)</label>
+                                        <input type="text" name="medical_conditions" id="formMedical" class="w-full bg-gray-50 border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue">
+                                    </div>
+                                </div>
+                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 bg-red-50 p-4 rounded-lg border border-red-100">
+                                     <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Name</label>
+                                        <input type="text" name="emergency_contact_name" id="formEmergName" class="w-full bg-white border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Emergency Contact Phone</label>
+                                        <input type="tel" name="emergency_contact_phone" id="formEmergPhone" class="w-full bg-white border border-gray-300 rounded-lg p-2.5 focus:ring-nskblue focus:border-nskblue">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-3 mt-8 border-t pt-4">
+                            <button type="button" onclick="closeModal('studentFormModal')" class="px-5 py-2.5 text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                                Cancel
                             </button>
-                        <?php endfor; ?>
-                        
-                        <button 
-                            class="pagination-btn px-3 py-1 bg-gray-200 rounded-lg text-sm hover:bg-gray-300 transition <?= $current_page >= $total_pages ? 'opacity-50 cursor-not-allowed' : '' ?>" 
-                            <?= $current_page >= $total_pages ? 'disabled' : '' ?>
-                            onclick="changePage(<?= $current_page + 1 ?>)"
-                        >
-                            Next
-                        </button>
-                    </div>
+                            <button type="submit" class="px-5 py-2.5 bg-nsknavy text-white rounded-lg hover:bg-blue-900 transition shadow-lg">
+                                <i class="fas fa-save mr-2"></i> Save Student
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
+
+            <!-- Scripts -->
+            <script>
+                // Filter Change Handler
+                document.getElementById('classFilter').addEventListener('change', function() {
+                    let classId = this.value;
+                    let url = new URL(window.location.href);
+                    if (classId === 'all') {
+                        url.searchParams.delete('class_id');
+                    } else {
+                        url.searchParams.set('class_id', classId);
+                    }
+                    url.searchParams.delete('page'); // Reset to page 1 on filter change
+                    
+                    // SPA Navigation for Filter
+                    if (window.handleSpaNavigation) {
+                        window.handleSpaNavigation(url.toString());
+                    } else {
+                        window.location.href = url.toString();
+                    }
+                });
+
+                // Modal Functions
+                function openViewModal(student) {
+                    document.getElementById('viewName').innerText = student.first_name + ' ' + student.last_name;
+                    document.getElementById('viewID').innerText = student.student_id;
+                    document.getElementById('viewClass').innerText = student.class_name;
+                    document.getElementById('viewAdmNo').innerText = student.admission_number;
+                    document.getElementById('viewAdmDate').innerText = student.admission_date;
+                    
+                    document.getElementById('viewGender').innerText = student.gender;
+                    document.getElementById('viewDOB').innerText = student.date_of_birth;
+                    document.getElementById('viewNationality').innerText = student.nationality;
+                    document.getElementById('viewReligion').innerText = student.religion;
+                    
+                    document.getElementById('viewEmail').innerText = student.email;
+                    document.getElementById('viewPhone').innerText = student.phone || 'N/A';
+                    
+                    document.getElementById('viewEmergName').innerText = student.emergency_contact_name || 'N/A';
+                    document.getElementById('viewEmergPhone').innerText = student.emergency_contact_phone || 'N/A';
+                    document.getElementById('viewMedical').innerText = student.medical_conditions || 'None';
+                    
+                    document.getElementById('viewAvatar').style.backgroundColor = student.avatar_color;
+                    document.getElementById('viewAvatar').innerText = student.initials;
+                    
+                    openModal('viewModal');
+                }
+
+                function openAddStudentModal() {
+                    document.getElementById('studentForm').reset();
+                    document.getElementById('formAction').value = 'add_student';
+                    document.getElementById('formUserId').value = '';
+                    document.getElementById('formModalTitle').innerText = 'Add New Student';
+                    document.getElementById('formAdmDate').valueAsDate = new Date(); // Default today
+                    openModal('studentFormModal');
+                }
+
+                function openEditModal(student) {
+                    document.getElementById('studentForm').reset();
+                    document.getElementById('formAction').value = 'edit_student';
+                    document.getElementById('formUserId').value = student.user_id;
+                    document.getElementById('formModalTitle').innerText = 'Edit Student: ' + student.first_name;
+                    
+                    // Populate Fields
+                    document.getElementById('formClass').value = student.class_id;
+                    document.getElementById('formAdmDate').value = student.admission_date;
+                    document.getElementById('formFirstName').value = student.first_name;
+                    document.getElementById('formLastName').value = student.last_name;
+                    document.getElementById('formDOB').value = student.date_of_birth;
+                    document.getElementById('formGender').value = student.gender;
+                    
+                    document.getElementById('formNationality').value = student.nationality;
+                    document.getElementById('formState').value = student.state_of_origin;
+                    document.getElementById('formLGA').value = student.lga;
+                    
+                    document.getElementById('formEmail').value = student.email;
+                    document.getElementById('formPhone').value = student.phone;
+                    document.getElementById('formReligion').value = student.religion;
+                    document.getElementById('formMedical').value = student.medical_conditions;
+                    
+                    document.getElementById('formEmergName').value = student.emergency_contact_name;
+                    document.getElementById('formEmergPhone').value = student.emergency_contact_phone;
+                    
+                    openModal('studentFormModal');
+                }
+
+                function openModal(modalId) {
+                    document.getElementById(modalId).classList.add('active');
+                    document.body.style.overflow = 'hidden';
+                }
+
+                function closeModal(modalId) {
+                    document.getElementById(modalId).classList.remove('active');
+                    document.body.style.overflow = 'auto';
+                }
+
+                // Close modal on click outside
+                window.onclick = function(event) {
+                    if (event.target.classList.contains('modal')) {
+                        event.target.classList.remove('active');
+                        document.body.style.overflow = 'auto';
+                    }
+                }
+
+                // Auto hide notifications
+                const notification = document.querySelector('.notification');
+                if (notification) {
+                    setTimeout(() => {
+                        notification.classList.remove('show');
+                    }, 5000);
+                }
+                
+                // Excel Export
+                function exportToExcel() {
+                    const table = document.querySelector('table');
+                    if (!table) return;
+                    
+                    // Clone table to modify for export (remove Actions column)
+                    const clone = table.cloneNode(true);
+                    
+                    // Remove last column (Actions) from headers and rows
+                    const rows = clone.querySelectorAll('tr');
+                    rows.forEach(row => {
+                        if (row.cells.length > 0) {
+                            row.deleteCell(-1);
+                        }
+                    });
+                    
+                    const wb = XLSX.utils.table_to_book(clone, {sheet: "Students"});
+                    XLSX.writeFile(wb, 'My_Students_List.xlsx');
+                }
+            </script>
+
         </div>
+<?php if (!$is_ajax): ?>
     </main>
-
-    <button class="floating-btn md:hidden bg-nskblue text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center" id="mobileAddStudentBtn">
-        <i class="fas fa-plus text-xl"></i>
-    </button>
-
-    <!-- Include sidebar at the end of body -->
-    <?php include 'sidebar.php'; ?>
-
-    <!-- Student Details Modal -->
-    <div id="studentModal" class="modal">
-        <div class="modal-content w-full max-w-4xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg md:text-xl font-bold text-nsknavy" id="modalStudentTitle">Student Details</h3>
-                <button id="closeStudentModal" class="text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <div class="space-y-6">
-                <div class="flex items-center space-x-4">
-                    <div id="modalAvatar" class="student-avatar text-2xl w-16 h-16"></div>
-                    <div>
-                        <h4 class="font-bold text-lg" id="modalStudentName"></h4>
-                        <p class="text-gray-600" id="modalStudentId"></p>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-blue-50 p-4 rounded-lg">
-                        <h4 class="font-semibold text-nskblue mb-2">Personal Information</h4>
-                        <p class="text-sm"><strong>Class:</strong> <span id="modalClass"></span></p>
-                        <p class="text-sm"><strong>Gender:</strong> <span id="modalGender">N/A</span></p>
-                        <p class="text-sm"><strong>DOB:</strong> <span id="modalDOB">N/A</span></p>
-                        <p class="text-sm"><strong>Medical Conditions:</strong> <span id="modalMedical">None</span></p>
-                    </div>
-                    <div class="bg-green-50 p-4 rounded-lg">
-                        <h4 class="font-semibold text-nskgreen mb-2">Academic Performance</h4>
-                        <p class="text-sm"><strong>Average Grade:</strong> <span id="modalAvgGrade"></span></p>
-                        <p class="text-sm"><strong>Attendance Rate:</strong> <span id="modalAttRate"></span></p>
-                        <p class="text-sm"><strong>Status:</strong> <span id="modalStatus">Normal</span></p>
-                    </div>
-                    <div class="bg-amber-50 p-4 rounded-lg">
-                        <h4 class="font-semibold text-nskgold mb-2">Contact Information</h4>
-                        <p class="text-sm"><strong>Emergency Contact:</strong> <span id="modalEmergencyName">N/A</span></p>
-                        <p class="text-sm"><strong>Emergency Phone:</strong> <span id="modalEmergencyPhone">N/A</span></p>
-                        <p class="text-sm"><strong>Email:</strong> <span id="modalEmail">N/A</span></p>
-                    </div>
-                </div>
-                
-                <div>
-                    <h4 class="font-semibold text-nsknavy mb-3">Recent Grades (Simulated)</h4>
-                    <div class="space-y-2">
-                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                            <span class="text-sm">Last Exam (Math)</span>
-                            <span class="text-sm font-semibold text-nskgreen">90%</span>
-                        </div>
-                        <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
-                            <span class="text-sm">Quiz 2 (Simulated)</span>
-                            <span class="text-sm font-semibold text-nskgold">75%</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="flex justify-end space-x-3 pt-4">
-                    <button id="closeModal" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-100 transition">Close</button>
-                    <button class="px-4 py-2 bg-nskblue text-white rounded-lg text-sm hover:bg-nsknavy transition">Send Message</button>
-                    <button class="px-4 py-2 bg-nskgreen text-white rounded-lg text-sm hover:bg-green-600 transition">View Full Profile</button>
-                </div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Add/Edit Student Modal -->
-    <div id="addEditModal" class="modal">
-        <div class="modal-content w-full max-w-4xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg md:text-xl font-bold text-nsknavy" id="addEditModalTitle">Add New Student</h3>
-                <button id="closeAddEditModal" class="text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <form method="POST" action="my_students.php" id="addEditForm" class="space-y-4">
-                <input type="hidden" name="form_action" id="formAction" value="add_student">
-                <input type="hidden" name="user_id" id="formUserId">
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">First Name *</label>
-                        <input type="text" name="first_name" id="formFirstName" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Last Name *</label>
-                        <input type="text" name="last_name" id="formLastName" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Email *</label>
-                        <input type="email" name="email" id="formEmail" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Phone</label>
-                        <input type="tel" name="phone" id="formPhone" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Date of Birth *</label>
-                        <input type="date" name="date_of_birth" id="formDOB" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Gender *</label>
-                        <select name="gender" id="formGender" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                            <option value="">Select Gender</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Class *</label>
-                        <select name="class_id" id="formClassId" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                            <option value="">Select Class</option>
-                            <?php foreach ($teacher_classes_for_form as $class): ?>
-                                <option value="<?= $class['class_id'] ?>">
-                                    <?= htmlspecialchars($class['class_name']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Admission Date *</label>
-                        <input type="date" name="admission_date" id="formAdmissionDate" required class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" value="<?= date('Y-m-d') ?>">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Religion</label>
-                        <select name="religion" id="formReligion" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                            <option value="Islam">Islam</option>
-                            <option value="Christianity">Christianity</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Nationality</label>
-                        <input type="text" name="nationality" id="formNationality" value="Nigerian" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">State of Origin</label>
-                        <input type="text" name="state_of_origin" id="formStateOrigin" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">LGA</label>
-                        <input type="text" name="lga" id="formLGA" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                    </div>
-                    <div class="md:col-span-2">
-                        <label class="block text-sm font-medium text-gray-700">Medical Conditions</label>
-                        <textarea name="medical_conditions" id="formMedical" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2" placeholder="Enter any medical conditions or leave blank if none"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Emergency Contact Name</label>
-                        <input type="text" name="emergency_contact_name" id="formEmergencyName" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Emergency Contact Phone</label>
-                        <input type="tel" name="emergency_contact_phone" id="formEmergencyPhone" class="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2">
-                    </div>
-                </div>
-                
-                <div class="mt-6 flex justify-end space-x-3">
-                    <button type="button" id="cancelAddEdit" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">Cancel</button>
-                    <button type="submit" id="submitAddEdit" class="bg-nskgreen text-white px-4 py-2 rounded-md hover:bg-green-600">Add Student</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <script>
-        // DOM Elements
-        const sidebar = document.querySelector('.sidebar');
-        const mainContent = document.querySelector('.main-content');
-        const sidebarToggle = document.getElementById('sidebarToggle');
-        const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-        const mobileOverlay = document.getElementById('mobileOverlay');
-        const studentModal = document.getElementById('studentModal');
-        const addEditModal = document.getElementById('addEditModal');
-        const addStudentBtn = document.getElementById('addStudentBtn');
-        const mobileAddStudentBtn = document.getElementById('mobileAddStudentBtn');
-        const exportStudentBtn = document.getElementById('exportStudentBtn');
-        
-        // Form & Modal elements
-        const addEditModalTitle = document.getElementById('addEditModalTitle');
-        const formAction = document.getElementById('formAction');
-        const formUserId = document.getElementById('formUserId');
-        const submitAddEdit = document.getElementById('submitAddEdit');
-        const closeAddEditModal = document.getElementById('closeAddEditModal');
-        const cancelAddEdit = document.getElementById('cancelAddEdit');
-
-        // Form Fields (Dynamic access for simplicity)
-        const formFirstName = document.getElementById('formFirstName');
-        const formLastName = document.getElementById('formLastName');
-        const formEmail = document.getElementById('formEmail');
-        const formPhone = document.getElementById('formPhone');
-        const formDOB = document.getElementById('formDOB');
-        const formGender = document.getElementById('formGender');
-        const formClassId = document.getElementById('formClassId');
-        const formAdmissionDate = document.getElementById('formAdmissionDate');
-        const formReligion = document.getElementById('formReligion');
-        const formNationality = document.getElementById('formNationality');
-        const formStateOrigin = document.getElementById('formStateOrigin');
-        const formLGA = document.getElementById('formLGA');
-        const formMedical = document.getElementById('formMedical');
-        const formEmergencyName = document.getElementById('formEmergencyName');
-        const formEmergencyPhone = document.getElementById('formEmergencyPhone');
-
-
-        // --- UI UTILITIES ---
-
-        function showNotification(message, type = 'success') {
-            let notification = document.querySelector('.notification');
-            if (!notification) {
-                notification = document.createElement('div');
-                notification.className = 'notification';
-                document.body.appendChild(notification);
-            }
-            notification.textContent = message;
-            notification.className = `notification show ${type}`;
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-                // Remove element if it wasn't pre-rendered by PHP
-                if (!"<?= $action_message ?>") notification.remove(); 
-            }, 3000);
-        }
-
-        function openModal(modal) {
-            modal.classList.add('active');
-        }
-
-        function closeModalFunc(modal) {
-            modal.classList.remove('active');
-        }
-
-        // --- PAGINATION & FILTER FUNCTIONS ---
-
-        function changePage(page) {
-            const classFilter = document.getElementById('classFilter').value;
-            let url = `my_students.php?page=${page}`;
-            if (classFilter !== 'all') {
-                url += `&class_id=${classFilter}`;
-            }
-            window.location.href = url;
-        }
-
-        function updateClassFilter(classId) {
-            let url = 'my_students.php?class_id=' + classId;
-            // Keep current page if it exists
-            const currentPage = <?= $current_page ?>;
-            if (currentPage > 1) {
-                url += '&page=' + currentPage;
-            }
-            window.location.href = url;
-        }
-
-        // --- EXPORT FUNCTIONALITY ---
-
-        function exportTableToExcel() {
-            const table = document.getElementById('studentTable');
-            
-            // Clone table and remove the 'Actions' column for export
-            const cloneTable = table.cloneNode(true);
-            cloneTable.querySelectorAll('th:nth-child(6), td:nth-child(6)').forEach(col => col.remove());
-
-            const ws = XLSX.utils.table_to_sheet(cloneTable);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Students");
-            
-            // Generate file name with current filter
-            const className = document.getElementById('classFilter').options[document.getElementById('classFilter').selectedIndex].text.replace(/\s/g, '_');
-            const filename = `NSK_Student_Export_${className}_${new Date().toISOString().slice(0,10)}.xlsx`;
-            
-            XLSX.writeFile(wb, filename);
-            showNotification('Student data exported successfully!', 'success');
-        }
-
-        // --- ADD/EDIT MODAL HANDLER ---
-
-        function openAddEditModal(isEdit = false, studentData = null) {
-            const form = document.getElementById('addEditForm');
-            form.reset(); // Clear previous data
-            
-            if (isEdit && studentData) {
-                addEditModalTitle.textContent = `Edit Student: ${studentData.first_name} ${studentData.last_name}`;
-                formAction.value = 'edit_student';
-                submitAddEdit.textContent = 'Update Student';
-                
-                // Populate fields
-                formUserId.value = studentData.user_id;
-                formFirstName.value = studentData.first_name;
-                formLastName.value = studentData.last_name;
-                formEmail.value = studentData.email || '';
-                formPhone.value = studentData.phone || '';
-                formDOB.value = studentData.date_of_birth || '';
-                formGender.value = studentData.gender || '';
-                formClassId.value = studentData.class_id;
-                formAdmissionDate.value = studentData.admission_date || '<?= date('Y-m-d') ?>';
-                formReligion.value = studentData.religion || 'Islam';
-                formNationality.value = studentData.nationality || 'Nigerian';
-                formStateOrigin.value = studentData.state_of_origin || '';
-                formLGA.value = studentData.lga || '';
-                formMedical.value = studentData.medical_conditions || '';
-                formEmergencyName.value = studentData.emergency_contact_name || '';
-                formEmergencyPhone.value = studentData.emergency_contact_phone || '';
-                
-            } else {
-                addEditModalTitle.textContent = 'Add New Student';
-                formAction.value = 'add_student';
-                submitAddEdit.textContent = 'Add Student';
-                formUserId.value = ''; // Ensure user_id is clear for new add
-                formAdmissionDate.value = '<?= date('Y-m-d') ?>'; // Set default admission date
-                formNationality.value = 'Nigerian'; // Set default nationality
-            }
-            
-            openModal(addEditModal);
-        }
-        
-        // --- VIEW DETAILS MODAL HANDLER ---
-        function populateViewModal(student) {
-             // Populate Modal with Dynamic Data
-            document.getElementById('modalStudentTitle').textContent = `Student Details - ${student.first_name} ${student.last_name}`;
-            document.getElementById('modalStudentName').textContent = `${student.first_name} ${student.last_name}`;
-            document.getElementById('modalStudentId').textContent = `ID: ${student.student_id}`;
-            document.getElementById('modalClass').textContent = student.class_name;
-            
-            document.getElementById('modalAvatar').textContent = student.initials;
-            document.getElementById('modalAvatar').style.backgroundColor = student.avatar_color;
-            
-            document.getElementById('modalAvgGrade').textContent = isFinite(student.avg_grade) ? student.avg_grade + '%' : 'N/A';
-            document.getElementById('modalAttRate').textContent = isFinite(student.avg_attendance) ? student.avg_attendance + '%' : 'N/A';
-            
-            document.getElementById('modalGender').textContent = student.gender || 'N/A';
-            document.getElementById('modalDOB').textContent = student.date_of_birth || 'N/A';
-            document.getElementById('modalEmergencyName').textContent = student.emergency_contact_name || 'N/A';
-            document.getElementById('modalEmergencyPhone').textContent = student.emergency_contact_phone || 'N/A';
-            document.getElementById('modalEmail').textContent = student.email || 'N/A';
-            document.getElementById('modalMedical').textContent = student.medical_conditions || 'None';
-            
-            // Determine status for view modal
-            const hasMedicalIssues = student.medical_conditions && student.medical_conditions.trim() !== '';
-            const lowGrade = isFinite(student.avg_grade) && student.avg_grade < 60;
-            const lowAttendance = isFinite(student.avg_attendance) && student.avg_attendance < 70;
-            
-            let statusText = 'Normal';
-            if (hasMedicalIssues) {
-                statusText = 'At Risk (Medical)';
-            } else if (lowGrade) {
-                statusText = 'At Risk (Low Grade)';
-            } else if (lowAttendance) {
-                statusText = 'At Risk (Poor Attendance)';
-            } else if (student.avg_grade >= 85) {
-                statusText = 'Excellent';
-            } else if (student.avg_grade >= 70) {
-                statusText = 'Good';
-            }
-            document.getElementById('modalStatus').textContent = statusText;
-
-            // Show modal
-            openModal(studentModal);
-        }
-
-        // --- EVENT LISTENERS INITIALIZATION ---
-
-        // Sidebar/Menu controls
-        sidebarToggle.addEventListener('click', () => {
-            sidebar.classList.toggle('collapsed');
-            mainContent.classList.toggle('expanded');
-            document.querySelectorAll('.sidebar-text').forEach(el => el.classList.toggle('hidden'));
-        });
-        mobileMenuToggle.addEventListener('click', () => toggleMobileMenu());
-        mobileOverlay.addEventListener('click', () => toggleMobileMenu());
-        
-        const toggleMobileMenu = () => {
-            sidebar.classList.toggle('mobile-show');
-            mobileOverlay.classList.toggle('active');
-        }
-
-        // Open Modals
-        addStudentBtn.addEventListener('click', () => openAddEditModal(false));
-        mobileAddStudentBtn.addEventListener('click', () => openAddEditModal(false));
-        
-        // Close Modals
-        closeAddEditModal.addEventListener('click', () => closeModalFunc(addEditModal));
-        cancelAddEdit.addEventListener('click', () => closeModalFunc(addEditModal));
-        document.getElementById('closeStudentModal').addEventListener('click', () => closeModalFunc(studentModal));
-        document.getElementById('closeModal').addEventListener('click', () => closeModalFunc(studentModal));
-
-        // Export Button
-        exportStudentBtn.addEventListener('click', exportTableToExcel);
-
-        // Dynamic buttons setup
-        document.querySelectorAll('.view-student').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const student = JSON.parse(e.currentTarget.getAttribute('data-student'));
-                populateViewModal(student);
-            });
-        });
-
-        document.querySelectorAll('.edit-student').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const student = JSON.parse(e.currentTarget.getAttribute('data-student'));
-                openAddEditModal(true, student);
-            });
-        });
-
-        // Close modal when clicking overlay
-        window.addEventListener('click', (e) => {
-            if (e.target === studentModal) closeModalFunc(studentModal);
-            if (e.target === addEditModal) closeModalFunc(addEditModal);
-        });
-
-        // PHP Notification on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            // This displays the status message after the redirect.
-            if ("<?= $action_message ?>") {
-                // The showNotification function handles displaying the message and automatically hiding it.
-            }
-        });
-    </script>
 </body>
 </html>
+<?php endif; ?>

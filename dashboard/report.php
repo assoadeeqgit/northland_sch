@@ -2,6 +2,9 @@
 require_once 'auth-check.php';
 checkAuth(); // Ensure user is authenticated
 
+// Include spa helper
+
+
 // Initialize variables
 $userName = $_SESSION['user_name'] ?? 'Admin User';
 $userRole = ucfirst($_SESSION['user_type'] ?? 'Administrator');
@@ -31,15 +34,59 @@ try {
     $attendance_today = $db->query("SELECT (SUM(CASE WHEN status = 'Present' THEN 1 ELSE 0 END) / COUNT(*)) * 100 FROM attendance WHERE attendance_date = CURDATE()")->fetchColumn();
     $stats['attendance'] = $attendance_today ? round($attendance_today, 1) . '%' : 'N/A';
 
-    // 4. KPI: Fees Collected (This Month)
-    $stats['fees'] = 0;
-    try {
-        $fees_query = $db->prepare("SELECT SUM(amount_paid) FROM payments WHERE MONTH(payment_date) = MONTH(CURRENT_DATE()) AND YEAR(payment_date) = YEAR(CURRENT_DATE())");
-        $fees_query->execute();
-        $stats['fees'] = number_format($fees_query->fetchColumn() ?: 0, 0); // Round to integer for display
-    } catch (Exception $e) {
-        // Table might not exist or error
-        $stats['fees'] = '0';
+    // 4. Get Current Session & Term for Accurate Metrics
+    $currSess = $db->query("SELECT id FROM academic_sessions WHERE is_current = 1 LIMIT 1")->fetchColumn();
+    $currTerm = $db->query("SELECT id FROM terms WHERE is_current = 1 AND session_id = " . ($currSess ?: 0) . " LIMIT 1")->fetchColumn();
+
+    // 5. Fees Collected (This Term)
+    $feesTermRaw = 0;
+    if ($currSess && $currTerm) {
+         try {
+             $feesColStmt = $db->prepare("SELECT SUM(amount_paid) FROM payments WHERE academic_session_id = ? AND term_id = ?");
+             $feesColStmt->execute([$currSess, $currTerm]);
+             $feesTermRaw = $feesColStmt->fetchColumn() ?: 0;
+             $stats['fees_term'] = number_format($feesTermRaw, 0);
+         } catch (Exception $e) { $stats['fees_term'] = '0'; }
+    } else {
+         $stats['fees_term'] = '0';
+    }
+
+    // 6. Pass Rate (Percentage of passed subject entries >= 50%)
+    $stats['pass_rate'] = 'N/A';
+    if ($currSess && $currTerm) {
+        try {
+            $passQ = $db->prepare("SELECT 
+                (SUM(CASE WHEN total_score >= 50 THEN 1 ELSE 0 END) / COUNT(*)) * 100 
+                FROM student_results 
+                WHERE session_id = ? AND term_id = ?");
+            $passQ->execute([$currSess, $currTerm]);
+            $passRateVal = $passQ->fetchColumn();
+            if ($passRateVal !== false && $passRateVal !== null) {
+                $stats['pass_rate'] = round($passRateVal, 1) . '%';
+            } else {
+                 $stats['pass_rate'] = 'No Data';
+            }
+        } catch (Exception $e) { /* Table might not exist */ }
+    }
+
+    // 7. Outstanding Fees (Estimated: Total Expected - Total Collected)
+    $stats['outstanding'] = '0';
+    if ($currSess && $currTerm) {
+        try {
+            // Fee Structures per class
+            $feeStructs = $db->query("SELECT class_id, SUM(amount) as total_class_fee FROM fee_structures WHERE term_id = '$currTerm' GROUP BY class_id")->fetchAll(PDO::FETCH_KEY_PAIR);
+            // Student Counts per class
+            $classCounts = $db->query("SELECT class_id, COUNT(*) as cnt FROM students WHERE status='active' GROUP BY class_id")->fetchAll(PDO::FETCH_KEY_PAIR);
+            
+            $totalExpected = 0;
+            foreach ($classCounts as $clsId => $cnt) {
+                $fee = $feeStructs[$clsId] ?? 0;
+                $totalExpected += ($fee * $cnt);
+            }
+            
+            $outstandingRaw = max(0, $totalExpected - $feesTermRaw);
+            $stats['outstanding'] = number_format($outstandingRaw, 0);
+        } catch (Exception $e) { }
     }
 
     // --- CHARTS DATA ---
@@ -62,14 +109,28 @@ try {
     // Fill if empty (dummy data for visual if strictly needed, but better to show empty state or single point)
     // If absolutely no data, Chart.js handles empty arrays gracefully.
 
-    // Chart 2: Student Gender Distribution
-    $genderStmt = $db->query("SELECT gender, COUNT(*) as count FROM student_profiles GROUP BY gender");
-    $genderLabels = [];
-    $genderData = [];
-    while ($row = $genderStmt->fetch(PDO::FETCH_ASSOC)) {
-        $l = ucfirst($row['gender'] ?: 'Unknown');
-        $genderLabels[] = $l;
-        $genderData[] = $row['count'];
+    // Chart 2: Student Gender Distribution (Male vs Female)
+    $genderLabels = ['Male', 'Female'];
+    $genderData = [0, 0]; // Default to 0 for both
+    
+    try {
+        // Count male students
+        $maleCount = $db->query("
+            SELECT COUNT(*) FROM users u 
+            JOIN students s ON u.id = s.user_id 
+            WHERE u.gender = 'Male' AND s.status = 'active'
+        ")->fetchColumn() ?: 0;
+        
+        // Count female students
+        $femaleCount = $db->query("
+            SELECT COUNT(*) FROM users u 
+            JOIN students s ON u.id = s.user_id 
+            WHERE u.gender = 'Female' AND s.status = 'active'
+        ")->fetchColumn() ?: 0;
+        
+        $genderData = [$maleCount, $femaleCount];
+    } catch (Exception $e) {
+        // If there's an error, keep defaults of [0, 0]
     }
 
     // Chart 3: Class Population
@@ -123,6 +184,9 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     fclose($output);
     exit();
 }
+
+// Check for AJAX request
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -169,10 +233,12 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
     </style>
 </head>
 <body class="flex bg-nskgray-50">
-
+    <div id="sidebar-container"></div>
     <?php require_once 'sidebar.php'; ?>
 
     <main class="main-content flex-1 min-w-0 overflow-auto">
+
+
         <?php 
         $pageTitle = 'Analytics Dashboard';
         $pageSubtitle = 'Real-time overview of school performance';
@@ -212,52 +278,79 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             </div>
 
             <!-- KPI Cards -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <!-- Students -->
-                <div class="glass-panel p-5 flex items-center justify-between hover:shadow-lg transition-shadow duration-300">
-                    <div>
-                        <p class="text-sm font-medium text-nskgray-600">Active Students</p>
-                        <p class="text-3xl font-bold text-nsknavy mt-1"><?= number_format($stats['students']) ?></p>
-                        <p class="text-xs text-nskgreen mt-1 font-medium"><i class="fas fa-arrow-up mr-1"></i> Current Enrollment</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mb-8">
+                <!-- 1. Total Students -->
+                <div class="glass-panel p-5 flex flex-col justify-between hover:shadow-lg transition-shadow duration-300 relative overflow-hidden group">
+                     <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i class="fas fa-user-graduate text-5xl text-nskblue"></i>
                     </div>
-                    <div class="stat-icon bg-blue-50 text-nskblue">
-                        <i class="fas fa-user-graduate"></i>
+                    <div>
+                        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Students</p>
+                        <p class="text-2xl font-bold text-nsknavy mt-2"><?= number_format($stats['students']) ?></p>
+                    </div>
+                    <div class="mt-4 flex items-center text-xs text-gray-500">
+                         <span class="text-nskblue bg-blue-50 px-2 py-1 rounded mr-2">Core metric</span> 
+                         <span>Affects staffing</span>
                     </div>
                 </div>
 
-                <!-- Teachers -->
-                <div class="glass-panel p-5 flex items-center justify-between hover:shadow-lg transition-shadow duration-300">
-                    <div>
-                        <p class="text-sm font-medium text-nskgray-600">Total Teachers</p>
-                        <p class="text-3xl font-bold text-nsknavy mt-1"><?= number_format($stats['teachers']) ?></p>
-                        <p class="text-xs text-nskblue mt-1 font-medium">Active Staff</p>
+                <!-- 2. Attendance Rate -->
+                <div class="glass-panel p-5 flex flex-col justify-between hover:shadow-lg transition-shadow duration-300 relative overflow-hidden group">
+                     <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i class="fas fa-chart-line text-5xl text-nskgreen"></i>
                     </div>
-                    <div class="stat-icon bg-green-50 text-nskgreen">
-                        <i class="fas fa-chalkboard-teacher"></i>
+                    <div>
+                        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Attendance Rate</p>
+                        <p class="text-2xl font-bold text-nsknavy mt-2"><?= $stats['attendance'] ?></p>
+                    </div>
+                    <div class="mt-4 flex items-center text-xs">
+                         <span class="text-nskgreen font-bold mr-1"><i class="fas fa-arrow-up"></i> Strong</span> 
+                         <span class="text-gray-500">predictor of performance</span>
                     </div>
                 </div>
 
-                <!-- Attendance -->
-                <div class="glass-panel p-5 flex items-center justify-between hover:shadow-lg transition-shadow duration-300">
-                    <div>
-                        <p class="text-sm font-medium text-nskgray-600">Attendance (Today)</p>
-                        <p class="text-3xl font-bold text-nsknavy mt-1"><?= $stats['attendance'] ?></p>
-                        <p class="text-xs text-nskgold mt-1 font-medium">Daily Average</p>
+                <!-- 3. Pass Rate -->
+                <div class="glass-panel p-5 flex flex-col justify-between hover:shadow-lg transition-shadow duration-300 relative overflow-hidden group">
+                     <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i class="fas fa-award text-5xl text-purple-600"></i>
                     </div>
-                    <div class="stat-icon bg-yellow-50 text-nskgold">
-                        <i class="fas fa-calendar-check"></i>
+                    <div>
+                        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Pass Rate</p>
+                        <p class="text-2xl font-bold text-nsknavy mt-2"><?= $stats['pass_rate'] ?? 'N/A' ?></p>
+                    </div>
+                    <div class="mt-4 flex items-center text-xs text-gray-500">
+                         <span class="text-purple-600 bg-purple-50 px-2 py-1 rounded mr-2">Actionable</span> 
+                         <span>Identifies gaps</span>
                     </div>
                 </div>
 
-                <!-- Fees -->
-                <div class="glass-panel p-5 flex items-center justify-between hover:shadow-lg transition-shadow duration-300">
-                    <div>
-                        <p class="text-sm font-medium text-nskgray-600">Fees (This Month)</p>
-                        <p class="text-3xl font-bold text-nsknavy mt-1">₦<?= $stats['fees'] ?></p>
-                        <p class="text-xs text-nskgray-400 mt-1 font-medium">Collections</p>
+                <!-- 4. Fees Collected -->
+                <div class="glass-panel p-5 flex flex-col justify-between hover:shadow-lg transition-shadow duration-300 relative overflow-hidden group">
+                     <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i class="fas fa-coins text-5xl text-nskgold"></i>
                     </div>
-                    <div class="stat-icon bg-purple-50 text-purple-600">
-                        <i class="fas fa-coins"></i>
+                    <div>
+                        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Fees Collected</p>
+                        <p class="text-2xl font-bold text-nsknavy mt-2">₦<?= $stats['fees_term'] ?? '0' ?></p>
+                    </div>
+                    <div class="mt-4 flex items-center text-xs text-gray-500">
+                         <span class="text-nskgold bg-yellow-50 px-2 py-1 rounded mr-2">Cash Flow</span> 
+                         <span>This term</span>
+                    </div>
+                </div>
+                
+                 <!-- 5. Outstanding Fees -->
+                <div class="glass-panel p-5 flex flex-col justify-between hover:shadow-lg transition-shadow duration-300 relative overflow-hidden group">
+                     <div class="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                        <i class="fas fa-exclamation-circle text-5xl text-red-500"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-bold text-gray-500 uppercase tracking-wider">Outstanding Fees</p>
+                        <p class="text-2xl font-bold text-nsknavy mt-2">₦<?= $stats['outstanding'] ?? '0' ?></p>
+                    </div>
+                    <div class="mt-4 flex items-center text-xs text-gray-500">
+                         <span class="text-red-500 bg-red-50 px-2 py-1 rounded mr-2">Risk</span> 
+                         <span>Unpaid amount</span>
                     </div>
                 </div>
             </div>
@@ -274,7 +367,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 
                 <!-- Gender Distribution (Span 1) -->
                 <div class="glass-panel p-6">
-                    <h3 class="text-lg font-semibold text-nsknavy mb-4">Student Demographics</h3>
+                    <h3 class="text-lg font-semibold text-nsknavy mb-4">Student Gender Distribution</h3>
                     <div class="relative h-72 flex justify-center">
                         <canvas id="genderChart"></canvas>
                     </div>
@@ -316,7 +409,8 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             </div>
 
         </div>
-    </main>
+    
+        <?php require_once 'footer.php'; ?>
 
     <!-- Chart.js Scripts -->
     <script>
@@ -355,7 +449,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             }
         });
 
-        // 2. Gender Chart
+        // 2. Gender Chart (Male vs Female)
         const ctxGender = document.getElementById('genderChart').getContext('2d');
         new Chart(ctxGender, {
             type: 'doughnut',
@@ -363,7 +457,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
                 labels: <?= json_encode($genderLabels) ?>,
                 datasets: [{
                     data: <?= json_encode($genderData) ?>,
-                    backgroundColor: [brandBlue, brandPurple, brandGold], // Blue (Male), Purple (Female etc)
+                    backgroundColor: ['#3b82f6', '#ec4899'], // Blue for Male, Pink for Female
                     borderWidth: 0,
                     hoverOffset: 4
                 }]
@@ -402,5 +496,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
             }
         });
     </script>
+
+    </main>
 </body>
 </html>

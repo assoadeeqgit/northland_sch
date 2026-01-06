@@ -1,9 +1,15 @@
 <?php
 header('Content-Type: application/json; charset=utf-8');
-require_once __DIR__ . '/../auth-check.php';
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../includes/TimetableHelper.php';
-checkAuth();
+
+try {
+    // require_once __DIR__ . '/auth-check.php';
+    require_once __DIR__ . '/../config/database.php';
+    require_once __DIR__ . '/../includes/TimetableHelper.php';
+    // checkAuth();
+} catch (Exception $e) {
+    echo json_encode(["success" => false, "message" => "Authentication or initialization error: " . $e->getMessage()]);
+    exit;
+}
 
 $classId = isset($_GET['class_id']) && is_numeric($_GET['class_id']) ? (int)$_GET['class_id'] : null;
 $teacherId = isset($_GET['teacher_id']) && is_numeric($_GET['teacher_id']) ? (int)$_GET['teacher_id'] : null;
@@ -47,8 +53,8 @@ $stmt = $conn->query("SELECT id FROM terms WHERE is_current = 1 LIMIT 1");
 $termId = $stmt->fetchColumn();
 
 // Base SQL
-$sql = "SELECT t.*, s.subject_name, s.is_dummy, c.class_name, 
-               CONCAT(u.first_name, ' ', u.last_name) AS teacher_name
+$sql = "SELECT t.*, s.subject_name, COALESCE(s.is_dummy, 0) as is_dummy, c.class_name, 
+               COALESCE(CONCAT(u.first_name, ' ', u.last_name), 'No Teacher') AS teacher_name
         FROM timetable t
         LEFT JOIN subjects s ON t.subject_id = s.id
         LEFT JOIN classes c ON t.class_id = c.id

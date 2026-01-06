@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS student_results (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    student_id INT NOT NULL,
+    class_id INT NOT NULL,
+    subject_id INT NOT NULL,
+    session_id INT NOT NULL,
+    term_id INT NOT NULL,
+    ca_score DECIMAL(5, 2) DEFAULT 0,
+    exam_score DECIMAL(5, 2) DEFAULT 0,
+    total_score DECIMAL(5, 2) GENERATED ALWAYS AS (ca_score + exam_score) VIRTUAL,
+    grade CHAR(2),
+    remark VARCHAR(20),
+    position INT DEFAULT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_result (student_id, class_id, subject_id, session_id, term_id),
+    FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE,
+    FOREIGN KEY (class_id) REFERENCES classes(id),
+    FOREIGN KEY (subject_id) REFERENCES subjects(id),
+    FOREIGN KEY (session_id) REFERENCES academic_sessions(id),
+    FOREIGN KEY (term_id) REFERENCES terms(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -1,15 +1,95 @@
 <?php
 // Enable error reporting for debugging
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Debugging disabled
+// error_reporting(E_ALL);
+// ini_set('display_errors', 1);
+
+// AJAX Handler for Teachers Filtering
+if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
+    require_once '../config/database.php';
+    header('Content-Type: application/json');
+    
+    try {
+        $db = new Database();
+        $conn = $db->getConnection();
+        
+        $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+        $departmentFilter = $_GET['department_filter'] ?? '';
+        $search = $_GET['search'] ?? '';
+        $perPage = 15;
+        $offset = ($page - 1) * $perPage;
+        
+        // Build query
+        $whereParts = ["u.is_active = 1"];
+        $params = [];
+        
+        if (!empty($departmentFilter)) {
+            $whereParts[] = "t.subject_specialization = ?";
+            $params[] = $departmentFilter;
+        }
+        
+        if (!empty($search)) {
+            $whereParts[] = "(u.first_name LIKE ? OR u.last_name LIKE ? OR t.teacher_id LIKE ? OR u.email LIKE ? OR t.subject_specialization LIKE ?)";
+            $searchTerm = "%$search%";
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+            $params[] = $searchTerm;
+        }
+        
+        $whereClause = implode(" AND ", $whereParts);
+        
+        // Count total
+        $countSql = "SELECT COUNT(*) FROM teachers t 
+                    JOIN users u ON t.user_id = u.id 
+                    WHERE $whereClause";
+        $countStmt = $conn->prepare($countSql);
+        $countStmt->execute($params);
+        $totalItems = $countStmt->fetchColumn();
+        
+        // Get data
+        $sql = "SELECT t.id, t.teacher_id, u.first_name, u.last_name, u.email, u.phone, 
+                       u.is_active, t.subject_specialization, t.created_at
+                FROM teachers t 
+                JOIN users u ON t.user_id = u.id 
+                WHERE $whereClause 
+                ORDER BY u.first_name, u.last_name 
+                LIMIT $perPage OFFSET $offset";
+        
+        $stmt = $conn->prepare($sql);
+        $stmt->execute($params);
+        $data = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        $totalPages = ceil($totalItems / $perPage);
+        
+        echo json_encode([
+            'success' => true,
+            'data' => $data,
+            'pagination' => [
+                'current_page' => $page,
+                'total_pages' => $totalPages,
+                'total_items' => $totalItems,
+                'per_page' => $perPage,
+                'has_prev' => $page > 1,
+                'has_next' => $page < $totalPages
+            ]
+        ]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
 
 // session_start();
 
 // --- ADD THIS LINE ---
 require_once '../config/logger.php';
-// --- END ---
+
 
 require_once 'auth-check.php';
+require_once __DIR__ . "/../includes/term_helper.php"; // Global term synchronization
 
 // For admin dashboard:
 checkAuth('admin');
@@ -273,8 +353,8 @@ function updateTeacher($db)
 function deleteTeacher($db, $teacher_id)
 {
     try {
-        // Get user_id and name first
-        $stmt = $db->prepare("SELECT t.user_id, u.first_name, u.last_name FROM teachers t JOIN users u ON t.user_id = u.id WHERE t.teacher_id = ?");
+        // Get user_id, internal id, and name first
+        $stmt = $db->prepare("SELECT t.id, t.user_id, u.first_name, u.last_name FROM teachers t JOIN users u ON t.user_id = u.id WHERE t.teacher_id = ?");
         $stmt->execute([$teacher_id]);
         $teacherInfo = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -282,12 +362,23 @@ function deleteTeacher($db, $teacher_id)
             throw new Exception("Teacher not found.");
         }
         $user_id = $teacherInfo['user_id'];
+        $internal_teacher_id = $teacherInfo['id'];
         $teacher_name = $teacherInfo['first_name'] . ' ' . $teacherInfo['last_name'];
 
         // Soft delete: Update the is_active flag in the users table to 0
         $softDeleteSql = "UPDATE users SET is_active = 0 WHERE id = ?";
         $stmt = $db->prepare($softDeleteSql);
         $stmt->execute([$user_id]);
+
+        // Unassign from any classes
+        $unassignSql = "UPDATE classes SET class_teacher_id = NULL WHERE class_teacher_id = ?";
+        $stmt = $db->prepare($unassignSql);
+        $stmt->execute([$internal_teacher_id]);
+
+        // Update teacher status
+        $updateTeacherSql = "UPDATE teachers SET is_class_teacher = 0 WHERE id = ?";
+        $stmt = $db->prepare($updateTeacherSql);
+        $stmt->execute([$internal_teacher_id]);
 
         $_SESSION['success'] = "Teacher deactivated successfully!";
 
@@ -504,14 +595,15 @@ try {
 $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_name")->fetchAll(PDO::FETCH_ASSOC);
 
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Management - Northland Schools Kano</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
         tailwind.config = {
@@ -532,139 +624,57 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
-
-        body {
-            font-family: 'Montserrat', sans-serif;
-            background: #f8fafc;
-        }
-
-        /* Modal Styles */
+        body { font-family: 'Montserrat', sans-serif; background: #f8fafc; }
+        
+        /* Modal Styling */
         .modal {
-            display: none;
             position: fixed;
-            z-index: 1000;
-            left: 0;
             top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
             background-color: rgba(0, 0, 0, 0.5);
+            display: none; /* Hidden by default */
+            align-items: center;
+            justify-content: center;
+            z-index: 1000; /* High z-index to sit on top */
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            backdrop-filter: blur(5px);
         }
 
         .modal.active {
-            display: flex !important;
-            align-items: center;
-            justify-content: center;
+            display: flex;
+            opacity: 1;
         }
 
         .modal-content {
             background-color: white;
-            margin: 20px;
-            padding: 20px;
-            border-radius: 10px;
-            width: 90%;
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 95%;
             max-width: 800px;
             max-height: 90vh;
             overflow-y: auto;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            transform: scale(0.95);
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
 
-        .logo-container {
-            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+        .modal.active .modal-content {
+            transform: scale(1);
         }
 
-        .teacher-card {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        .teacher-card:hover {
-            transform: translateY(-5px);
-        }
-
-        .nav-item {
-            position: relative;
-        }
-
-        .nav-item::after {
-            content: '';
-            position: absolute;
-            width: 0;
-            height: 2px;
-            bottom: -5px;
-            left: 0;
-            background-color: #f59e0b;
-            transition: width 0.3s ease;
-        }
-
-        .nav-item:hover::after {
-            width: 100%;
-        }
-
-        .notification-dot {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            width: 12px;
-            height: 12px;
-            background-color: #ef4444;
-            border-radius: 50%;
-        }
-
-        .teacher-table {
-            border-collapse: separate;
-            border-spacing: 0;
-        }
-
-        .teacher-table th {
-            background-color: #f8fafc;
-        }
-
-        .teacher-table tr:last-child td {
-            border-bottom: 0;
-        }
-
-        .subject-badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .status-badge {
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-            animation: fadeIn 0.5s ease;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
+        /* Prevent body scroll when modal is open */
+        body.modal-active { overflow: hidden; }
     </style>
-
     <link rel="stylesheet" href="sidebar.css">
 </head>
-
-<body class="flex">
+<body>
     <div id="sidebar-container"></div>
     <?php require_once 'sidebar.php'; ?>
+    <main class="main-content"> <!-- ADDING THIS CLASS -->
 
-
-    <main class="main-content">
         <?php
         $pageTitle = 'Teacher Management';
         require_once 'header.php';
@@ -920,19 +930,12 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
                 </script>
 
                 <div class="flex flex-wrap gap-4 mt-6">
-                    <form method="POST" action="" class="inline">
-                        <?php if (!isset($_POST['show_add_form'])): ?>
-                            <button type="submit" name="show_add_form" value="true"
-                                class="bg-nskgreen text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition flex items-center">
-                                <i class="fas fa-plus mr-2"></i> Add Teacher
-                            </button>
-                        <?php else: ?>
-                            <button type="submit" name="hide_add_form" value="true"
-                                class="bg-gray-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-600 transition flex items-center">
-                                <i class="fas fa-times mr-2"></i> Cancel
-                            </button>
-                        <?php endif; ?>
-                    </form>
+                    <div class="inline">
+                        <button type="button" onclick="document.getElementById('addTeacherModal').classList.add('active')"
+                            class="bg-nskgreen text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition flex items-center">
+                            <i class="fas fa-plus mr-2"></i> Add Teacher
+                        </button>
+                    </div>
 
                     <form method="POST" action="" class="inline">
                         <button type="submit" name="export_csv"
@@ -1090,15 +1093,15 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
             </div>
         </div>
 
-        <?php if (isset($_POST['show_add_form'])): ?>
-            <div id="addTeacherModal" class="modal active p-4">
-                <div class="modal-content">
-                    <div class="flex justify-between items-center mb-6">
-                        <h3 class="text-xl font-bold text-nsknavy">Add New Teacher</h3>
-                        <a href="teachers-management.php" class="text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-times"></i>
-                        </a>
-                    </div>
+        <!-- Add Teacher Modal -->
+        <div id="addTeacherModal" class="modal p-4">
+            <div class="modal-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold text-nsknavy">Add New Teacher</h3>
+                    <button type="button" onclick="document.getElementById('addTeacherModal').classList.remove('active')" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
 
                     <form method="POST" action="" class="space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1155,11 +1158,12 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
                                 <select name="department"
                                     class="w-full px-4 py-2 border rounded-lg form-input focus:border-nskblue">
                                     <option value="">Select Department</option>
-                                    <?php foreach ($departments as $dept): ?>
-                                        <option value="<?= htmlspecialchars($dept['department']) ?>">
-                                            <?= htmlspecialchars($dept['department']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
+                                    <option value="Science">Science</option>
+                                    <option value="Arts">Arts</option>
+                                    <option value="Commercial">Commercial</option>
+                                    <option value="Vocational">Vocational</option>
+                                    <option value="Languages">Languages</option>
+                                    <option value="Humanities">Humanities</option>
                                     <option value="Others">Others</option>
                                 </select>
                             </div>
@@ -1199,7 +1203,7 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
                         </div>
 
                         <div class="flex justify-end space-x-3 pt-4">
-                            <button type="submit" name="hide_add_form"
+                            <button type="button" onclick="document.getElementById('addTeacherModal').classList.remove('active')"
                                 class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition">
                                 Cancel
                             </button>
@@ -1211,7 +1215,6 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
                     </form>
                 </div>
             </div>
-        <?php endif; ?>
 
         <?php if ($editTeacher): ?>
             <div id="editTeacherModal" class="modal active p-4">
@@ -1281,10 +1284,12 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
                                 <label class="block text-gray-700 mb-2">Department</label>
                                 <select name="department" class="w-full px-4 py-2 border rounded-lg">
                                     <option value="">Select Department</option>
-                                    <?php foreach ($departments as $dept): ?>
-                                        <option value="<?= htmlspecialchars($dept['department']) ?>"
-                                            <?= $editTeacher['department'] == $dept['department'] ? 'selected' : '' ?>>
-                                            <?= htmlspecialchars($dept['department']) ?>
+                                    <?php 
+                                    $recommended_depts = ['Science', 'Arts', 'Commercial', 'Vocational', 'Languages', 'Humanities'];
+                                    foreach ($recommended_depts as $dept): 
+                                    ?>
+                                        <option value="<?= $dept ?>" <?= $editTeacher['department'] == $dept ? 'selected' : '' ?>>
+                                            <?= $dept ?>
                                         </option>
                                     <?php endforeach; ?>
                                     <option value="Others">Others</option>
@@ -1370,8 +1375,9 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
             </div>
         <?php endif; ?>
 
-        <script src="footer.js"></script>
 
+    
+        <?php require_once 'footer.php'; ?>
     </main>
 
     <?php
@@ -1404,7 +1410,16 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
         }
 
         function deleteTeacher(teacherId) {
-            if (confirm('Are you sure you want to deactivate this teacher?')) {
+            Swal.fire({
+                title: 'Deactivate Teacher?',
+                text: 'Are you sure you want to deactivate this teacher?',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Yes, deactivate!'
+            }).then((result) => {
+                if (result.isConfirmed) {
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = 'teachers-management.php';
@@ -1424,7 +1439,8 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
                 document.body.appendChild(form);
                 form.submit();
             }
-        }
+        });
+    }
 
         // === MODAL-CLOSING HANDLERS ===
 
@@ -1547,6 +1563,9 @@ $all_subjects = $db->query("SELECT subject_name FROM subjects ORDER BY subject_n
             document.getElementById('viewTeacherContent').innerHTML = content;
         }
     </script>
-</body>
 
+    <!-- Universal AJAX Filter -->
+    <script src="clean_filter.js"></script>
+    </main>
+</body>
 </html>

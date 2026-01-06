@@ -1,0 +1,61 @@
+id	subject_code	subject_name	category	is_active
+59	AH-SS	Animal Husbandry	Vocational	1
+48	ARB-JS	Arabic	Core	1
+32	ARB-P	ARABIC	Core	1
+4	BSC-PN	Basic Science	Early Childhood	1
+37	BSC-JS	Basic Science	Core	1
+23	BSC-P	Basic Science	Core	1
+16	BSC-N	Basic Science	Early Childhood	1
+41	BST-JS	Basic Science & Technology	Core	1
+24	BTH-P	Basic Technology	Core	1
+38	BTH-JS	Basic Technology	Core	1
+46	BUS-JS	Business Studies	Commercial	1
+39	CCA-JS	C.C.A	Core	1
+28	CCA-P	C.C.A	Core	1
+60	CC-SS	Catering Craft	Vocational	1
+52	CHM-SS	Chemistry	Science	1
+26	CIV-P	Civic Education	Core	1
+57	CIV-SS	Civic Education	Core	1
+40	CIV-JS	Civic Education	Core	1
+9	COL-PN	Coloring	Early Childhood	1
+53	COM-SS	Computer	Science	1
+30	COM-P	Computer	Core	1
+55	ECO-SS	Economics	Commercial	1
+56	LIT-SS	Eng. Literature	Arts	1
+35	ENG-JS	English	Core	1
+21	ENG-P	English	Core	1
+50	ENG-SS	English	Core	1
+13	ENG-N	English	Early Childhood	1
+1	ENG-PN	English	Early Childhood	1
+27	HW-P	Handwriting	Core	1
+19	HW-N	Handwriting	Early Childhood	1
+7	HW-PN	Handwriting	Early Childhood	1
+47	HAU-JS	Hausa	Core	1
+17	HH-N	Health Habits	Early Childhood	1
+5	HH-PN	Health Habits	Early Childhood	1
+49	HIS-JS	History	Core	1
+54	HIS-SS	History	Arts	1
+29	IRK-P	I.R.K	Core	1
+58	IRK-SS	I.R.K	Core	1
+2	MAT-PN	Mathematics	Early Childhood	1
+51	MAT-SS	Mathematics	Core	1
+36	MAT-JS	Mathematics	Core	1
+14	MAT-N	Mathematics	Early Childhood	1
+22	MAT-P	Mathematics	Core	1
+42	NV-JS	National Values	Core	1
+45	PHE-JS	P.H.E	Core	1
+31	PHE-P	PHE	Core	1
+3	PHO-PN	Phonics	Early Childhood	1
+15	PHO-N	Phonics	Early Childhood	1
+12	PLS-N	Practical Life Skills	Early Childhood	1
+44	PVS-JS	Pre-Vocational Studies	Vocational	1
+33	QR-P	Quantitative Reasoning	Core	1
+10	QR-N	Quantitative Reasoning	Early Childhood	1
+20	RHY-N	Rhymes	Early Childhood	1
+8	RHY-PN	Rhymes	Early Childhood	1
+43	SE-JS	Security Education	Core	1
+18	SH-N	Social Habits	Early Childhood	1
+6	SH-PN	Social Habits	Early Childhood	1
+25	SS-P	Social Studies	Core	1
+34	VR-P	Verbal Reasoning	Core	1
+11	VR-N	Verbal Reasoning	Early Childhood	1
